@@ -1,0 +1,716 @@
+#!/bin/bash
+
+######## ########
+# YUCEL GEMICI ##
+# Linux Device Check - 2023 #
+######## ########
+
+## ueventget() : thanks @Graeme
+#https://unix.stackexchange.com/questions/97676/how-to-find-the-driver-module-associated-with-a-device-on-linux
+
+
+## edb1ebssgc01p DEVAM scsi_host ve fc ler
+
+
+ueventget_block() {
+#dev = sdx
+dev="$1"
+
+#dev=$(readlink -m $1)
+
+#asm disk
+dev=$(echo "$dev"|sed 's/[!]/\//g')
+
+if [ -b "/dev/$dev" ]; then
+  mode=block
+elif [ -c "/dev/$dev" ]; then
+  mode=char
+else
+  echo "$dev is not a device file" >&2
+  exit 1
+fi
+
+#dev_id = major_minor
+dev_id="$2"
+dir=$(readlink -f /sys/dev/$mode/$dev_id)
+#dir=$(readlink -f /sys/dev/$mode/$major\:$minor)
+if ! [ -e "$dir" ]; then
+  echo "No /sys entry for $dev" >&2
+  exit 3
+fi
+
+while [[ $dir == ///* ]]; do
+
+  # it seems the directory is only of interest if there is a 'uevent' file
+  if [ -e "$dir/uevent" ]; then
+    echo "$dir:"
+    echo "  Uevent:"
+    sed 's/^/    /' "$dir/uevent"
+
+    # check for subsystem link
+    if [ -d "$dir/subsystem" ]; then
+        subsystem=$(readlink -f "$dir/subsystem")
+        echo -e "\n  Subsystem:\n    ${subsystem##*/}"
+    fi
+
+    echo
+  fi
+
+  # strip a subdirectory
+  dir=${dir%/*}
+done
+}
+
+
+
+ueventget_pci() {
+    uevents="$1"
+    pci_id=$(echo "$uevents"|grep PCI_ID|cut -d'=' -f2 )
+    vendor_id=$(echo "$pci_id"|cut -d':' -f1 )
+    dev_id=$(echo "$pci_id"|cut -d':' -f2 )
+    modul=$(grep "$vendor_id" /lib/modules/$(uname -r)/modules.alias |grep "${dev_id}"[^0-9]|awk '{print $NF}')
+    modulu=$(echo "$modul"|awk '{a[$1]}END{for(i in a)print i}')
+    modulc=$(echo "$modulu"|awk '{a[$1]}END{for(i in a)c++;print c}')
+    if [ $modulc -gt 1 ] ; then
+    echo "$vendor_id xx $dev_id has MATCHING MULTIPLE MODULEs ?? -> [$modul] "
+    #sleep 1
+    modul="N/A"
+    else
+    modul="$modulu"
+    fi
+
+    pci_modalias=$(echo "$uevents"|grep MODALIAS|cut -d':' -f2|sed 's/.*\(.\{8\}\)$/\1/')
+    modul2=$(grep "$pci_modalias" /lib/modules/$(uname -r)/modules.alias |cut -d" " -f3 )
+
+    #### gerekirse "lspci -s PCI_BUS" ile PCI DEVICE ISMI DE EKLENEBILIR ####
+
+    hwid1="/usr/share/hwdata/pci.ids"
+    hwid2="/usr/share/misc/pci.ids"
+    ls $hwid1 >/dev/null 2>&1 ;
+    if [ $? -eq 0 ] ; then
+    hwids="$hwid1"
+    else
+    ls $hwid2 >/dev/null 2>&1 ;
+    if [ $? -eq 0 ] ; then
+    hwids="$hwid2"
+    else
+    hwids=""
+    fi
+    fi
+    if [ ! -z "$hwids" ] ; then
+    deviceid=$(cat $(readlink -e "$maindevices/$i/device") )
+    vendorid=$(cat $(readlink -e "$maindevices/$i/vendor") )
+    if [ ! -z "$deviceid" ] && [ ! -z "$vendorid" ] ; then
+    devid2=$(echo "$deviceid"|sed 's/0x//')
+    venid2=$(echo "$vendorid"|sed 's/0x//')
+   # pciinfos=$(awk -v devid="$devid2" -v venid="$venid2" '$1==devid{if($3==""){vendor=$2;while(getline)if($1==venid){$1="-";print vendor FS $0}}}' /usr/share/hwdata/pci.ids)
+   pciinfos=$(awk -v a="$devid2" -v b="$venid2" '$0~"^"b{for(i=2;i<=NF;i++)vendor=(vendor)?vendor FS $i:$i;while(getline){if($0~/^ /)break;;if($1==a){for(i=2;i<=NF;i++)device=(device)?device FS $i:$i;break}}if(!device)device="N/A";print vendor FS device}' $hwids )
+
+    fi
+    fi
+
+}
+
+
+
+blockdevget() {
+
+    case "$dev" in
+
+    asm*)
+    modul2="ASMLib"
+    #asmdisks="/dev/oracleasm/disks"
+    asm_name="$dev"
+    printf "%-18s %8s %22s %34s %s \n" "$dev" "$dev_id" "$modul2" "$asm_name"
+    ;;
+
+
+    dm*)
+    modul="dm_mod"
+    modul2="dm[default]"
+    dm_name=$(cat "$f/dm/name")
+    module_or_builtin "CONFIG_BLK_DEV_DM=" "$modul"
+    printf "%-18s %8s %22s %34s %s \n" "$dev" "$dev_id" "$modul2" "$dm_name"
+    ;;
+
+    sd*)
+    modul="sd_mod"
+    modul2="sd[default]"
+    modulc=$(basename $(readlink $f/device/driver) 2>/dev/null)
+    module_or_builtin "CONFIG_BLK_DEV_SD=" "$modul"
+    printf "%-18s %8s %22s %34s %s \n" "$dev" "$dev_id" "$modul2" "$modulc"
+    [ ! -z "$modul2" ] && modul2=""
+    ;;
+
+    sr*)
+    modul="sr_mod"
+    modul2="sr[default]"
+    modulc=$(basename $(readlink $f/device/driver) 2>/dev/null)
+    [ ! -z "$modul" ] && module_or_builtin "CONFIG_BLK_DEV_SR=" "$driver"
+    printf "%-18s %8s %22s %34s %s \n" "$dev" "$dev_id" "$modul2" "$modulc"
+    [ ! -z "$modul2" ] && modul2=""
+    ;;
+
+    esac
+}
+
+
+blockls() {
+    awk 'BEGIN{$70=OFS="=";print $0; print RS}'
+    echo "[Device Mapper] Disk devices.."
+    echo "----------------------"
+    ls /dev/dm-*
+    echo
+    echo "[Scsi] Disk devices.."
+    echo "----------------------"
+    ls /dev/sd*
+    sleep 1
+    awk 'BEGIN{$70=OFS="=";print $0; print RS}'
+}
+
+
+###Block layer
+module_or_builtin() {
+    config=$1
+    modul=$2
+    driverc=$(grep -i $config /boot/config-$(uname -r)|awk -F'=' '{print $NF}')
+    if [ ! -z "$modul" ] && [ "$modul" != "N/A" ] ; then
+    case $driverc in
+    m)modul2="${modul}[module]"
+    ;;
+    y)modul2="${modul}[builtin]"
+    ;;
+    n)modul2="${modul}N/A"
+    ;;
+    *)modul2="Unkown"
+    ;;
+    esac
+    fi
+}
+
+
+
+
+ueventget_pci_pre() {
+    devices_path_pci="$1"
+    devpath_pci="$2"
+
+    echo "$devices_path_pci" xx $devpath_pci
+
+    uevents=$(cat $(readlink -e $devpath_pci/device/uevent) )
+    echo "readlink -e "$devpath_pci"/device/uevent"
+
+    if [ -z "$uevents" ] ; then
+    echo "Uevents cannot be found from [$devpath_pci] !! " ;
+    driver="UNKOWN";
+
+    else
+
+    ueventget_pci "$uevents";
+
+   echo xxxx "$devices_path_pci/$devpath_pci/driver"
+
+    driver=$(basename 2>/dev/null $(readlink -e "$devices_path_pci/$devpath_pci)/driver") )
+    [ -z "$driver" ] && driver=$(echo "$uevents"|grep DRIVER|cut -d'=' -f2)
+    [ -z "$driver" ] && driver="N/A"
+    [ -z "$modul" ] && modul="N/A"
+    [ -z "$modul2" ] && modul2="N/A"
+
+    linuxdevid=$(ls -l $mainclass/*|awk -F'/' -v a="$devpath_pci" '$0~a{print $NF}' )
+    [ -z "$linuxdevid" ] && linuxdevid="N/A"
+    pci_bus=$(readlink -e "$devpath_pci"|awk -F'/' '{print $5}' )
+    [ -z "$pci_bus" ] && pci_bus="N/A"
+    #echo "$mainclass" x $i x $linuxdevid x "$pci_bus" x "$linuxdevid" x "$driver" x "$modul" x "$modul2" x "$pciinfos"
+    printf "%-14s %8s %12s %18s %68s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul-$modul2" "$pciinfos"
+    fi
+}
+
+
+
+justdoit() {
+
+subsys="$1"
+
+case $subsys in
+
+    # pci bus
+    pci_bus)
+    main_bus="0000"
+    main_subbus="0000:"
+    mainclass="/sys/class/$subsys"
+    maindevices="/sys/devices/pci${main_bus}"
+
+    # Aslinda Tum device lar toplu olarak burda yer aliyor..
+    ###/sys/bus/pci/devices/
+
+    #if [ $? -ne 0 ] ; then echo "PCI Main Bus access problem !! " ; exit 1 ; fi
+
+    printf "%12s %10s %12s %21s %20s %s\n" "Pcibus"  "Dev_id"  "Driver"  "Pciid-Modalias"     "Pci-device"
+    printf "%12s %10s %14s %20s %22s %s\n" "------------"  "-------" "--------"  "--------------"   "    ------------------------------------------------------------"
+
+
+    for maindev in ${mainclass}/* ; do
+    maindevice=$(readlink -e $maindev/device)
+    sleep 1
+    ueventget_pci_pre "$main_devices" "$maindev"
+
+    main_subbus=$(echo $maindev|sed 's/.\(pci[0-9]\):.*/\1/')
+
+    echo $maindev xxx $maindevice xx $main_subbus BUDURRRR
+
+
+    for subdev in ${maindevice}/${main_subbus}* ; do
+
+    main_devices_sub="$main_devices/$subdev"
+    ueventget_pci_pre "$main_devices_sub" "$subdev"
+
+    ####uevent pci
+    ####
+
+    #driverd=$(readlink -e $(readlink -e $mainclass)/device/driver )
+    #driver=$(basename $driverd)
+    #printf "%-14s %4s %-22s %-16s %-16s %40s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul" "$modul2" "$pciinfos"
+    done
+    done
+    #awk 'BEGIN{$70=OFS="-";print $0; print RS}'
+
+    ;;
+
+esac
+
+
+
+###############
+#### class ####
+###############
+
+c=0
+for f in /sys/class/$subsys/*; do
+    dev=$(basename "$f")
+    driver=$(readlink "$f/device/driver/module")
+    [ ! -z "$driver" ] && driver=$(basename "$driver") || driver="N/A"
+
+
+    ##########subsystems##########
+    case "$subsys" in
+
+    block)
+    dev=$(basename "$f")
+    dev_id=$(cat "$f/dev")
+    ((c++))
+    [ $c -eq 1 ] && blockls && printf "%10s %20s %18s %28s\n" "Device" "Major_Minor" "Driver" "Name" && awk 'BEGIN{$88=OFS="-";print $0 RS; }'
+    blockdevget "$dev" "$dev_id"
+
+    ##Uevent bilgileri icin acilabilir..
+    #awk 'BEGIN{$50=OFS="-";print $0; print RS}'
+    #ueventget_block "$dev" "$dev_id"
+    #awk 'BEGIN{$70=OFS="=";print $0; print RS}'
+    ;;
+
+
+    bsg)
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s  [%s]\n%26s %22s %16s\n" "Device" "Major_Minor" "(scsi_generic)" "[bus:chan:dev:lun]" "Driver" && awk 'BEGIN{$74=OFS="-";print $0; }'
+    modul="bsg"
+    modul2="bsg[default]"
+    modul=$(basename $(readlink $f/device/driver) 2>/dev/null)
+    [ ! -z "$modul" ] && module_or_builtin "CONFIG_BLK_DEV_BSG=" "$modul"
+
+    blockdev=$(basename $(readlink -e $f)/device/block/* )
+    #scsi_gen_id=$dev
+    dev_id=$(cat "$f/dev")
+    printf "%10s %10s %22s %26s \n" "$blockdev" "$dev_id" "$dev" "$modul2"
+    ;;
+
+
+
+    rtc)
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s [%s] : %20s\n" "Device" "Device_Path" "Driver" && awk 'BEGIN{$62=OFS="-";print $0; }'
+    modul="rtc"
+    modul2="rtc_cmos"
+    device=$(echo "$f"|sed 's;.*/;;')
+    deviceid=$(readlink -e "$f"/device)
+    driver=$(basename $(readlink -e "$f"/device/driver) )
+    [ -z "$driver" ] && driver=$modul2
+    module_or_builtin "CONFIG_RTC_DRV_CMOS=" "$driver"
+    printf "%10s %18s %22s \n" "$device" "$deviceid" "$modul2"
+    ;;
+
+
+    input)
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s  [%s] %26s\n" "Device" "Driver/Input" "Name" && awk 'BEGIN{$72=OFS="-";print $0; }'
+    device=$(basename "$f")
+    driver=$(basename $(readlink -e "$f"/device) 2>/dev/null )
+    [ -z "$driver" ] && driver="input_Layer"
+    evdir=$(readlink -e "$f"/device/name)
+    [ ! -z "$evdir" ] && name=$(cat $(readlink -e "$f"/device/name) ) || name="N/A"
+    printf "%10s %12s %34s\n" "$device" "$driver" "$name"
+    ;;
+
+
+    net)
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s [%s] : %22s %12s\n" "Device" "MAC_Addr" "Driver" "State" && awk 'BEGIN{$62=OFS="-";print $0; }'
+    addr=$(cat "$f/address" 2>/dev/null)
+    operstate=$(cat "$f/operstate" 2>/dev/null)
+    [ -z "$addr" ] && addr="N/A"
+    [ -z "$operstate" ] && addr="N/A"
+    case "$f" in
+    bond)driver="bonding"
+    esac
+    [ "$dev" != "lo" ] && module_or_builtin "CONFIG_$driver=" "$driver" && [ ! -z "$modul2" ] && driver="$modul2"
+    printf "%10s [%s] : %16s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
+    ;;
+
+
+    graphics)
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s [%s] : %18s (%s)\n" "Device" "Driver" "Name" "Modes" && awk 'BEGIN{$52=OFS="-";print $0; }'
+    name=$(cat "$f/name" 2>/dev/null)
+    #driver=$(grep CONFIG_FB= /boot/config-$(uname -r) )
+    [ -z "$driver" ] && driver="N/A"
+    modes=$(cat "$f/modes" 2>/dev/null)
+    [ -z "$modes" ] && modes="Unknown"
+    [ -z "$driver" ] && driver="N/A"
+    if [ -z "$name" ] ; then
+    case $dev in
+    fbcon)name="frame buffer console"
+    ;;
+    *)name="N/A"
+    ;;
+    esac
+    fi
+    printf "%10s [%s]: %24s (%s)\n" "$dev" "$driver" "$name" "$modes"
+    ;;
+
+
+
+    ########iscsi########
+    ######test : edb1ebssgc01p - epa1ccbsgc04p
+
+    # [iscsi]
+    iscsi_connection)
+    ((c++))
+    [ $c -eq 1 ] && printf "%12s %16s %26s \n" "Remote_IP" "Remote_Port" "Local_Port" && awk 'BEGIN{$74=OFS="-";print $0; }'
+    for i in $f* ; do
+    iscsiconn=$i
+    #iscsi_rip=$(cat $i/persistent_address)
+    iscsi_rip=$(cat $i/address)
+    iscsi_lport=$(cat $i/local_port)
+    iscsi_rport=$(cat $i/port)
+    printf "%14s %12s %26s \n" "$iscsi_rip" "[:$iscsi_rport]" "[:$iscsi_lport]"
+    echo
+    [ $c -eq 1 ] && printf "%22s \n" "Iscsi_Disks" && awk 'BEGIN{$44=OFS="-";print $0; }'
+    ls -ltr /dev/disk/by-path/ 2>/dev/null|grep $iscsi_rip
+    echo
+    [ $c -eq 1 ] && printf "%22s \n" "Iscsi_Disks_sd" && awk 'BEGIN{$44=OFS="-";print $0; }'
+    for i in $(ls -ltr /dev/disk/by-path/ 2>/dev/null|grep $iscsi_rip|awk -F'/' '{print $NF}') ; do
+    echo $(lsblk /dev/$i 2>/dev/null|awk 'END{sub("^..","",$1);print $1}') "->" $i
+    done
+    echo "----------"
+    done
+    ;;
+
+
+    iscsi_host)
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s %20s %28s\n" "Iscsi_Host" "[Local_IP]" "Iscsi_HW_addr" && awk 'BEGIN{$64=OFS="-";print $0; }'
+    for i in $f* ; do
+    iscsihost=$(basename $i)
+    iscsi_ip=$(cat $i/ipaddress)
+    iscsi_hw=$(cat $i/hwaddress)
+    printf "%10s %20s %28s \n" "$iscsihost" "$iscsi_ip" "$iscsi_hw"
+    done
+    ;;
+
+
+    iscsi_transport)
+    iscsi_trans=$(ls -d $f|awk -F'/' '{print $NF}')
+    for i in $iscsi_trans ; do
+    modinfo $i &>/dev/null && iscsi_mod=$(modinfo $i|awk -F':' '/desc/{print $NF}') && echo Mod : $i "-> " $iscsi_mod
+    iscsi_macs=$(iscsiadm -m iface|grep $i|awk '{split($1,a,".");split(a[2],b,":");printf "%s",b[1]":"b[2]":"b[3]":"b[4]":"b[5]":"b[6];printf "\n"}')
+    for j in $iscsi_macs ; do
+    if [ "$j" != ":::::" ] ; then
+    iface=$(ip a|grep -B1 "$j"|awk -F':' 'NR==1{print $2}')
+    [ ! -z "$iface" ] && echo "Transport device : $j [ $iface ]" || echo "$j : Transport device cannot be found on the system !! "
+    fi
+    done
+    done
+    ;;
+
+
+    iscsi_session)
+    ((c++))
+    [ $c -eq 1 ] && printf "%22s %40s %24s \n" "Target" "Initiator" "State" && awk 'BEGIN{$92=OFS="-";print $0; }'
+    iscsi_sess=$(ls -d $f)
+    for i in $iscsi_sess ; do
+    tname=$(cat $i/targetname)
+    iname=$(cat $i/initiatorname)
+    state=$(cat $i/state)
+    printf "%38s %38s %14s \n" "$tname" "$iname" "$state"
+    done
+    ;;
+
+
+
+    # [scsi]
+
+    scsi_generic)
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s %s %15s %23s \n" "Device" "Driver" "Device_File" "Full_Path" && awk 'BEGIN{$92=OFS="-";print $0; }'
+    modul="sg"
+    modul2="sg[default]"
+    devicedir=$(readlink -e $f/device)
+    deviceid=$(echo $f|sed 's;.*/;;')
+    device="/dev/$(echo $deviceid)"
+    devpath=$(basename $f)
+    module_or_builtin "CONFIG_CHR_DEV_SG=" "$modul"
+    printf "%10s %5s %10s %90s\n" "$devpath" "$modul2" "$device" "$devicedir"
+    ;;
+
+
+
+
+#devam -> host larin yanina uevent den elde edilece bilgileri yazilacak..
+    #C600/X79 series chipset 4-Port SATA IDE Controller
+    ########################
+    #scsi HOST larin model bilgilerini uevent ve lspci den alacagiz gibi...
+    #f="/sys/devices/pci0000:00/0000:00:1f.2"
+    #pci_id=$(cat "$f"/uevent"|grep PCI_ID|cut -d'=' -f2 )
+    ########################
+
+
+    scsi_host)
+    ### target ###
+    ((c++))
+    [ $c -eq 1 ] && printf "%14s %65s %20s \n" "Scsi_Host" "Target" "Driver" && awk 'BEGIN{$104=OFS="-";print $0 RS}'
+    driver=$(basename $(readlink -e $(readlink -e "$f"|sed 's/\/host.*//')/driver))
+
+
+    for td in $(ls -d $f/device/target* 2>/dev/null ); do
+
+    if [ ! -z "$td" ] ; then
+    #blockdev=$(echo "$td"|sed 's/.*target//')
+    #printf "%10s" "%16s" "$f" "$td"
+    #hostid=$(echo "$f"|sed 's/.host\([0-9]\)$/\1/')
+    htcl=$(echo "$td"|sed 's/.target\([0-9:]\)$/\1/')
+    scsihost=$(basename "$f")
+    devicedir=$(readlink -e "$f/device" )
+
+    ((cc++))
+    for devpath in $td/$htcl:*; do
+    scsitarget=$(basename "$devpath")
+    driverd=$(basename "$(readlink -e $devpath/driver)" )
+    modeld_vendor=$(cat $(readlink -e "$devpath"/vendor))
+    modeld_model=$(cat $(readlink -e "$devpath"/model))
+    [ -z "$driverd" ] && driverd="$(echo $modeld_vendor $modeld_model)"
+    [ $cc -eq 1 ] && printf "%10s %88s \n%-s %25s %15s" "$scsihost" "$driver" "$devicedir" "($scsitarget)" "$driverd"||printf "\n%81s %21s\n" "($scsitarget)" "$driverd"
+    done
+    fi
+    done
+
+
+    #### non-scsi host ( eg : iscsi , fc ) ####
+    ls $f/device/*_host >/dev/null 2>&1
+    if [ $? -eq 0 ] ; then
+    scsihost=$(basename "$f")
+    otherhosts=0
+    modeldescr=$(cat $f/modeldesc 2>/dev/null)
+    hosts=$(ls -d $f/device/_host|grep -v '/scsi_host$'|sed 's;./;;')
+
+    for otherhost in $hosts; do
+    [ ! -z "$modeldescr" ] && printf "%10s [%s] %40s %37s\n" "$scsihost" "$otherhost" "($modeldescr)" "$driver" || printf "%10s [%s] %78s\n" "$scsihost" "$otherhost" "$driver"
+    otherhosts=1
+    done
+    fi
+
+
+
+    ((ccc++))
+    #### non-target ####
+    ls $f/device/target* >/dev/null 2>&1
+    if [ $? -ne 0 ] ; then
+    if [ $otherhosts -eq 0 ] ; then
+    scsi_other_host=$(basename "$f")
+    printf "%10s %92s\n" "$scsi_other_host" "$driver"
+    fi
+
+
+    devicedir=$(readlink -e "$f/device" )
+    devpath=$(basename $(echo "$devicedir"))
+    #scsipath=$(echo "$devpath"|sed 's/\/sys\/devices/..../')
+    hostdir=$(readlink -e "$f" )
+    #procname=$(cat $hostdir/proc_name )
+    #[ -z "$procname" ] || [ "$procname" = '(null)' ] && procname="N/A"
+    [ -z "$scsitarget" ] && scsitarget="[N/A]"
+    printf "%-72s  %-s\n" "$devicedir" "$scsitarget"
+
+
+    #scsi_rports
+    for scsi_rports in $devicedir/rport* ; do
+
+    rport_target=$(basename "$scsi_rports")
+    rportis=$(echo "$rport_target"|grep 'rport\*')
+    if [ -z "$rportis" ] ; then
+    ((cccc++))
+    [ ! -z "rport_target" ] && target="$rport_target"
+    [ $cccc -eq 1 ] && printf "\n%85s\n%85s\n" "($target)" "-------------"
+
+    scsi_rports_path=$(basename "$scsi_rports")
+
+
+    #rports ( ex : fc_remote_port )
+    for rports_target in $scsi_rports/target* ; do
+
+    ##fc remote ports
+    ls $scsi_rports/fc_remote_ports* >/dev/null 2>&1
+    if [ $? -eq 0 ] ; then
+    rport_device="fc_remote_port"
+    rport_driver="[N/A]"
+    [ $cccc -eq 1 ] && printf "\n%10s %20s %52s\n" "Remote port" "Rport_Device" "Driver" && printf "%10s %20s %52s\n" "-----------" "---------------" "--------------------"
+    printf "%10s %20s %52s\n" "$scsi_rports_path" "$rport_device" "$rport_driver"
+    fi
+
+
+    ((ccccc++))
+    #scsi_rports=/sys/devices/pci0000:00/0000:00:03.0/0000:04:00.0/host3/rport-3:0-2
+    #rports_target=/sys/devices/pci0000:00/0000:00:03.0/0000:04:00.0/host3/rport-3:0-2/target3:0:0
+    #rport_target_ids=3:0:0
+
+    rport_target_ids=$(echo "$rports_target"|sed 's/.*target//')
+
+
+    for othertargets in $rports_target/${rport_target_ids}* ; do
+    ##fc remote targets
+    othertargets_driver=$(basename $(readlink -e $othertargets/driver) 2>/dev/null )
+    othertargets_block=$(ls $othertargets/block/ 2>/dev/null )
+    othertarget=$(basename $othertargets)
+    [ $ccccc -eq 1 ] && printf "\n%10s %20s %52s\n" "Target" "Scsi_Disk" "Driver" && printf "%10s %20s %52s\n" "-----------" "-----------" "--------------------"
+    printf "%10s %20s %52s\n" "$othertarget" "$othertargets_block" "$othertargets_driver"
+    ccccc=0
+    done
+    cccc=0
+    done
+    fi
+    done
+    ccccc=0
+    fi
+    awk 'BEGIN{$84=OFS="=";print $0;}'
+    echo
+    ;;
+
+
+
+    scsi_device|scsi_disk)
+    ((c++))
+    [ $c -eq 1 ] && printf "%20s %8s %40s\n" "Scsi_Device" "Driver" "Device_Path" && awk 'BEGIN{$100=OFS="=";print $0; }'
+    [ ! -z "$dev" ] && major_minor="$dev" || major_minor="null"
+    driverd=$(readlink -e $(readlink -e "$f")/device/driver )
+    if [ -z "$driverd" ] ; then
+    modeld=$(echo $(cat $(readlink -e "$f"/device/vendor) $(readlink -e "$f"/device/model)))
+    driver2=$modeld
+    devpath=$(readlink -e "$f"/device)
+    blockf="null"
+    else
+    driver=$(basename $driverd)
+    devpath=$(readlink -e $driverd/$dev)
+    blockpath=$(readlink -e "$devpath")/block/
+    blockdir=$(readlink -e "$blockpath")
+    if [ -z "$blockdir" ] ; then
+    modeldd=$(echo $(cat $(readlink -e "$devpath"/vendor) $(readlink -e "$devpath"/model)))
+    blockf=$modeldd
+    else
+    blockdev=$(basename $blockdir/* )
+    blockf="/dev/${blockdev}[$major_minor]"
+    fi
+    fi
+    ## Eger bir scsi device icin driver bilgisi null ise ve gercekte driver bilgisi bulunuyorsa , bu bolume bu driver eklenilmeli !!
+    [ "$driver" == "sd" ] && driver2="sd_mod"
+    [ "$driver" == "sr" ] && driver2="sr_mod"
+    [ "$driver" == "ses" ] && driver2="ses"
+    [ -z "$driver" ] && driver="null"
+    [ -z "$driver2" ] && driver2="null"
+    #blockdir=$(readlink -e $driverd/$dev)/scsi_disk/$dev/device/block/
+    #blockdir=$(readlink -e $driverd/$dev)/block/
+    printf "%20s %8s %50s\n" "$blockf" "$driver2" "$devpath"
+    ;;
+
+
+
+    # [fc]
+
+    fc_host)
+    portn=$(cat $f/port_name)
+    noden=$(cat $f/node_name)
+    fabric=$(cat $f/fabric_name)
+    speed=$(cat $f/speed)
+    #state=$(cat $f/port_state)
+    name=$(cat $f/symbolic_name)
+    driver=$(basename $(readlink -e "$(readlink -e "$f"|sed 's/\/host.*//')"/driver))
+
+   #fctargets=$(ls rport*)
+   # for i in $fctargets ; do
+
+    ((c++))
+    [ $c -eq 1 ] && printf "%10s %23s %22s %10s %10s \n" "PortN" "NodeN" "Speed" "Driver" "Model" && awk 'BEGIN{$92=OFS="-";print $0; }'
+    printf "%23s %23s %10s %8s (%-s) \n" "$portn" "$noden" "$speed" "$driver" "$name"
+    ;;
+
+#[root@edb1ebssgc01p ckadmin]# ll /sys/class/fc_* -d
+#drwxr-xr-x 2 root root 0 Apr 11 04:32 /sys/class/fc_host
+#drwxr-xr-x 2 root root 0 Sep  6 19:21 /sys/class/fc_remote_ports
+#drwxr-xr-x 2 root root 0 Apr 12 19:17 /sys/class/fc_transport
+#drwxr-xr-x 2 root root 0 Sep  6 19:21 /sys/class/fc_vports
+
+    esac
+
+
+# FC ve SCSI HOST AYRIMI YAPILACAK
+# --------------------------------------------
+## diskler alt alanda fiber de gelip scsi katmanina iletiliyor. bu disklerin ayrimi yapilabilmeli..
+######################################
+#[root@xxxx 127.0.0.1-2022-05-18-22:01:26]# lsscsi -x
+#[0:0:0:0x0000]              disk    Generic- SD/MMC CRW       1.00  /dev/sda
+#[2:0:0:0x0000]              enclosu HPE      12G SAS Exp Card 4.02  -
+#[2:0:1:0x0000]              enclosu HPE      Smart Adapter    1.34  -
+#[2:1:0:0x0000]              disk    HPE      LOGICAL VOLUME   1.34  /dev/sdb
+#[2:1:0:0x0001]              disk    HPE      LOGICAL VOLUME   1.34  /dev/sdc
+#[2:1:0:0x0002]              disk    HPE      LOGICAL VOLUME   1.34  /dev/sdd
+#[2:2:0:0x0000]              storage HPE      P816i-a SR Gen10 1.34  -
+#[root@xxxx 127.0.0.1-2022-05-18-22:01:26]# ls -ltrd /sys/class/scsi_host/host*
+#lrwxrwxrwx 1 root root 0 Jun  6 16:52 /sys/class/scsi_host/host0 -> ../../devices/pci0000:00/0000:00:14.0/usb3/3-4/3-4:1.0/host0/scsi_host/host0
+#lrwxrwxrwx 1 root root 0 Jun  6 16:52 /sys/class/scsi_host/host3 -> ../../devices/pci0000:36/0000:36:00.0/0000:37:00.1/host3/scsi_host/host3
+#lrwxrwxrwx 1 root root 0 Jun  6 16:52 /sys/class/scsi_host/host2 -> ../../devices/pci0000:5b/0000:5b:00.0/0000:5c:00.0/host2/scsi_host/host2
+#lrwxrwxrwx 1 root root 0 Jun  6 16:52 /sys/class/scsi_host/host1 -> ../../devices/pci0000:36/0000:36:00.0/0000:37:00.0/host1/scsi_host/host1
+#[root@xxxx 127.0.0.1-2022-05-18-22:01:26]#
+#[root@xxxx 127.0.0.1-2022-05-18-22:01:26]# for i in /sys/class/scsi_host/host* ; do [[ $(ls -1d "$i"/fabric_param 2>/dev/null ) ]] && readlink -f $i|awk -F'/' '!/usb/{print $(NF-3)" "$1"/"$2"/"$3"/"$4"/"$5}' ; done|while read -r scsi_pci_id host ; do lspci -s "$scsi_pci_id" ; ls -1R $host|grep ^sd ; done
+#37:00.0 Fibre Channel: QLogic Corp. ISP2722-based 16/32Gb Fibre Channel to PCIe Adapter (rev 01)
+#37:00.1 Fibre Channel: QLogic Corp. ISP2722-based 16/32Gb Fibre Channel to PCIe Adapter (rev 01)
+#######################################
+#
+
+done
+}
+
+
+menux() {
+##interactive menu
+if [ -z "$1" ] ; then
+echo "make your choice subsystem: ";sleep 1
+ls -1d /sys/class/*|cut -d'/' -f4|more
+exit 0
+else
+ls -1d /sys/class/*|cut -d'/' -f4|grep "$1" &>/dev/null
+if [ $? -ne 0 ] ; then
+echo "[$1] class not FOUND !! "
+exit 2
+fi
+fi
+}
+
+
+###lets go
+menux "$1"
+justdoit "$1"
