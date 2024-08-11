@@ -1,0 +1,802 @@
+##!/bin/bash
+# ygemici @unix.com ## ygemici@gmail.com ##
+## Script Tested Systems ; Redhat 3-4-5,Fedora 6,15 ; OpenSuse 12,Centos 6,Ubuntu 10 ( !! on VIRTUAL PLATFORMS !! )
+## Script not tested Debian platforms!!
+## REDHAT 5-6 && SMBIOS 2.7 && has newer bios systems shows the THREAD/CORE Counts via 'dmidecode' ##
+## Script does not use 'lscpu' for that there is not in the system default installion but tries to the lshw for get the some informations 
+## Please feedback to me for wrong results on the which you tested systems
+
+
+##### HYPERTHREAD FIZIKSEL HOSTTA ACIK FAKAT SUNUCULAR ESKIDEN KALMA OLDUGU ICIN KERNEL CPU LARI O SEKILDE KALMIS OLABILIR
+##### HTTP SUPPORT EVENT DETECT ASTIR VE VM CLIENT NOT DETECT PHYSICAL HYPER THREAD 
+#### OLD VM OYLEYSE BIR CARE VARMI THREAD SIBLINBGS VARSA OK DEYEBILIRIZZ
+
+#### YENI SISTEMLERDE "systemd-virtuald" ile sistemin SANAL olup olmadigi anlasilabilir !!
+
+shellx=$(ps|grep $$|awk '{print $NF}')
+clear
+
+
+
+msg="Script has to execute with some bourne compatible shells ( bash,ksh,pdksh,zsh .. )"
+extt() {
+shl=$1
+echo $shellx|awk '$1=="'$shl'"'|grep $shellx >/bin/null
+if [ $? -eq 0 ] ; then echo "$msg" ; exit
+fi
+}
+for i in ash bsh csh tcsh ; do
+extt $i; done
+cpuinf="/proc/cpuinfo"
+cpusys=xxscpusxx
+cpus=xxcpuxx
+cpuhtsys=xxcpuhtsxx
+cpuhts=xxcpuhtxx
+TMP=/tmp
+lc="wc -l"
+
+SETCOLOR_FAILURE="echo -e \\033[1;31m"
+SETCOLOR_RESET="echo -en \033[0m"
+SETCOLOR_SUCCESS="echo -e \\033[1;32m"
+SETCOLOR_WARNING="echo -e \\033[1;33m"
+SETCOLOR_WARNINGN="\\033[1;33m"
+SETCOLOR_PURPLE="echo -e \n\\033[0;35m"
+SETCOLOR_WRITE="echo -en \\033[1;41m"
+SETCOLOR_BOLDED="echo -en \033[1;40m"
+SETCOLOR_YELLOW="echo -e \033[0;40m"
+
+trap "echo -en '\033[0m'" SIGINT
+$SETCOLOR_FAILURE"\nScript works within the -> $shellx <- SHELL  [OK] "
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+$SETCOLOR_FAILURE"Not Supported shells -> (ash,bsh,csh,tcsh..)"
+$SETCOLOR_YELLOW"Not Tested shells -> (dash,mksh,psh,rc..)"
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+
+
+sleep 1
+
+$SETCOLOR_RESET
+TOTAL_CORE=$(grep "core id" $cpuinf|$lc)
+PER_CPU_CORE=$(awk '/core id/{a[$NF]++}END{for(i in a)print i}' $cpuinf|$lc)
+CPU_VENDOR=$(awk '/vendor/{a[$3]++}END{for(i in a)print i}' $cpuinf)
+CPU_COUNT=$(awk '/physical id/{a[$NF]}END{for(i in a)print i}' $cpuinf|$lc)
+MEMORY_MB=$(awk '/MemTotal:/{print $2/1024}' /proc/meminfo)
+CPU_FREQ=$(awk '/cpu MHz/{a[$NF]}END{for(i in a)print i}' $cpuinf)
+OS_BIT=$(uname -m);KERNEL_VERSION=$(uname -rsv)
+OS=$(awk '/Red Hat/||/SUSE/||/CentOS/||/Ubuntu/||/Debian/||/Fedora/{print}' /etc/issue|sed 's/\\[a-z]*//g')
+
+#if [ -z "$OS" ] ; then
+#OS=$(lsb_release -a 2>/dev/null|awk '/Description/{print $NF}')
+#fi
+
+if [ -z "$OS" ] ; then
+awk -F"=" '/PRETTY/{print $2}' /etc/*-release
+fi
+
+kernel_V=$(uname -vrs|awk '{sub(".[0-9]*-.*","",$2);print $2*10}')
+echo "$OS"|grep -i ubuntu &>/dev/null
+if [ $? -ne 0 ] ; then
+if [ $kernel_V -lt 25 ] ; then
+$SETCOLOR_FAILURE "--> System has old kernel !!"
+echo "Results may be inconsistent !!"
+$SETCOLOR_RESET
+fi
+else
+echo "$OS"|grep -Ei 'ubuntu ([0-9]\.|1[0-2]\.)'
+if [ $? -eq 0 ] ; then
+$SETCOLOR_FAILURE "--> System has old kernel !!"
+echo "Results may be inconsistent !!"
+$SETCOLOR_RESET
+fi
+fi
+
+vm=0
+##################### DMIDECODE ###########################
+DMIDECODE=$(which dmidecode 2>/dev/null)
+exs=$?
+if [ $exs -ne 0 ] ; then
+FLAGSTATUS=("${FLAGSTATUS[@]}\n""DMIDECODE NOT FOUND!!")
+DMIDECODE="DMIDECODE NOT found!!"
+$SETCOLOR_SUCCESS"'DMIDECODE' not found"
+$SETCOLOR_FAILURE"Trying to finding the 'LSHW'\n"
+$SETCOLOR_RESET
+else
+
+$DMIDECODE -t 4 2>/dev/null 1>&2
+ if [ $? -eq 0 ] ; then
+  if [ $vm -eq 1 ] ; then
+   TOTAL_THREADS=$($DMIDECODE -t 4|awk '/Status/{if($0~/Populated/)print}'|$lc)
+   CPU_SOCKETS=$($DMIDECODE -t 4|grep "Processor Information"|$lc)
+  else
+   #TOTAL_THREADS=$($DMIDECODE |awk '/Status/{if($0~/Populated/)print}'|$lc)
+   CPU_SOCKETS=$($DMIDECODE -t 4|grep "Processor Information"|$lc)   
+   CPU_COUNT=$($DMIDECODE -t 4|awk '/Status/{if($0~/Populated/)print}'|$lc)
+  fi
+ else
+  CPU_SOCKETS=$($DMIDECODE |grep "Processor Information"|$lc)
+  CPU_COUNT=$($DMIDECODE |awk '/Status/{if($0~/Populated/)print}'|$lc)
+ fi
+
+$DMIDECODE -t 17 2>/dev/null 1>&2
+ if [ $? -eq 0 ] ; then
+  MEMORY_ALL=$($DMIDECODE -t 17|awk '/^ *$/{x++};END{print x-1}')
+  MEMORY_NONEMPTY=$($DMIDECODE -t 17|grep "Size:"|grep B|awk -F':'  '{a[$NF]++}END{for(i in a)print a[i]" X" i}')
+  NONEMPTYC=$(echo "$MEMORY_NONEMPTY"|sed 's/[^0-9][0-9]*//g')
+  EMPTYC=$(awk -va="$MEMORY_ALL" -vb="$NONEMPTYC" 'BEGIN{print a-b}')
+ else
+  MEMORY_ALL=$($DMIDECODE|grep "DMI type 17"|$lc)
+  MEMORY_NONEMPTY=$($DMIDECODE|awk -F':' '/DMI type 17/{w=1}/DMI type 19/{w=0}w{if($0~/Size/)a[$NF]++}END{for(i in a)if(i!~/No/)printf "%s%s%s%s",a[i]," X",i," + " ; print "END"}')
+  NONEMPTYC=$(echo "$MEMORY_NONEMPTY"|sed 's/[^0-9][0-9]*//g')
+  MEMORY_EMPTY=$($DMIDECODE|awk -F':' '/DMI type 17/{w=1}/DMI type 19/{w=0}w{if($0~/Size/)a[$NF]++}END{for(i in a)if(i~/No/)printf "%s%s%s",a[i]," X",i}')
+  if [[ -z "$MEMORY_EMPTY" ]] ; then EMPTYC=0 ; else EMPTYC=$(echo "$MEMORY_EMPTY"|sed 's/[^0-9][0-9]*//g') ; fi
+ fi
+
+## hardware detect from dmidecode
+H_PLATFORM=$($DMIDECODE|awk -F':' '/Product Name: /{print $NF;exit}')
+H_PLATFORM2=$($DMIDECODE|awk -F':' '/Vendor: /{print $NF;exit}')
+H_PLATFORM3=$($DMIDECODE|awk -F':' '/Version: /{print $NF;exit}')
+
+H_PLATFORM=$H_PLATFORM2${H_PLATFORM}${H_PLATFORM3}
+echo "$H_PLATFORM"|grep "$H_PLATFORM2" >/dev/null
+if [ $? -eq 0 ] ; then
+ H_PLATFORM2=""
+fi
+checksmb=$($DMIDECODE|awk '/SMBIOS/{if($2<=2.3)print "ok"}' )
+  if [ "$checksmb" = "ok" ] ;then
+  FLAGSTATUS=("${FLAGSTATUS[@]}\n""SMBIOS version OLD!!")
+  smbios='nok'
+  else
+  smbios='ok'
+  fi
+  if [ "$smbios" = "ok" ] ; then
+ CPU_SOCKETS=$($DMIDECODE|grep "Processor Information"|$lc)
+  fi
+fi
+
+
+##################### LSHW ################################
+LSHW=$(which lshw 2>/dev/null )
+exl=$?
+  if [ $exl -ne 0 ] ; then
+FLAGSTATUS=("${FLAGSTATUS[@]}\n""LSHW NOT FOUND!!")
+LSHW="LSHW NOT found!!"
+  else
+  #$SETCOLOR_SUCCESS"LSHW is [OK]"
+CPU_FREE_SLOTS=$($LSHW -C cpu|grep empty|$lc)
+CPU_SOCKETS=$($LSHW -C cpu|grep slot|$lc)
+CPU_COUNT=$(awk -va="$CPU_SOCKETS" -vb="$CPU_FREE_SLOTS" 'BEGIN{print a-b}')
+
+ if [ $exs -ne 0 ] ; then
+  MEMORY_ALL=$($LSHW -C memory|grep "description: DIMM"|$lc)
+  MEMORY_NONEMPTY=$($LSHW -C memory|awk -F':' '/bank/{w=1}/cache/{w=0}w{if($0~/size/)a[$NF]++}END{for(i in a)print a[i]" X",i}')
+  NONEMPTYC=$(echo "$MEMORY_NONEMPTY"|sed 's/[^0-9][0-9]*//g')
+  EMPTYC=$(awk -va="$MEMORY_ALL" -vb="$NONEMPTYC" 'BEGIN{print a-b}')
+  H_PLATFORM=$($LSHW|awk '/product/{$1=$NF="";print;exit}')
+  H_PLATFORM2=$($LSHW|awk -F':' '/vendor: /{print $NF;exit}')
+  H_PLATFORM3=$($LSHW|awk -F':' '/version: /{print $NF;exit}')
+ fi  
+fi
+######################################################
+
+
+
+detect_vm() {
+vm=1
+if [ $TOTAL_CORE -eq 0 ] ; then
+VCORE=1
+grep "physical id" $cpuinf >/dev/null
+if [ $? -eq 0 ] ; then
+TOTAL_CORE=$(awk '/physical id/{a++}END{print a}' $cpuinf)
+else
+TOTAL_CORE=$(awk '/processor/{a++}END{print a}' $cpuinf)
+fi
+else
+VCORE=X
+fi
+
+$SETCOLOR_FAILURE
+awk 'BEGIN{$70=OFS="=";print}'
+$SETCOLOR_BOLDED"VIRTUAL PLATFORM DETECTED !! "
+$SETCOLOR_FAILURE
+$SETCOLOR_RESET
+if [ $exs -eq 0 ] && [ -z "$CPU_SOCKETS" ] || [ "$CPU_SOCKETS" = 0 ] ; then
+CPU_SOCKETS=$($DMIDECODE -t 4|grep "Processor Information"|$lc)
+fi
+PER_CPU_CORE=$(find /sys/devices/system/cpu -name "core_id" -exec cat {} \; 2>/dev/null|awk '{a[$1]++}END{for(i in a)print i}'|$lc)
+if [ $PER_CPU_CORE -eq 0 ] ; then
+$SETCOLOR_FAILURE"NOT Detected the Virtual Sockets Information from sysfs !! (Probably System has an old kernel) "
+$SETCOLOR_SUCCESS"Virtual Socket(s) assuming equals to the Logical Core(s)  "
+else
+V_CPU_COUNT=$(awk -va="$TOTAL_CORE" -vb="$PER_CPU_CORE" 'BEGIN{print a/b}')
+PERCPUPHYSCORE=$(awk -va="$TOTAL_CORE" -vb="$V_CPU_COUNT" 'BEGIN{print a/b}')
+V_TOTAL_CORES=$TOTAL_CORE
+#TOTAL_CORE=$(awk -va=$PERCPUPHYSCORE 'BEGIN{print a*2}')
+TOTALTHREAD="[ Total Virtual Sockets = "$V_TOTAL_CORES" threads ]"
+#TOTALPERCORE="$PER_CPU_CORE"
+fi
+V_CPU_SOCKETS=$(awk -va="$CPU_SOCKETS" -vb="$PERCPUPHYSCORE" 'BEGIN{print a/b}')
+
+}
+
+echo "$H_PLATFORM"|egrep 'VMware|Virtuozzo|QEMU|KVM|Virtual|Xen' >/dev/null
+if [ $? -eq 0 ] ; then
+    detect_vm;
+fi
+
+if [ -z "$H_PLATFORM" ] ; then
+ echo "$H_PLATFORM"|egrep 'VM|Virtual|HVM' >/dev/null
+  if [ $? -eq 0 ] ; then
+   detect_vm;
+  else
+   lspci 2>/dev/null|egrep 'VM|Virtual|HVM' >/dev/null
+   if [ $? -eq 0 ] ; then
+    detect_vm;
+   else
+    dmesg 2>/dev/null|egrep 'VMware|Virtuozzo|QEMU|KVM|Virtual|Xen'
+    if [ $? -eq 0 ] ; then
+    detect_vm;
+     else
+     egrep 'VMware|Virtuozzo|QEMU|KVM|Virtual|Xen' /proc/ide/hd*/model >/dev/null
+      if [ $? -eq 0 ] ; then
+    detect_vm;
+    fi
+ fi
+fi
+fi
+fi
+
+if [ $vm -eq 0 ] ; then
+     $SETCOLOR_FAILURE"PHYSICAL PLATFORM DETECTED !!"
+fi
+
+## for QUEMU
+#H_PLATFORMQEMU=$($DMIDECODE|awk -F':' '/Vendor: /{print $NF;exit}')
+#echo "$H_PLATFORMQEMU"|grep -q "QEMU"
+#if [ $? -eq 0 ] ; then
+#H_PLATFORM2=$($DMIDECODE|awk -F':' '/Manufacturer: /{print $NF;exit}')
+#fi
+############################################################################################################
+
+
+detect_ht_proc() {
+if [ -n "$PERCPUPHYSCORE" ] ; then
+HTONDTCT=$(awk '/siblings/{print $NF;exit}' $cpuinf)
+if [[ "$PERCPUPHYSCORE" -eq "$HTONDTCT" ]] ; then
+HTON="nok"
+else
+HTON="ok"
+fi
+else
+HTON="nok"
+fi
+
+if [ "$OS_BIT" != "ia64" ] ; then
+cpucores=$(awk '/cpu cores/{a[$0]=$NF}END{for(i in a)print a[i]}' $cpuinf)
+diffcpus=$(echo "$cpucores"|$lc)
+if [ "$diffcpus" -ne 1 ] ; then
+$SETCOLOR_WARNING"Maybe HOST has DIFFERENT CPU(S) ? "
+else
+siblings=$(awk '/siblings/{a[$0]=$NF}END{for(i in a)print a[i]}' $cpuinf)
+if [ -n "$cpu cores" ] && [ -n "$siblings" ] ; then
+if [ "$cpucores" -eq "$siblings" ] ; then
+HTON="nok"
+else
+HTON="ok"
+fi
+fi
+fi
+fi
+}
+
+#if [ "$OS_BIT" = "ia64" ] ; then
+
+
+if [ -z "$CPU_COUNT" ] ; then
+CPU_COUNT=$(awk '/^processor/{x++}END{print x}' $cpuinf)
+fi
+
+if [ -z "$PERCPUPHYSCORE" ] ; then
+ PERCPUPHYSCORE=$(awk '/core id/{a[$NF]=$NF}END{for(i in a)x++;print x}' $cpuinf)
+  if [ -z "$PERCPUPHYSCORE" ] ; then
+   PERCPUPHYSCORE=$(awk '/cpu cores/{print $NF; exit}' $cpuinf)
+  fi
+fi
+
+   if [ -z "$PERCPUPHYSCORE" ] ; then
+    PERCPUPHYSCORE=1
+   fi
+
+if [ -z "$TOTAL_CORE" ] ; then
+THREADPERCPU=1
+TOTAL_CORE=(awk -v a="$PERCPUPHYSCORE" -v b="$CPU_COUNT" 'BEGIN{print a*b}')
+else
+THREADPERCPU=$(awk '/^siblings/{print $NF;exit}' $cpuinf)
+fi
+
+if [ -z "$THREADPERCPU" ] ; then
+THREADPERCPU=1
+fi
+
+
+if [ "$PERCPUPHYSCORE" -eq "$THREADPERCPU" ] ; then
+HTON=nok
+if [ $vm -eq 1 ] ; then
+HTON=nok_VM
+fi
+else
+HTON=ok
+fi
+
+if [ -z "$HTON" ] ; then
+ grep siblings $cpuinf > /dev/null
+ if [ $? -eq 0 ] ; then
+ detect_ht_proc
+ else
+  if [ -f /sys/devices/system/cpu/cpu0/topology/thread_siblings ] ; then
+    grep ',' /sys/devices/system/cpu/cpu0/topology/thread_siblings >/dev/null
+   if [ $? -eq 0 ] ; then
+    grep ',00000001$' /sys/devices/system/cpu/cpu0/topology/thread_siblings >/dev/null
+    if [ $? -ne 0 ] ; then
+    HTON="ok"
+    else
+    HTON="nok"
+    fi
+   elif [ -f /sys/devices/system/cpu/cpu0/topology/thread_siblings_list ] ; then
+    grep '-' /sys/devices/system/cpu/cpu0/topology/thread_siblings_list >/dev/null
+    if [ $? -eq 0 ] ; then
+    HTON="ok"
+    not=0
+    else
+    not=1
+    fi
+    if [ $not -eq 1 ] ; then
+     grep ',' /sys/devices/system/cpu/cpu0/topology/thread_siblings_list >/dev/null
+     if [ $? -eq 0 ] ; then
+     HTON="ok"
+     else
+     HTON="nok"
+     fi
+    fi
+   fi
+  fi
+ fi
+fi
+
+
+REDH_RELEASE=$(sed -n '/Red Hat/s/.*release \([0-9]\.*[0-9]*\) .*/\1/p' /etc/redhat-release 2>/dev/null)
+if [ -z "$REDH_RELEASE" ] ; then
+$SETCOLOR_FAILURE"System is NOT like seem 'REDHAT variants'"
+REDHAT="not"
+else
+REDHAT=$(echo|awk -va="$REDH_RELEASE" '{if(a>=3)print "ok"}')
+if [ "$REDHAT" != "ok" ] ; then
+HTON="notdetect"
+fi;fi
+
+if [ -z "$HTON" ] ; then
+ HTON="notdetect"
+fi
+
+if [ $exs -ne 0 ] && [ $exl -ne 0 ] ; then
+  H_PLATFORM=$(lspci -vv 2>/dev/null|awk -F':' '/Subsystem/{print $2;exit}')
+  if [[ -z "H_PLATFORM" ]] ; then
+   $SETCOLOR_SUCCESS"lspci is NOT installed"
+   H_PLATFORM=$(awk -F'=' '/Manufacturer/{if($2!~/Linux/){print $2;exit}}' /proc/bus/usb/devices)
+   if [[ -z "H_PLATFORM" ]] ; then
+    $SETCOLOR_FAILURE"HARDWARE PLATFORM NOT DETECTED !!"
+   fi
+fi
+
+awk 'BEGIN{$70=OFS="=";print}'
+$SETCOLOR_FAILURE"\nCPU INFORMATION could NOT detected from DMIDECODE and from LSHW !!"
+$SETCOLOR_FAILURE"RAM INFORMATION could NOT detected from DMIDECODE and from LSHW !!"
+
+CPU_COUNT=$(awk '/physical id/{a[$NF]++}END{for(i in a)print i}' $cpuinf|$lc)
+
+if [ $CPU_COUNT -eq 0 ] ; then
+CPU_COUNT=1
+fi
+
+PERCPUPHYSCORE=$(awk '/core id/{a[$NF]++}END{for(i in a)print i}' $cpuinf|$lc)
+if [ -z "$PERCPUPHYSCORE" ] ; then
+PERCPUPHYSCORE=1
+fi
+
+ if [ $vm -ne 1 ] ; then
+ if [ "$HTON" = "notdetect" ] ; then detect_ht_proc;fi
+ if [ "$HTON" = "ok" ] ; then 
+  TOTAL_CORE=$(awk -va="$PERCPUPHYSCORE" -vb="$CPU_COUNT" 'BEGIN{print a*b*2}')
+  PERCPUPHYSCORE="$TOTALHPHYSCORE";TOTALPHYSCORE="$TOTALVIRTCORE"
+  TOTALTHREAD="[ Total Physical Cores = "$TOTALPHYSCORE" ] + [ Total HT Cores = "$TOTALVIRTCORE" ] == $TOTAL_CORE threads"
+ else
+  TOTAL_CORE=$(awk -va="$PERCPUPHYSCORE" -vb="$CPU_COUNT" 'BEGIN{print a*b}')
+  TOTALHPHYSCORE=$PERCPUPHYSCORE
+  TOTALTHREAD="[ Total Physical Cores = "$TOTALHPHYSCORE" ] == $TOTAL_CORE threads"
+  fi
+fi
+fi
+
+if [ $vm -eq 1 ] ; then
+
+if [ $VCORE = 1 ] ; then
+PERVCPUPHYSCORE=1
+else
+PERVCPUPHYSCORE=$(awk '/core id/{a[$NF]=$NF}END{for(i in a)x++;print x}' $cpuinf)
+fi
+
+PERVIRTCORE=$PERVCPUPHYSCORE
+TOTALVIRTCORE=$PERVCPUPHYSCORE
+# TOTALPERVCORE=$TOTALVIRTCORE
+TOTALTHREAD="[ Total Virtual Cores = "$PERVCPUPHYSCORE" core(s) ] X [ "$V_CPU_COUNT" vCPU ] == $TOTAL_CORE threads"
+# TOTALPERVCORE="[ Virtual Cores = $PERVCPUPHYSCORE ] + [ HT Cores = $PERVIRTCORE ] == $PERCPUALLCORE threads"
+fi
+
+####################################################################################
+
+
+if [ -z "$CPU_SOCKETS" ] || [ "$CPU_SOCKETS" -eq 0 ] ; then
+CPU_SOCKETS="Unable to Getting the CPU Slots Information !!"
+fi
+
+
+cvrt() {
+for i in PERCPUPHYSCORE PERVCPUPHYSCORE H_PLATFORM TOTALTHREAD TOTALPERCORE MEMORY_ALL MEMORY_NONEMPTY EMPTYC CPU_SOCKETS CPU_COUNT V_CPU_COUNT
+do
+  if [[ -z "$(eval echo "\$$i")" ]] ; then
+  eval $i='?'
+  fi
+done
+}
+
+
+if [ $vm -eq 1 ] ; then 
+CPU_SOCKETS=$(echo "$V_CPU_SOCKETS (PHYSICAL HOST)" )
+CPU_COUNT=""
+fi
+
+#if [ -z "$CPU_COUNT" ] ; then
+#CPU_COUNT=1
+#CPU_COUNT="Unable to Getting the CPU Sockets Count Information !!"
+#fi
+
+
+cvrt;
+
+uname -v|grep SMP >/dev/null
+if [ $? -eq 0 ] ; then
+SMP_OK="YES"
+else
+SMP_OK="NO"
+fi
+
+grep flags $cpuinf >/dev/null
+if [ $? -eq 0 ] ; then
+ grep flags $cpuinf |grep lm >/dev/null
+ if [ $? -eq 0 ] ; then
+CPU_BIT="64 bit"
+ else 
+grep flags $cpuinf |grep tm >/dev/null
+   if [ $? -eq 0 ] ; then
+CPU_BIT="32 bit"
+   fi
+ fi
+
+if [ -z "$CPU_BIT" ] ; then
+grep flags $cpuinf |grep rm >/dev/null
+ if [ $? -eq 0 ] ; then
+CPU_BIT="16 bit"
+ fi
+fi
+
+grep flags $cpuinf|grep ht >/dev/null
+ if [ $? -eq 0 ] ; then
+HT_SUPP="YES"
+if [ $vm -eq 1 ] ; then
+HT_SUPP="YES [ most likely !!! ] (in PHYSCIAL HOST )"
+fi
+ else
+HT_SUPP="NO"
+if [ $vm -eq 1 ] ; then
+HT_SUPP="NO [ most likely !!! ] (in PHYSCIAL HOST )"
+fi
+ fi
+
+else
+FLAGSTATUS=("${FLAGSTATUS[@]}\n""CPU FLAGS NOT FOUND FROM PROCFS!!")
+HT_SUPP="UNKNOWN"
+fi
+
+
+
+## IA-32 && other Itanium Models ignored now
+
+if [ "$CPU_VENDOR" = "GenuineIntel" ] ; then
+   CPU_VENDOR="Intel"
+   CPU_TYPE=$(awk -F":" '/model name/{print $2;exit}' $cpuinf|sed 's/^ *//'|sed 's/ * / /g')
+  IS_ARCH_IA64=$(grep "arch " $cpuinf|awk '{print $NF;exit}')
+ if [ "$IS_ARCH_IA64" = "IA-64" ] ; then
+ CPU_BIT="64 bit(Itanium)"
+ CPU_TYPE=$(awk -F':' '$0~/vendor|family|arch /{a[$0]=$NF}/cpu MHz/{gsub("\\.[0-9]*","");a[$0]=" @ " $NF/1000 "GHz"}
+END{for(i in a)print a[i]}' $cpuinf ORS=""|sed 's/^ *//' )
+ fi
+ elif [ "$CPU_VENDOR" = "AuthenticAMD" ] ; then
+   CPU_VENDOR="AMD"
+   CPU_TYPE=$(awk '/model name/{print $4 " " $5 " " $7;exit}' $cpuinf|sed 's/^ *//g')
+ fi
+
+$SETCOLOR_FAILURE
+awk 'BEGIN{$70=OFS="=";print}'
+$SETCOLOR_RESET
+$SETCOLOR_BOLDED"\nHOSTNAME --> $(hostname)"
+$SETCOLOR_FAILURE
+awk 'BEGIN{$70=OFS="=";print}'
+sleep 1
+
+$SETCOLOR_RESET
+$SETCOLOR_WARNING "\nWARNING(s): "
+$SETCOLOR_RESET
+
+FLAGSTATUS=$(echo -e "${FLAGSTATUS[@]}"|sed -n '/^ *$/!p')
+$SETCOLOR_FAILURE"${FLAGSTATUS[@]}"
+
+which getconf 2>/dev/null 1>&2
+if [ $? -eq 0 ] ; then
+getconf -a 2>/dev/null 1>&2
+  if [ $? -eq 0 ] ; then
+TOTAL_CORE=$(getconf -a|grep '_NPROCESSORS_ONLN'|awk '{print $2}')
+  else
+TOTAL_CORE=$(getconf '_NPROCESSORS_ONLN' 2>/dev/null)
+  if [ $? -ne 0 ] ; then
+TOTAL_CORE=0
+  fi
+ fi
+else
+$SETCOLOR_FAILURE"'getconf' NOT found !!"
+fi 
+
+awk 'BEGIN{$70=OFS="=";print}'
+$SETCOLOR_RESET
+$SETCOLOR_BOLDED"\nHT_SUPPORT: "
+$SETCOLOR_RESET
+$SETCOLOR_FAILURE"$HT_SUPP"
+
+echo "$CPU_COUNT"|grep "Unable" > /dev/null
+cpuex=$?
+
+
+if [ $TOTAL_CORE -ne 0 ] && [ $cpuex -ne 0 ] ; then
+if [ $vm -ne 1 ] ; then
+PERCPUALLCORE=$(awk -va="$TOTAL_CORE" -vb="$CPU_COUNT" 'BEGIN{print a/b}')
+else
+PERCPUALLCORE="Not Detected"
+fi
+fi
+
+
+if [ -z "$PERCPUALLCORE" ] ; then
+PERCPUALLCORE=1
+fi
+
+if [ -z "$CPU_COUNT" ] ; then
+echo hoo
+exit
+CPU_COUNT=1
+fi
+
+no_disabled() {
+echo "$PERCPUALLCORE"|grep "Not" > /dev/null
+perex=$?
+if [ $perex -eq 0 ] ; then
+PERCPUPHYSCORE="Not Detected"
+TOTALPERCORE="Not Detected"
+else
+PERCPUPHYSCORE=$PERCPUALLCORE
+TOTALTHREAD="[ Total Physical Cores = $TOTAL_CORE threads ]"
+TOTALPERCORE="[ Physical Cores = $PERCPUALLCORE threads ]"
+fi
+}
+
+yes_enabled() {
+PERCPUPHYSCORE=$(echo|awk -va="$PERCPUALLCORE" '{print a/2}')
+PERVIRTCORE=$PERCPUPHYSCORE
+TOTALHPHYSCORE=$(echo|awk -va="$PERCPUPHYSCORE" -vb="$CPU_COUNT" '{print a*b}')
+TOTALPERCORE="[ Physical Cores = $PERCPUPHYSCORE ] + [ HT Cores = $PERVIRTCORE ] == $PERCPUALLCORE threads"
+TOTALVIRTCORE=$TOTALHPHYSCORE
+$SETCOLOR_RESET
+TOTALTHREAD="[ Total Physical Cores = $TOTALHPHYSCORE ] + [ Total HT Cores = $TOTALVIRTCORE ] == $TOTAL_CORE threads"
+}
+
+ if [ "$HTON" = "ok" ] ; then
+  $SETCOLOR_SUCCESS"HT status :$SETCOLOR_WARNINGN ENABLED"
+  $SETCOLOR_RESET
+  yes_enabled;
+ fi
+if [ "$HTON" = "nok" ] ; then
+$SETCOLOR_SUCCESS"HT status : DISABLED !!"
+$SETCOLOR_RESET
+no_disabled;
+ fi
+
+if [ "$HTON" = "nok_VM" ] ; then
+$SETCOLOR_SUCCESS"HT status : IT is VM !! ( HT seems DISABLED via Operating System [but vm client already has virtual core(s)] )"
+$SETCOLOR_RESET
+no_disabled;
+fi
+
+if [ $vm -eq 1 ] && [ "$HTON" = "ok" ] ; then
+$SETCOLOR_SUCCESS"HT status : IT is VM !! ( HT seems ENABLED via Operating System [vm client has not virtual core(s)] )"
+$SETCOLOR_RESET
+yes_disabled;
+fi
+
+if [ "$HT_SUPP" != "YES" ] ; then
+if [ "$HTON" = "ok" ] || [ "$HTON" = "ok_VM" ] ; then
+$SETCOLOR_SUCCESS"HT_SUPPORT DETECTS "$HT_SUPP" status VIA CPUFS(HOST), but your machine has HT seems ENABLED!!!"
+fi 
+fi
+
+
+if [ "$HT_SUPP" = "UNKNOWN" ] ; then
+if [ "$SMP_OK" = "NO" ] ; then
+$SETCOLOR_SUCCESS"If you sure that the CPU has HT support,then you must use SMP kernel !!"
+$SETCOLOR_RESET
+no_disabled;
+else
+$SETCOLOR_SUCCESS"HT flags not detected from PROCFS !!"
+$SETCOLOR_RESET
+# for ITANIUMs needs a different solution. I must works on this but time !
+fi
+fi
+
+if [ "$HT_SUPP" = "YES" ] ; then
+ if [ "$HTON" = "notdetect" ] ; then
+$SETCOLOR_SUCCESS"HT couldnot detected !!"
+$SETCOLOR_FAILURE"Trying to detect CPU infos from procfs (Maybe Faulty Results !!)"
+detect_ht_proc;
+  if [ "$HTON" = "ok" ] ; then
+  $SETCOLOR_FAILURE"HT is detected as -> [ON] "
+  $SETCOLOR_SUCCESS
+  elif [ "$HTON" = "nok" ] ; then
+  $SETCOLOR_FAILURE"HT is detected as -> [ON] "
+  fi
+  read -p "HT is really enable on the BIOS (y/n) ? " c
+   if [ "$c" = "y" ] ; then
+    echo "ASSUMING 'HT is [ON]' "
+    $SETCOLOR_RESET
+    yes_enabled;
+   else
+    echo "ASSUMING 'HT is [OFF]' "
+   no_disabled;
+  fi
+ fi
+fi 
+
+if [ "$HT_SUPP" = "NO" ] ; then
+$SETCOLOR_SUCCESS"No HT Support !!"
+$SETCOLOR_RESET
+no_disabled;
+fi
+
+
+red() {
+$SETCOLOR_FAILURE"$@"
+$SETCOLOR_RESET
+}
+bolded() {
+$SETCOLOR_RESET
+$SETCOLOR_BOLDED"$1: "
+}
+
+# $SETCOLOR_WARNING"\nCPUID:COREID(s) VIEW FROM PROCFS "
+# Cancelled via PROCFS VIEW
+
+ht_menu_prep() {
+  if [ $vm -eq 1 ] ; then
+   view="VM VIEW"
+   core_thread="vcore"
+  else
+   view="HT VIEW"
+   core_thread="ht"
+  fi
+}
+
+ht_cal() {
+ht_menu_prep
+  if [ $vm -eq 1 ] ; then
+   physicalcount="$V_CPU_COUNT"
+   allcorecount="$V_TOTAL_CORES"
+  else
+   physicalcount="$CPU_COUNT"
+   allcorecount="$TOTAL_CORE"
+  fi
+ htcorecount=$(awk -va="$physicalcount" -vb="$allcorecount" 'BEGIN{print b/a}')
+ #awk '/processor/{a[x++]=$NF}END{for(i=0;i<x;i++)printf "%s ",a[i]}' $cpuinf
+ awk '/physical id/{print $NF".("$1 " cpu) --> "}' $cpuinf > ${TMP}/$cpus
+ for i in $(awk '/processor/{a[x++]=$NF}END{for(i=0;i<x;i++)printf "%s ",a[i]}' $cpuinf); do
+  if [ $i -gt "$htcorecount" ] ; then
+   echo "$i.(logical cpu) --> $(awk -va=$i -vb=$htcorecount 'BEGIN{print a-b}'),$i ( $core_thread ) "
+  elif [ $i -eq $htcorecount ] ; then
+   echo "$i.(logical cpu) --> $i,$(awk -va=$i -vb=$htcorecount 'BEGIN{print a+b}') ( $core_thread ) "
+  elif [ $i -lt $htcorecount ] ; then
+   echo "$i.(logical cpu) --> $i,$(awk -va=$i -vb=$htcorecount 'BEGIN{print a+b}') ( $core_thread ) "
+  fi
+  done > ${TMP}/$cpuhts
+
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+$SETCOLOR_PURPLE"$view" $SETCOLOR_WARNINGN "[ only ONLINE LOGICAL CPU(s) ]"
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+ awk 'NR==FNR{a[x++]=$0;next}{print a[i++],$0}' ${TMP}/$cpus ${TMP}/$cpuhts
+}
+
+if [ "$HTON" = "ok" ] || [ "$HTON" = "nok_VM" ] ; then
+
+ if [ -d "/sys/devices/system/cpu" ] ; then
+
+#grep 0 /sys/devices/system/cpu/cpu*/online|awk -F '/' '{print $(NF-1)}' 
+grep 0 /sys/devices/system/cpu/cpu[0-9]*/online >/dev/null 2>&1
+if [ $? -eq 0 ] ; then
+$SETCOLOR_YELLOW"[ some logical cpu(s) is offline!! ]"
+for i in /sys/devices/system/cpu/cpu[0-9]*/online; do grep "" $i|grep 0 >/dev/null; [ $? -eq 0 ] && echo $i|awk -F'/' '{print $6}' ; done
+$SETCOLOR_FAILURE"[ check the system -> '/sys/devices/system/cpu/cpuX/online ' ]"
+fi
+
+  find "/sys/devices/system/cpu" -name "thread_siblings_list" |xargs grep "" >/dev/null
+  
+if [ $? -eq 0 ] ; then
+ht_menu_prep
+   for i in $(find "/sys/devices/system/cpu" -name "thread_siblings_list"); do echo "$i"|sed 's/[^0-9]*//g';cat $i; done|sed 'N;s/\(.*\)\n\(.*\)/\1.(logical cpu) --> \2 ( '${core_thread}' ) /' >${TMP}/$cpuhtsys
+for i in $(find "/sys/devices/system/cpu" -name "physical_package_id"); do echo "$i"|sed 's/[^0-9]*//g';cat $i; done|sed 'N;s/\(.*\)\n\(.*\)/\1.(logical cpu) --> \2.(physical cpu) /' >${TMP}/$cpusys
+   $SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+   $SETCOLOR_PURPLE "$view"
+   $SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+   awk -F'-->' 'NR==FNR{a[$1]=$2;next}{if($1 in a)print a[$1] FS" " $0}' ${TMP}/$cpusys ${TMP}/$cpuhtsys
+else
+   find "/sys/devices/system/cpu" -name "thread_siblings" |xargs grep "" >/dev/null
+    if [ $? -ne 0 ] ; then
+      $SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+      $SETCOLOR_PURPLE"HYPERTHREAD IS ENABLED ON HOST BUT HT INFO NOT DETECTED FROM SYSFS ("${OS_BIT}") !!\n"
+  $SETCOLOR_WARNING"Script is manuelly calculating the HT threads over the PROCFS"
+      ht_cal
+    else
+ ht_cal
+   fi
+    fi
+
+else
+  $SETCOLOR_WARNING"There is a problem while reading the SYSFS"
+fi 
+fi  
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+ 
+
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+$SETCOLOR_PURPLE "HARDWARE && SYSTEM INFORMATIONS.........."
+######################################################################################
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+bolded "HARDWARE PLATFORM" ; red "$H_PLATFORM"
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+bolded "TOTAL CPU SLOTS" ; red "$CPU_SOCKETS"
+bolded "CPU SOCKETS COUNT"; red "$CPU_COUNT"
+bolded "vCPU SOCKETS COUNT"; red "$V_CPU_COUNT"
+bolded "CORE SOCKETS PER CPU" ; red "$PERCPUPHYSCORE"
+bolded "VCORE_SOCKETS_PER_CPU" ; red "$PERVCPUPHYSCORE"
+bolded "THREAD PER CPU SOCKET" ; red "$TOTALPERCORE"
+bolded "TOTAL THREADS (LOGICAL CPUs)" ; red "$TOTALTHREAD"
+# bolded "THREAD PER VCPU SOCKET" ; red "$TOTALPERVCORE"
+bolded "CPU VENDOR" ; red "$CPU_VENDOR"
+bolded "CPU Type" ; red "$CPU_TYPE"
+bolded "CPU Bit" ; red "$CPU_BIT"
+bolded "Platform" ; red "$OS_BIT"
+bolded "CPU Bit from Kernel CONF" ; red "$(getconf LONG_BIT ) bit"
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+bolded "TOTAL MEMORY SOCKETS" ; red "$MEMORY_ALL"
+bolded "INSTALLED MEMORY DIMM(s)" ; red "$MEMORY_NONEMPTY"
+bolded "EMPTY MEMORY SOCKETS" ; red "$EMPTYC"
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+bolded "Operating System" ; red "$OS"
+bolded "Kernel Version" ; red "$KERNEL_VERSION"
+bolded "Kernel SMP Support" ; red "$SMP_OK"
+$SETCOLOR_FAILURE"$(awk 'BEGIN{$70=OFS="=";print}')"
+echo;$SETCOLOR_RESET
+########################################################################################
+
