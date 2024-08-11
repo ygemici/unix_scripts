@@ -1,0 +1,970 @@
+#!/bin/bash
+
+## Yucel Gemici 09 Subat 2015 v.1
+## Yucel Gemici 16 Subat 2015 v.1.1
+
+## Yucel Gemici 21 Mayis 2015 v.2
+## Yucel Gemici 12 Aralik 2016 v.3
+## Yucel Gemici 29 Aralik 2016 v.3.1
+
+## $1 parametresi bos gecilemez!
+## $2 parametresi 0 veya 1 olacak *(0 > rapor alinabilecek aralik gun sayisini gosterme -  1 > goster )
+## $3 parametresi ip/user/nologins
+
+
+msg() {
+echo -e "\033[1m"
+awk 'BEGIN{$80=OFS="=";print}'
+echo -e "Ornek Kullanim ->  $0 [1-60] [0-1] [1-7]|'all'|'all user'"
+awk 'BEGIN{$80=OFS="=";print}'
+
+echo -e "\033[0m"
+echo -e "1.ci parametre = Rapor araligi gun sayisi *(ornek deger -> '7' [gun] )
+2.ci parametre = kullanilabilecek maximum rapor aralik gun sayisi belirtilsin mi? *(ornek deger [0/1])\n
+3.cu parametre = rapor tipi" 
+awk 'BEGIN{$40=OFS="-";print}'
+
+echo   "         rapor tipi cesitleri 
+=====================================================
+'1'            -(ip top listesi)
+'2'            -(user top listesi)
+'3'            -(user ismi bulunamayan user listesi)
+'4'            -(login olamayan ip listesi)
+'5'            -(ayni ip kullanan user listesi)
+'6'            -(connection top ip listesi) 
+'7'            -(connection top user listesi)
+'all|all user' -(genel user islem bilgileri)
+"
+sleep 1
+exit 1
+}
+
+if [ $# -eq 4 ] || [ $# -eq 3 ] ; then
+echo "$3"|grep -E '^[1-7]$|all' >/dev/null 2>&1 
+if [ $? -ne 0 ] ; then 
+msg
+echo "Kullanilabilir Parameterler : [1-7]" ; exit 1 ;
+fi
+else
+msg
+fi
+
+
+
+#### hedef dosyalar #####
+#orgftplog="/home/log/ftp.log"
+LOG=/var/log/
+LCL=/usr/local/bin
+FTPWD=FTP_donotdelete
+ftploggzsource="$LOG/ftp.log.1.gz"
+ftploglastmonthsource="$LOG/ftp.log.1"
+ftplogsource="$LOG/ftp.log"
+
+ftploggz="$LCL/$FTPWD/ftp.log.1.gz"
+ftploglastmonth="$LCL/$FTPWD/ftp.log.1"
+ftplog="$LCL/$FTPWD/ftp.log"
+
+timestamp=$(date|awk 'BEGIN{OFS="_"}{print $1,$2,$3,$NF}')
+tmp_log="$LCL/$FTPWD/ftp.tmp.${timestamp}.log"
+
+
+#### calisma klasorleri
+
+
+## FTP Working Directory icinde calis
+if [ ! -d $LCL/$FTPWD ] ; then
+ mkdir -p $LCL/$FTPWD
+ if [ $? -ne 0 ] ; then echo "$LCL/$FTPWD klasoru olusturulamadi !!" ; exit 1 ; fi
+fi
+
+if [ ! -s $ftplog ] ; then
+cp $ftplogsource "$LCL/$FTPWD/"
+if [ $? -ne 0 ] ; then echo "Ftp log dosyasi bulunamiyor " ; exit 1 ; fi
+fi
+
+cd $LCL/$FTPWD/
+
+## Eski dosyalari kaldir ??
+#rm -f $LCL/$FTPWD/*ftp*.log 2>/dev/null
+
+## loglarin icindeki islem tiplerini kaydet 
+ready_file="readyfile_ftp.log"
+
+
+#### taranacak gunleri hesapla ####
+## $1 parametresi 7 -> bir haftalik rapor olusturur
+
+tarih_hesapla() {
+basla_tarih=$(date -d "-$1 days"|awk '{printf "%s %2s %s",$2,$3,$NF}')
+
+# gece 00.00 da calistirilacak ve o saaten onceki tum loglari parse edecek..
+#bitis_tarih=$(date -d "-1 days"|awk '{printf "%s %2s %s",$2,$3,$NF}')
+
+bitis_tarih=$(date -d "-0 days"|awk '{printf "%s %2s %s",$2,$3,$NF}')
+
+ay=$(date|awk '{print $2}')
+echo $basla_tarih|grep "$ay" 2>&1 >/dev/null ; bastarihay=$?
+echo $bitis_tarih|grep "$ay" 2>&1 >/dev/null ; bittarihay=$?
+
+# gecenay=$(date --date='-1 month'|awk '{print $2}')
+gecenay=$(date --date="$(date +%Y-%m-15) -1 month" +'%b')
+echo $basla_tarih|grep "$gecenay" 2>&1 >/dev/null ; bastarihgecenay=$?
+echo $bitis_tarih|grep "$gecenay" 2>&1 >/dev/null ; bittarihgecenay=$?
+
+if [ $bastarihay -ne 0 -a $bastarihgecenay -ne 0 ] ; then
+echo "Baslangic Tarihi : $basla_tarih"
+echo "Bitis Tarihi : $bitis_tarih "
+echo "Yalnizca gecen aya ait loglama yapilabilmektedir!"
+exit 1
+fi
+
+# Tarih araliginda ayin ilk gunu varsa logrotate gore gece saat 04:00 de loglari da bulmaya calisir
+echo ${basla_tarih}|awk '{print $NF}'|grep "^1$" 2>&1 >/dev/null ; bastarihayinilkgunu=$?
+#echo ${bitis_tarih}|awk '{print $NF}'|grep "^1$" 2>&1 >/dev/null ; bittarihayinilkgunu=$?
+}
+
+tarih_hesapla $1
+
+
+## Yalnizca $2 parametresi 1 ise calisir
+tarih_araligi_kontrol() {
+today=$(date -d "0 days"|awk '{print $3}')
+lastday_lastmonth_day=$(date -d "-$(date +%d) days"|awk '{print $3}')
+echo "$(($today+$lastday_lastmonth_day)) gunluk sorgulama yapilabilir."
+echo
+}
+
+
+son_gun_bul() {
+## Gecen ayin son gunu bul
+lastday_lastmonth_date=$(date -d "-$(date +%d) days"|awk '{printf "%s %2s",$2,$3}')
+}
+
+if [ $2 -eq 1 ] ; then
+tarih_araligi_kontrol $1
+fi
+
+#### gecen ay loglarini hazirla ####
+log_gecenay() {
+
+if [ ! -s $ftploglastmonth ] ; then
+
+if [ -s $ftploglastmonthsource ] ; then
+cp $ftploglastmonthsource $ftploglastmonth
+if [ $? -ne 0 ] ; then echo "Gecen aya ait Ftp log kopyalanamiyor !! " ; exit 1 ; fi
+else
+if [ -s $ftploggzsource ] ; then
+cp  $ftploggzsource $ftploggz 
+if [ $? -ne 0 ] ; then echo "Gecen aya ait zip log kopyalanamiyor !! " ; exit 1 ; fi
+gunzip -c $ftploggz >$ftploglastmonth
+if [ $? -ne 0 ] ; then echo "Ftp log cikarma hatasi !! " ; exit 1 ; fi
+fi
+fi
+fi
+
+if [ ! -s $ftploglastmonthsource ] && [ ! -s $ftploggzsource ] ; then
+echo "GECEN AYA AIT DOSYA YOK "
+exit 1
+fi
+
+}
+
+norecord() {
+echo "Kayit bulunamadi -> [ "$1" ] !!"
+exit 1
+}
+
+#### analize basla ####
+log_analize_hazirla() {
+if [ -s "$1" ] ; then
+
+# ONLY ONE LINE SECONDS FAULT TOLERANCE
+# MAYBE IMPROVE THiS LATER ( IF YOU WRONG RESULT(s)
+awk '{b[x++]=$0}
+END{
+for(j=0;j<=x;j++){
+if(b[j]~"CONNECT"){split(b[j],barr,FS);conn1=barr[15];w=w?w RS RS b[j]:RS b[j];}
+else
+if(conn1)
+if(b[j]~conn1){print w RS b[j];conn1="";w="";}
+else {print b[j] RS w;conn1="";w="";print RS}
+else print b[j]}
+}' $1 > $2
+
+else
+norecord
+fi
+
+}
+
+log_birlestir() {
+#### Iki dosyayi birlestir ####
+append_tmp_log="ftp.tmp.bittarihay.append.${timestamp}.log"
+cat $1 $2 > $append_tmp_log
+log_analize_hazirla $append_tmp_log $ready_file
+}
+
+function findfirstday() {
+while read -r month day ; do
+for((x=1;x<=3;x++)) ; do
+newresetday=`date -d "$1 -$x days"|awk '{printf "%s %2s",$2,$3}'`
+if [ "$newresetday" = "$month $day" ] ; then
+newresetday="$month $day"
+isnewresetday='yes'
+break
+fi
+done
+[ "$isnewresetday" = "yes" ] && break
+done < dates
+}
+
+function findlastday() {
+while read -r month day ; do
+for((x=1;x<=3;x++)) ; do
+newresetday=`date -d "$1 +$x days"|awk '{printf "%s %2s",$2,$3}'`
+if [ "$newresetday" = "$month $day" ] ; then
+newresetday="$month $day"
+isnewresetdaylast='yes'
+break
+fi
+done
+[ "$isnewresetdaylast" = "yes" ] && break
+done < dates
+}
+
+
+gun_kontrol() {
+monthsearch=`echo "$1"|awk '{print $1}'`
+daysearch=`echo "$1"|awk '{print $2}'`
+# yearsearch=`echo "$1"|awk '{print $3}'`
+
+case $2 in
+1)
+[ $ilkgecenay -eq 1 ] && ftprecord=$ftploglastmonth || ftprecord=$ftplog
+awk '/^'$monthsearch'/{date=sprintf("%s %2s",$1,$2);if(!(date in uniqdates))dates[x++]=date;uniqdates[date]}END{for(i=x-1;i>=0;i--)print dates[i]}' $ftprecord >dates
+findfirstday "$1" ; [ -z "$isnewresetday" ] && findlastday "$1" ; [ -z "$isnewresetday" ] && norecord "$1" ;;
+2)
+[ $songecenay -eq 1 ] && ftprecord=$ftploglastmonth || ftprecord=$ftplog
+awk '/^'$monthsearch'/{date=sprintf("%s %2s",$1,$2);if(!(date in uniqdates))dates[x++]=date;uniqdates[date]}END{for(i=x-1;i>=0;i--)print dates[i]}' $ftprecord >dates
+findlastday "$1" ; [ -z "$isnewresetdaylast" ] && findfirstday "$1" ; [ -z "$isnewresetday" ] && norecord "$1" ;;
+esac
+
+}
+
+
+#### tarihe gore gerekli loglari hazirla ####
+log_hazirla() {
+
+ilktarih="$1"
+ilktarihnoyear=`echo "$ilktarih"|sed 's/ [0-9]*$//'`
+sontarih="$2"
+sontarihnoyear=`echo "$sontarih"|sed 's/ [0-9]*$//'`
+
+resultlog=$3
+
+[ $ilkgecenay -eq 1 ] && sourcelog=$ftploglastmonth || sourcelog=$ftplog
+isilktarih=`awk '/'"$ilktarihnoyear"'/{print $1;exit}' $sourcelog`
+if [ -z "$isilktarih" ] ; then
+gun_kontrol "$ilktarih" 1
+[ "$isnewresetday" = "yes" ] && ilktarihnoyear=$newresetday || norecord "$ilktarihnoyear"
+fi
+
+[ $songecenay -eq 1 ] && sourcelog=$ftploglastmonth || sourcelog=$ftplog
+issontarih=`awk '/'"$sontarihnoyear"'/{print $1;exit}' $sourcelog`
+if [ -z "$issontarih" ] ; then
+gun_kontrol "$sontarih" 2
+[ "$isnewresetday" = "yes" ] && sontarihnoyear=$newresetday || norecord "$sontarih"
+fi
+
+case $4 in
+usesame) 
+awk '/'"$ilktarihnoyear"'/{flag=1}/'"$sontarihnoyear"'/{print;flag=0}flag' $sourcelog > $resultlog
+;;
+useseperate)
+awk '/'"$ilktarihnoyear"'/' $sourcelog > $resultlog
+awk '/'"$sontarihnoyear"'/' $sourcelog > $resultlog
+;;
+esac
+}
+
+
+
+tmp_log_lastmonth="ftp.tmp.bittarihay.${timestamp}.log"
+tmp_log_thismonth="ftp.tmp.thismonth.${timestamp}.log"
+
+ilkgecenay=0
+songecenay=0
+
+## Baslangic tarihi gecen ay ise
+if [ $bastarihgecenay -eq 0 ] ; then
+#echo "BASLAMA TARIHI GECEN AY"
+log_gecenay
+ilkgecenay=1
+ 
+if [ $bittarihgecenay -eq 0 ] ; then
+songecenay=1
+#echo "BITIS TARIHI GECEN AY" "$bitis_tarih"
+tmp_log_lastmonth=="ftp.tmp.bittarihgecenay.${timestamp}.log"
+log_hazirla "$basla_tarih" "$bitis_tarih" $tmp_log_lastmonth usesame
+log_analize_hazirla $tmp_log_lastmonth $ready_file
+fi
+
+if [ $bittarihay -eq 0 ] ; then
+#son_gun_bul
+# Eger baslangic tarihi gecen ay , bitis tarihi bu ay ise gene ayin son gununu bulmak lazim
+# gene ayin son gunu ve bizim parametre gun sayisindaki son gun arasi alinir.
+
+songecenay=1
+log_hazirla "$basla_tarih" "$(date "+%b  1 %Y")" $tmp_log_lastmonth usesame
+
+songecenay=0
+#echo "BITIS TARIHI BU AY" "$bitis_tarih"
+log_hazirla "$(date "+%b  1 %Y")" "$bitis_tarih" $tmp_log_thismonth usesame
+log_birlestir $tmp_log_lastmonth $tmp_log_thismonth
+fi
+fi
+
+
+
+if [ $bastarihay -eq 0 ] ; then
+ilkgecenay=0
+songecenay=0
+#echo "BASLAMA TARIHI BU AY"
+log_hazirla "$basla_tarih" "$bitis_tarih" $tmp_log_thismonth usesame
+log_analize_hazirla $tmp_log_thismonth $ready_file
+fi
+ 
+if [ $bastarihayinilkgunu -eq 0 ] ; then
+#echo "BASLAMA TARIHI BU AYIN ILK GUNU"
+ilkgecenay=1
+songecenay=0
+log_hazirla "$(date "+%b  1 %Y")" "$(date "+%b  1 %Y")" $tmp_log_lastmonth useseparate
+log_birlestir $tmp_log_lastmonth $tmp_log_thismonth
+fi
+
+
+## Yucel Gemici 09 Subat 2015
+## Islenecek Dosyalarimiz Hazir
+#. $LCL/$ftpcheck $ready_file $processfile $ftptopfile $ftptoplistcal $3 2>/dev/null
+
+# istegine yanit alip almayanlar
+# hassasliknorespond=2 ( yalnizca bir kayit icinde arar )
+# eger "./FTP_donotdelete/readyfile_ftp.log" icinde CONNECT istegine LOGIN cevabi alamamisa NO RESPND OLUR
+
+# istegine bir sonrakinde yanit alanlar 
+# eger 2 sonraki olursa , if(conn[ip[y-3]])
+# sensitivitylater=3 Yalnizca bir sonraki ile karsilastirir.
+
+f1=iptop;f2=usertop;f3=unknowntop;f4=ftpnologin;f5=sameiploginfirms
+
+for((i=1;i<=5;i++)) ; do
+file=`eval echo '$'f$i`
+>$file
+done
+
+# f6
+f6=topconlog
+>${f6}_ip
+>${f6}_firm
+
+
+##################################################################################################################################
+
+awk 'BEGIN{split("LOGIN DOWNLOAD UPLOAD RENAME DELETE MKDIR RMDIR CHMOD",process,FS);}
+function outputterm(ind,char){
+for(c=0;c<ind;c++)
+printf "%c",char;printf "%c","\n";
+}
+
+function copyarray(array,idx){
+for(j=0;j<idx;j++)
+cpyarray[j]=array[j]
+}
+
+function findmaxinend(array,idx){
+copyarray(array,idx);
+jxx=1
+for(c=idx-1;c>0;c--){
+cixx=idx-jxx
+dixx=0;newidx=0
+delete newmaxs
+while(cixx>0){
+if(cpyarray[dixx]<cpyarray[dixx+1])
+newmaxs[newidx++]=cpyarray[dixx+1]
+else newmaxs[newidx++]=cpyarray[dixx]
+cixx--
+dixx++
+}
+delete cpyarray
+for(xx=0;xx<newidx;xx++)
+cpyarray[xx]=newmaxs[xx]
+jxx++
+}
+
+return newmaxs[0]
+}
+
+
+function deletemaxindex(array,idx,e){
+for(i=0;i<idx;i++){
+if(array[i]==e){
+delete array[i]
+#break --> break acarsak aynilari da listeler
+}
+}
+}
+
+
+#function maxf(a,max){max=(max>a)?max:a;return max}
+function isEmpty(a,idx){for(idx in arr)return 0;return 1}
+function lengthx(a){l=0;for(i in a)l++;return l}
+function searcharrip(a,e){x=0;for(i in a){split(i,isep,SUBSEP);if(isep[2]==e){samearrip[isep[2]]=samearrip[isep[2]]?samearrip[isep[2]] RS isep[1]:isep[1];if(isep[1])uniqips[isep[2]]=++x}}}
+function searcharrfirm(a,e){x=0;for(i in a){split(i,isep,SUBSEP);if(isep[1]==e){samearrfirm[isep[1]]=samearrfirm[isep[1]]?samearrfirm[isep[1]] RS isep[2]:isep[2];if(isep[2])uniqfirms[isep[1]]=++x}}}
+#function sorted(array,arraymax){for(i in array){arraymax2=arraymax;arraymax=maxf(array[i],arraymax);if(arraymax>arraymax2)j=i}{print j,b[j]"\n"a[j];delete maxar[j]}}
+NR==1{y=0}
+{
+if(NF)
+{
+if($0~/CONNECT/){ip[y]=$NF;dates=$1 FS $2 FS $3}
+for(i=13;i<=17;i++)b[y,x]=b[y,x]?b[y,x] $i:$i
+x++;
+}
+else{
+for(j=0;j<x;j++){
+if(b[y,j]~"CONNECT"){yy++;conn[ip[y]]++;conndate[ip[y],yy]=dates;}
+
+for(k=1;k<=8;k++){
+if(b[y,j]~process[k]){
+
+
+if(b[y,j]~"OK"){
+
+split(b[y,j],firm,"OK");
+
+#if(ip[y] in conn)
+#connfull[firm[1],ip[y]]++
+
+sameipok[process[k],ip[y]]++; 
+
+if(firm[2]~"LOGIN"){
+okc++;
+sameipfirms[firm[1],ip[y]]
+sameipfirmsconndate[firm[1],ip[y]]=sameipfirmsconndate[firm[1],ip[y]]?sameipfirmsconndate[firm[1],ip[y]] RS conndate[ip[y],yy]:conndate[ip[y],yy]
+}
+}
+
+if(b[y,j]~"FAIL"){
+
+split(b[y,j],firm,"FAIL");
+
+#if(ip[y] in conn)
+#connfull[firm[1],ip[y]]++
+
+sameipfail[process[k],ip[y]]++; 
+
+if(firm[2]~"LOGIN"){
+failc++;
+sameipfirms[firm[1],ip[y]]
+sameipfirmsconndate[firm[1],ip[y]]=sameipfirmsconndate[firm[1],ip[y]]?sameipfirmsconndate[firm[1],ip[y]] RS conndate[ip[y],yy]:conndate[ip[y],yy]
+}
+}
+
+}
+}
+}
+
+if(okc==0&&failc==0)
+if(ip[y])
+nologin[ip[y]]++
+
+okc=0;failc=0
+
+count[ip[y],y]=count[ip[y],y] FS yy
+
+x=0;y++
+}
+}
+
+END{
+printf "\n\n%s%28s%25s%20s%14s%24s\n","Firma","IP","Islem_Tipi","Islem_Durumu","Islem_Adet","Connection Tarihleri";
+outputterm(124,"-")
+
+
+
+######## GENEL ISLEM BILGILERI ########
+
+for(k in sameipfirms){
+n=0
+split(k,sameipgsep,SUBSEP)
+printf "\n%s\n",sameipgsep[1]
+
+for(sameo in sameipok){
+split(sameo,sameosep,SUBSEP);
+if(sameosep[2]==sameipgsep[2])
+printf "%38s%20s%15s%15s\n",sameosep[2],sameosep[1],"Ok",sameipok[sameo];
+}
+
+for(samef in sameipfail){
+split(samef,samefsep,SUBSEP);
+if(samefsep[2]==sameipgsep[2])
+printf "%38s%20s%15s%15s\n",samefsep[2],samefsep[1],"Fail",sameipfail[samef];
+}
+
+for(sameconndate in sameipfirmsconndate){
+split(sameconndate,sameconnsep,SUBSEP);
+if(sameconnsep[2]==sameipgsep[2]&&sameconnsep[1]==sameipgsep[1]){
+printf "%38s%20s%15s\n",sameconnsep[2],"CONNECTION","--"
+n=split(sameipfirmsconndate[sameconndate],sameconngsep,RS);
+for(kk=1;kk<=n;kk++)
+printf "%113s\n",sameconngsep[kk]
+printf "%38s%20s%30s\n",sameipgsep[2],"CONNECTION_TOTAL",n
+outputterm(118,"=")
+
+firmconns[sameconnsep[1],sameconnsep[2]]=n
+}
+}
+
+}
+
+
+
+
+################### SON #####################
+
+
+
+
+
+
+####### AYNI IP KULLANAN FIRMALAR #######
+
+
+for(m in sameipfirms){
+split(m,sameipgsep,SUBSEP)
+searcharrip(sameipfirms,sameipgsep[2])
+}
+
+for(sameipx in samearrip){
+delete uniqsamefirms
+n=split(samearrip[sameipx],samearrsep,RS)
+if(n>1){
+for(i=1;i<=n;i++)
+if(!(samearrsep[i] in uniqsamefirms)){
+sortedsamefirmips[sameipx]=sortedsamefirmips[sameipx]?sortedsamefirmips[sameipx] RS samearrsep[i]:samearrsep[i]
+uniqsamefirms[samearrsep[i]]
+}
+}
+}
+
+
+##### eleman sayilarini bulalim #####
+
+x=0
+for(ipfirms in sortedsamefirmips){
+n=split(sortedsamefirmips[ipfirms],sortedsameiptopc,RS);
+resortedsamefirms[x++]=n
+cpyresortedsamefirms[x-1]=n
+resortedsameip[x-1]=ipfirms
+}
+
+
+############ eleman sayisina gore sort ygemici ##############
+
+ixx=0
+for(ix=0;ix<x;ix++){
+maxval=findmaxinend(resortedsamefirms,x);
+maxarr[ixx++]=maxval
+deletemaxindex(resortedsamefirms,x,maxval);
+}
+
+printf "\n%22s%12s\n","Ayni IP kullanan Firmalar","Sayi" >> "'$f5'"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'$f5'" ; printf "%c","\n" >> "'$f5'"
+
+for(ix=0;ix<ixx;ix++){
+if(maxarr[ix]){ # bos olan elemanlari getirme * ( ayni degerde eleman varsa sorted fonksiynu icinde ( break yoksa ) hepsini silecegimiz icin olmasi gereken index degerleri bos gelecektir. )
+for(jx=0;jx<x;jx++)
+if(cpyresortedsamefirms[jx]==maxarr[ix]){
+n=split(sortedsamefirmips[resortedsameip[jx]],samearrptopsep,RS);
+printf "\n%22s%13s%s%s\n",resortedsameip[jx],"( x ",cpyresortedsamefirms[jx]," )" >> "'$f5'"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'$f5'" ; printf "%c","\n" >> "'$f5'"
+for(c=1;c<=n;c++)
+printf "%20s\n",samearrptopsep[c] >> "'$f5'"
+print RS >> "'$f5'"
+}
+}
+}
+
+
+
+### SON ###
+
+
+
+
+
+
+
+####### TOPLAM CONNECTION SAYILARI ########
+
+
+
+
+###### IP BAZLI CONNECTION SAYILARI #######
+
+printf "\n%26s%42s\n","IP Siralamasi","Toplam Connection Sayilari" >> "'${f6}'_ip"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'${f6}'_ip"; printf "%c","\n" >> "'${f6}'_ip"
+
+
+x=0
+for(ips in conn){
+resortedip[x++]=conn[ips]
+cpyresortedip[x-1]=conn[ips]
+resortedfirmip[x-1]=ips
+}
+
+ixx=0
+for(ix=0;ix<x;ix++){
+maxval=findmaxinend(resortedip,x);
+maxarr[ixx++]=maxval
+deletemaxindex(resortedip,x,maxval);
+}
+
+for(ix=0;ix<ixx;ix++){
+if(maxarr[ix]){ # bos olan elemanlari getirme * ( ayni degerde eleman varsa sorted fonksiynu icinde ( break yoksa ) hepsini silecegimiz icin olmasi gereken index degerleri bos gelecektir. )
+for(jx=0;jx<x;jx++)
+if(cpyresortedip[jx]==maxarr[ix])
+printf "%26s%29s%s%s\n",resortedfirmip[jx],"( x ",cpyresortedip[jx]," )" >> "'${f6}'_ip"
+}
+}
+print RS >> "'${f6}'_ip"
+
+
+
+
+
+###### FIRMA BAZLI CONNECTION SAYILARI #######
+
+
+for(fcon in firmconns){
+n=split(fcon,fconsep,SUBSEP)
+searcharrfirm(firmconns,fconsep[1])
+}
+
+printf "\n%16s%30s\n","Firmalar","Connection Sayilari" >> "'${f6}'_firm"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'${f6}'_firm" ; printf "%c","\n" >> "'${f6}'_firm"
+
+for(samefirmipcon in samearrfirm){
+delete uniqipfirms
+totalconn=0
+n=split(samearrfirm[samefirmipcon],samearrfirmipconsep,RS)
+for(c=0;c<66;c++)
+for(k=1;k<=n;k++)
+if(!(samearrfirmipconsep[k] in uniqipfirms))
+if(firmconns[samefirmipcon,samearrfirmipconsep[k]]&&samearrfirmipconsep[k]){
+firmsallc[samefirmipcon]=firmsallc[samefirmipcon]?firmsallc[samefirmipcon] RS samearrfirmipconsep[k] FS firmconns[samefirmipcon,samearrfirmipconsep[k]]:samearrfirmipconsep[k] FS firmconns[samefirmipcon,samearrfirmipconsep[k]]
+totalconn+=firmconns[samefirmipcon,samearrfirmipconsep[k]]
+uniqipfirms[samearrfirmipconsep[k]]
+}
+#for(c=0;c<44;c++)
+firmsc[samefirmipcon,uniqfirms[samefirmipcon]]=totalconn
+}
+
+
+x=0
+for(firmxx in firmsc){
+resortedfirmc[x++]=firmsc[firmxx]
+cpyresortedc[x-1]=firmsc[firmxx]
+split(firmxx,firmxxsep,SUBSEP);
+resortedfirmx[x-1]=firmxxsep[1]
+resortedfirmxc[x-1]=firmxxsep[2]
+}
+
+ixx=0
+for(ix=0;ix<x;ix++){
+maxval=findmaxinend(resortedfirmc,x);
+maxarr[ixx++]=maxval
+deletemaxindex(resortedfirmc,x,maxval);
+}
+
+for(ix=0;ix<ixx;ix++){
+if(maxarr[ix]){ # bos olan elemanlari getirme * ( ayni degerde eleman varsa sorted fonksiynu icinde ( break yoksa ) hepsini silecegimiz icin olmasi gereken index degerleri bos gelecektir. )
+for(jx=0;jx<x;jx++)
+if(cpyresortedc[jx]==maxarr[ix]){
+printf "\n%16s%s%s%s\n",resortedfirmx[jx]," ( x ",resortedfirmxc[jx]," )" >> "'${f6}'_firm"
+for(c=0;c<88;c++)
+printf "%c","=" >> "'${f6}'_firm" ; printf "%c","\n" >> "'${f6}'_firm"
+
+n=split(firmsallc[resortedfirmx[jx]],sortedfirmtopsep,RS);
+for(c=1;c<=n;c++){
+nn=split(sortedfirmtopsep[c],resortedfirmtopsep,FS);
+for(cc=1;cc<=nn;cc+=2)
+printf "%20s%16s\n",resortedfirmtopsep[cc],resortedfirmtopsep[cc+1] >> "'${f6}'_firm"
+}
+
+for(c=0;c<44;c++)
+printf "%c","-" >> "'${f6}'_firm" ; printf "%c","\n" >> "'${f6}'_firm"
+printf "%34s%2s","Toplam = ",cpyresortedc[jx] >> "'${f6}'_firm"
+print RS RS >> "'${f6}'_firm"
+}
+}
+}
+
+
+### SON ###
+
+
+
+
+
+####### BIRDEN FAZLA IP KULLANAN FIRMALAR #######
+
+
+for(samefirm in sameipfirms){
+split(samefirm,samefirmgsep,SUBSEP);
+searcharrfirm(sameipfirms,samefirmgsep[1])
+}
+
+
+for(samefirmx in samearrfirm){
+delete uniqipsfirm
+n=split(samearrfirm[samefirmx],samearrsep,RS)
+if(uniqfirms[samefirmx]>1){
+for(i=1;i<=n;i++)
+if(!(samearrsep[i] in uniqipsfirm)&&(samearrsep[i])){
+sortedipfirms[samefirmx]=sortedipfirms[samefirmx]?sortedipfirms[samefirmx] RS samearrsep[i]:samearrsep[i]
+uniqipsfirm[samearrsep[i]]
+}
+}
+}
+
+
+##### eleman sayilarini bulalim #####
+
+x=0
+for(firmips in sortedipfirms){
+n=split(sortedipfirms[firmips],sortediptopc,RS);
+resortedips[x++]=n
+cpyresortedips[x-1]=n
+resortedfirm[x-1]=firmips
+}
+
+
+############ eleman sayisina gore sort ygemici ##############
+
+ixx=0
+for(ix=0;ix<x;ix++){
+maxval=findmaxinend(resortedips,x);
+maxarr[ixx++]=maxval
+deletemaxindex(resortedips,x,maxval);
+}
+
+printf "\n%22s%46s%12s\n","Firma","IP Listesi","Sayi" >> "'$f1'"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'$f1'" ; printf "%c","\n" >> "'$f1'"
+
+for(ix=0;ix<ixx;ix++){
+if(maxarr[ix]){ # bos olan elemanlari getirme * ( ayni degerde eleman varsa sorted fonksiynu icinde ( break yoksa ) hepsini silecegimiz icin olmasi gereken index degerleri bos gelecektir. )
+for(jx=0;jx<x;jx++)
+if(cpyresortedips[jx]==maxarr[ix]){
+n=split(sortedipfirms[resortedfirm[jx]],sortediptopsep,RS);
+printf "\n%26s%52s%s%s\n",resortedfirm[jx],"( x ",n," )" >> "'$f1'"
+for(c=0;c<88;c++)
+printf "%c","=" >> "'$f1'" ; printf "%c","\n" >> "'$f1'"
+for(c=1;c<=n;c++)
+#if(sortediptopsep[c])]
+#printf "%70s",sortedipfirms[resortedfirm[jx]] >> "'$f1'"
+printf "%70s\n",sortediptopsep[c] >> "'$f1'"
+print RS >> "'$f1'"
+}
+}
+}
+
+
+################# SON ###################
+
+
+
+
+
+####### BIRDEN FAZLA USER KULLANAN IP LER #######
+
+for(samefirm in sameipfirms){
+split(samefirm,samefirmgsep,SUBSEP);
+searcharrip(sameipfirms,samefirmgsep[2])
+}
+
+
+for(sameipx in samearrip){
+delete uniqfirmsip
+n=split(samearrip[sameipx],samearrsep,RS)
+if(uniqips[sameipx]>1){
+for(i=1;i<=n;i++)
+if(!(samearrsep[i] in uniqfirmsip)){
+sortedfirmips[sameipx]=sortedfirmips[sameipx]?sortedfirmips[sameipx] RS samearrsep[i]:samearrsep[i]
+uniqfirmsip[samearrsep[i]]
+}
+}
+}
+
+
+##### eleman sayilarini bulalim #####
+
+x=0
+for(ipfirms in sortedfirmips){
+n=split(sortedfirmips[ipfirms],sortediptopc,RS);
+resortedfirms[x++]=n
+cpyresortedfirms[x-1]=n
+resortedip[x-1]=ipfirms
+}
+
+
+############ eleman sayisina gore sort ygemici ##############
+
+ixx=0
+for(ix=0;ix<x;ix++){
+maxval=findmaxinend(resortedfirms,x);
+maxarr[ixx++]=maxval
+deletemaxindex(resortedfirms,x,maxval);
+}
+
+
+
+printf "\n%22s%46s%12s\n","IP","Firma Listesi","Sayi" >> "'$f2'"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'$f2'" ; printf "%c","\n" >> "'$f2'"
+
+for(ix=0;ix<ixx;ix++){
+if(maxarr[ix]){ # bos olan elemanlari getirme * ( ayni degerde eleman varsa sorted fonksiynu icinde ( break yoksa ) hepsini silecegimiz icin olmasi gereken index degerleri bos gelecektir. )
+for(jx=0;jx<x;jx++)
+if(cpyresortedfirms[jx]==maxarr[ix]){
+n=split(sortedfirmips[resortedip[jx]],sortedfirmtopsep,RS);
+printf "\n%26s%52s%s%s\n",resortedip[jx],"( x ",cpyresortedfirms[jx]," )" >> "'$f2'"
+for(c=0;c<88;c++)
+printf "%c","=" >> "'$f2'" ; printf "%c","\n" >> "'$f2'"
+for(c=1;c<=n;c++)
+printf "%70s\n",sortedfirmtopsep[c] >> "'$f2'"
+print RS >> "'$f2'"
+}
+}
+}
+
+
+
+
+####### LOGIN ALAMAYAN FIRMALAR #######
+if(isEmpty(nologin)){
+printf "\n%27s%33s%20s\n","No_Login_IP","Connection Sayilari","Firma" >> "'$f4'"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'$f4'" ; printf "%c","\n" >> "'$f4'"
+}
+
+for(m in nologin)
+{
+for(samefirm in sameipfirms){
+split(samefirm,samefirmgsep,SUBSEP);
+if(samefirmgsep[2]==m&&(!(m in yesfirm))){
+yesfirm[m]
+searcharrip(sameipfirms,m)
+n=split(samearrip[m],samearrsep,RS)
+printf "%28s%24s\n",m,nologin[m] >> "'$f4'"
+for(i=1;i<=n;i++)
+if(!(samearrsep[i] in uniqnologinfirm)){
+uniqnologinfirm[samearrsep[i]]
+if(samearrsep[i])
+printf "%82s\n",samearrsep[i] >> "'$f4'"
+delete samearrip
+}
+for(c=0;c<88;c++)
+printf "%c","=" >> "'$f4'" ; printf "%c","\n" >> "'$f4'"
+}
+}
+}
+
+
+for(mm in nologin)
+{
+if(!(mm in yesfirm)){
+printf "%28s%24s\n",m,nologin[m] >> "'$f4'"
+for(c=0;c<88;c++)
+printf "%c","=" >> "'$f4'" ; printf "%c","\n" >> "'$f4'"
+}
+}
+print RS >> "'$f4'"
+
+
+
+### SON ###
+
+
+
+
+####### KULLANICI ADI BULUNAMAYAN FIRMALAR #######
+
+for(k in conn){
+delete uniqips
+searcharrip(sameipfirms,k)
+xx=lengthx(uniqips)
+if(xx==0)
+unknown[k]++
+}
+
+
+printf "\n%27s%33s\n","Firma Ismi Bulunamayan IP Listesi","( Sadece CONNECT )" >> "'$f3'"
+for(c=0;c<88;c++)
+printf "%c","-" >> "'$f3'" ; printf "%c","\n" >> "'$f3'"
+
+for(m in unknown)
+printf "%20s\n",m >> "'$f3'"
+print "" >> "'$f3'"
+
+### SON ###
+
+
+
+##### NOLOGIN SADECE CONNECT OLMUS FIRMALAR ######
+##### SCOM GIBI #####
+
+for(k in conn){
+for(n in nologin)
+if(nologin[n]==conn[k]&&(k in nologin))
+{
+printf "\n%s\n","[unknown]"
+printf "%38s%20s%30s\n",k,"CONNECTION_TOTAL",conn[k]
+outputterm(118,"=")
+}
+}
+
+### SON ###
+
+
+}' $ready_file > ${ready_file}_results
+
+
+######################
+
+rm -f $LCL/$FTPWD/ftp.tmp.*.log
+
+case $3 in
+1)cat $LCL/$FTPWD/iptop ;;
+2)cat $LCL/$FTPWD/usertop ;;
+3)cat $LCL/$FTPWD/unknowntop ;;
+4)cat $LCL/$FTPWD/ftpnologin ;;
+5)cat $LCL/$FTPWD/sameiploginfirms ;;
+6)cat $LCL/$FTPWD/topconlog_ip ;;
+7)cat $LCL/$FTPWD/topconlog_firm ;;
+all)if [ -z "$4" ]; then 
+cat $LCL/$FTPWD/${ready_file}_results 
+else
+firm=$4
+awk 'NR<5{print}$0~"'$firm'"{f=1;}/^ *$/{f=0;}f' ${ready_file}_results
+fi
+;;
+*)echo "Gecersiz parametre " ; msg ; exit 1 ;;
+esac
+
+
+####### FINISH ########

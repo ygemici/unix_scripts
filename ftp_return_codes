@@ -1,0 +1,25 @@
+#!/bin/bash
+# /********************************************************\
+# *     unix.com ftp return-codes   	                   *
+# *     @ygemici					   *
+# *     uses $HOME/.netrc for auto-login		   *
+# \********************************************************/
+arrayX=($@ ); ftpcmd="${arrayX[@]:1}";ok=0
+echo "$ftpcmd"|/usr/bin/ftp -v "${arrayX[0]}"> /tmp/tmpuxXXXX.ftp
+for i in get put ; do
+echo "$ftpcmd"|grep $i|grep -v m >/dev/null
+if [ $? -eq 0 ] ; then 
+for j in "File receive" "File send" ; do
+grep "$j" /tmp/tmpuxXXXX.ftp >/dev/null
+if [ $? -eq 0 ] ; then
+sed 'N;N;x;$!D' /tmp/tmpuxXXXX.ftp|sed -n '$s/ .*$//p';exit;fi
+done
+sed 'N;x;$!D' /tmp/tmpuxXXXX.ftp|sed -n '$s/ .*$//p';exit ;fi
+done
+for i in mget mput mdelete mdir mls; do
+echo "$ftpcmd"|grep $i >/dev/null; if [ $? -eq 0 ] ; then ok=1;fi
+done
+if [ $ok -eq 1 ] ; then 
+echo;echo "detected interactive command! ftp return code(s) maybe cant be determined!!";
+sed 'N;N;x;$!D' /tmp/tmpuxXXXX.ftp|sed -n '$p'
+else sed '$!N;$!D' /tmp/tmpuxXXXX.ftp|sed -n '1s/ .*$//p' ; fi

@@ -1,0 +1,498 @@
+##########################################
+### @ygemici ###
+##########################################
+
+#find /sys/ -name "host[0-9]*"|sed -n '/host2/s/.*\/.*:\(.*:.*\)\/host2/\1/p' > pcihost
+
+#for i in $(find /sys/ |awk -F'/' '/host/&&/scsi/{print $8,$9}'|sort|uniq|sed -n '/host/s/[0-9]*:\(.*\) host.*/\1/p');
+#do
+#lspci |grep $i|grep Fibre;
+#done
+
+#lspci -vv -s 24:00.0
+##########################################
+
+#FULL CIKTI
+#./mapdevs -gwtH
+
+# systool testi
+#systool -c fc_transport -v
+##############################################
+
+## iscsi disks IGNORED
+
+
+cd /tmp
+if [ $? -ne 0 ] ; then echo "/tmp folder is unavaliable !! " ; exit 1 ; fi
+
+# Disk Hosts
+ls -ltr /sys/class/ 2>/dev/null|awk '/host/&&NR>1{print $NF}' >source_hosts
+# Disk Parts
+ls -ltr /dev/sd* 2>/dev/null|awk '{sub("/dev/","",$NF);if($NF~"[1-9][0-9]*$")parts[$NF];else noparts[$NF]}END{for(i in noparts){for(p in parts)if(p~i)sdparts[i]++}for(j in sdparts)print j,sdparts[j];for(jj in noparts)if(!(sdparts[jj]))print jj,"0"}' >diskparts
+
+
+################################################
+# Disk Sources
+>localdisks
+>fcdisks
+
+for i in fc scsi usb
+do
+grep $i source_hosts >/dev/null
+if [ $? -eq 0 ] ; then
+case $i in
+scsi*|usb*)
+#ls -ltr /dev/disk/by-path/|awk 'NR>1&&!/fc/{split($(NF-2),disks,"-");printf "%s %s ",disks[2],disks[4];sub(".*/","",$NF);print $NF}' >localdisks
+
+## some fiber disk seem as local disk in VM !!
+ls -ltr /dev/disk/by-path/ 2>/dev/null|awk 'NR>1&&!/fc/{split($(NF-2),disks,"-");sub(".*/","",$NF);print disks[2],disks[4],$NF}' >localdisks
+;;
+
+fc*)
+ls -ltr /dev/disk/by-path/ 2>/dev/null|awk 'NR>1&&/fc/{split($(NF-2),disks,"-");sub(":.*","",disks[4]);;sub(".*/","",$NF);print disks[4]"[rport]",$NF}' >fcdisks
+
+# remote storage ports from proc
+#cat /sys/class/fc_transport/*/node_name 2>/dev/null >rports
+#ls -ltr /dev/disk/by-path/|awk 'NR>1&&/fc/{split($(NF-2),disks,"-");sub(":.*","",disks[4]);printf "%s %s ",disks[2],disks[4]"[rport]";sub(".*/","",$NF);print $NF}' >fcdisks
+#awk 'NR==FNR{a[$2]=$1;next}{if($1 in a)print $1"[rport]",$2}' rports fcdisks > full
+
+# fc host try
+>fullports ; 
+for host in $(ls -1d /sys/class/fc_host/host* 2>/dev/null|awk -F '/' '{print $NF}'); do 
+pci=$(find /sys/ -name "host[0-9]*"|sed -n '/'$host'/s/.*\/.*:\(.*:.*\)\/'$host'/\1/p');
+fabric=$(cat /sys/class/fc_host/$host/fabric_name 2>/dev/null);
+hostwwn=$(cat /sys/class/fc_host/$host/port_name  2>/dev/null)
+awk -vhost=$host -vpci="$(lspci -s $pci)" 'BEGIN{print host FS pci }' >> fullports
+
+for rport in $(ls -1d /sys/class/fc_host/$host/device/rport-*|awk -F'/' '{print $NF}'); do 
+grep -H "FCP" /sys/class/fc_remote_ports/$rport/roles 2>/dev/null|
+awk -F '/' -vhost="$host" -vhostwwn="$hostwwn" -vfabric="$fabric" '{print host,hostwwn"[host_wwn]->",fabric"[switch_port_wwn]->",$(NF-1)}'
+done
+done >> fullports
+;;
+esac
+fi
+done
+
+
+
+################################################
+
+# is enable multipath
+multipath -l > mpaths
+if [ -s mpaths ] ; then
+grep "kernel driver not loaded" mpaths >/dev/null
+if [ $? -ne 0 ] ; then
+multipath -l|awk '/sd/{print $3}' >withmpaths
+
+if [ ! -s withmpaths ] ; then
+echo "cannot be found the scsi disk in multipath"
+else
+if [ -s localdisks ] ; then
+awk 'NR==FNR{a[$NF];c++;next}{x=0;for(i in a)if($NF!~i)x++;if(x==c)nompath[$NF]}END{for(i in nompath)print i}' withmpaths localdisks >nompathlocal
+if [ -s nompathlocal ] ; then
+awk 'BEGIN{$62=OFS="=";print RS $0 RS "Local Disks(scsi/sas/fc(vm)) without Multipath" RS $0 RS}'
+cat nompathlocal
+awk 'BEGIN{$62=OFS="=";print RS $0 RS }'
+fi
+fi
+
+if [ -s fcdisks ] ; then
+awk 'NR==FNR{a[$NF];c++;next}{x=0;for(i in a)if($2!~i)x++;if(x==c)nompath[$2]}END{for(i in nompath)print i}' withmpaths fcdisks >nompathfc
+if [ -s nompathfc ] ; then
+awk 'BEGIN{$62=OFS="=";print RS $0 RS "Fc Disks without Multipath" RS $0 RS}'
+cat nompathfc
+awk 'BEGIN{$62=OFS="=";print RS $0 RS }'
+fi
+fi
+
+fi
+
+# multipath infos
+while read -r mpath ; do
+multipath -l $mpath|grep -E 'mpath|sd'|grep -v error
+done < mpaths > mpathsds
+
+# detect vm
+   lspci 2>/dev/null|grep -iE 'VM|VMware|HVM' >/dev/null 2>&1
+   if [ $? -eq 0 ] ; then
+   vm=ok
+   else
+   dmesg 2>/dev/null|grep -iE 'VMware|Virtuozzo|QEMU|KVM|Xen' >/dev/null 2>&1
+   if [ $? -eq 0 ] ; then
+   vm=ok
+   else
+   grep -iE 'VMware|Virtuozzo|QEMU|KVM|Xen' /proc/ide/hd*/model >/dev/null 2>&1
+   if [ $? -eq 0 ] ; then
+   vm=ok
+   fi
+   fi
+   fi
+
+# mpath infos
+ls -ltr /dev/mapper/mpath* 2>/dev/null |awk '{split($NF,mpathx,"/");print $5 $6,mpathx[4]}' >mpaths
+ls -ltr /dev/dm* 2>/dev/null |awk '{split($NF,mpathx,"/");print $5 $6,mpathx[3]}' >dms
+awk 'NR==FNR{a[$1]=$2;next}{if($1 in a)print $1,$2,a[$1]}' mpaths dms >full3
+
+################################
+if [ "$vm" = "ok" ] ; then
+awk 'NR==FNR{a[$NF]=$1;next}{if($0~/mpath/)print $0;else {for(i in a)if($0~i)print $2"[h:c:t:l]",$4,i,$5}}' localdisks mpathsds > full2
+awk 'NR==FNR{a[$1]=$NF;next}/mpath/{print}!/mpath/{if($NF~"[active]")x="ACTIVE PATH";else x="PASSIVE PATH";for(i in a){parts="";for(c=1;c<=a[i];c++)parts=parts FS i"["c"]";if($3==i)print $0,x,"[" ,i" ->"  parts" ]"}}' diskparts full2 >full4
+
+
+# MultiPath Details
+awk 'BEGIN{$35=OFS="=";print RS $0 " MultiPath Details " $0 }'
+awk 'NR==FNR{a[$NF]=$2 FS $1;next}
+!/mpath/{print}/mpath/{if($1 in a){ok[$1];printf "%s\n%c %s %s %c ", $0,"[",$1,a[$1],"]";for(i in a)if(!(i in ok))if(i~$1)printf " %c %s %s %c ","[",i,a[i],"]";}printf "%c","\n"}' full3 full4 > full5
+
+awk 'NR==FNR{host[$NF]=$1;hctl[$NF]=$2;next}/mpath/{if(/\[/)print $0; else {print RS $0;xx=0}}!/mpath/{split($1,hostx,"[");for(i in hctl)if(hctl[i]==hostx[1])if(!(hostx[1] in writes)){system("lspci -s " host[i]);writes[hostx[1]]} print "path["++xx"]" RS "\\_" $0}' localdisks full5
+awk 'BEGIN{$120=OFS="=";print RS $0}'
+
+
+else
+
+awk 'NR==FNR{a[$NF]=$1;next}{if($0~/mpath/)print $0;else {for(i in a)if($0~i)print a[i],$2"[h:c:t:l]",$4,i,$5}}' fcdisks mpathsds > full2
+awk 'NR==FNR{a[$1]=$NF;next}/mpath/{print}!/mpath/{if($NF~"[active]")x="ACTIVE PATH";else x="PASSIVE PATH";for(i in a){parts="";for(c=1;c<=a[i];c++)parts=parts FS i"["c"]";if($4==i)print $0,x,"[" ,i" ->"  parts" ]"}}' diskparts full2 >full4
+
+awk 'NR==FNR{a[$NF]=$3 FS $2 FS $1;next}
+{if($1 in a){printf "\n%30s\n%15s%15s",$0,"["a[$1]"]","[PARTITIONS]";for(i=0;i<=9;i++){if(a[$1"p"i])printf "%20s"," \\_ ["a[$1"p"i]"]"}printf "%s","\n"} else print}' full3 full4 >full5
+
+awk 'BEGIN{$120=OFS="=";print RS $0}'
+awk 'NR==FNR{if(!/wwn/){sub("host","",$1);x=$1;$1="";host[x]=$0;} else {$1="";;rport[$NF]=x;rports[$NF]=$0}next}
+/mpath/{if(!x)print "-------------------" RS RS "---mpath----";mpaths[x++]=$0;}/^\s*$/{wr=0;x=0;xx=0;print "";next;}!/mpath/{for(c=0;c<x;c++){if(!(mpaths[c] in write))print mpaths[c];write[mpaths[c]]};split($2,hostx,":");if(hostx[1] in host){if(wr==0){print "\nhost"hostx[1],host[hostx[1]];wr=1}};;for(i in rport)if(rport[i]==hostx[1]){j=i;sub("rport-","",i);sub("-",":",i);;if(i==hostx[1]":"hostx[2]":"hostx[3])print "path["++xx"]" RS rports[j] RS FS $0 }}END{print RS "-------------------" RS}' fullports full5
+
+awk 'BEGIN{$120=OFS="=";print RS $0}'
+
+# try gets the storage target ports from systool
+ok=$(which systool)
+if [ $? -eq 0 ] ; then
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Remote Target Ports " $0 RS }'
+systool -c fc_remote_ports -v|grep name >fc_rports
+awk '{x=$NF;;getline;nodes[$NF,FS]=x;}END{for(n in nodes){if(nodes[n]~"ffffffffffffffff")print "[ disabled remote target node ]->[ port="n"]"; else print "-> [ node="nodes[n]" ]","[ port="n"] <- Front_End_FC_Port"}}' fc_rports
+awk 'BEGIN{$78=OFS="=";print RS $0 RS }'
+fi
+fi
+
+
+################################
+
+
+# Multipath Disk Size
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Multipath Size " $0 RS }'
+#awk 'BEGIN{$38=OFS="=";print RS RS $0 RS "Size" RS $0}'
+multipath -l|awk '/mpath/{x=$1;getline;sub("size=","",$1);sub(".features=.*","",$1);a[x]=$1}
+END{for(i in a)print i,a[i]}'
+
+awk 'BEGIN{$62=OFS="=";print RS $0 RS }'
+df -hP|awk 'NR==1{printf "%-30s %20s %8s %8s %8s %18s\n",$1,$2,$3,$4,$5,$6}'
+awk 'BEGIN{$120=OFS="=";print $0 RS }'
+df -hP|awk '/mpath/||/dm/{printf "%-30s %20s %8s %8s %8s %18s\n",$1,$2,$3,$4,$5,$6}'
+awk 'BEGIN{$62=OFS="=";print RS $0 RS }'
+
+else
+awk 'BEGIN{$25=OFS="=";print RS $0 RS }'
+echo "No Multipath Disks !! "
+awk 'BEGIN{$25=OFS="=";print RS $0 RS }'
+echo
+fi
+fi
+########################################### Full Diskler ??
+
+########################################### Multipathsiz FC Diskler varsa ??
+
+# Full Disk Size
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Size " $0 RS }'
+df -hP|awk 'NR==1{printf "%-50s %20s %8s %8s %8s %18s\n",$1,$2,$3,$4,$5,$6}'
+awk 'BEGIN{$120=OFS="=";print $0 RS }'
+df -hP|awk 'NR>1{printf "%-50s %20s %8s %8s %8s %18s\n",$1,$2,$3,$4,$5,$6}'
+awk 'BEGIN{$62=OFS="=";print RS $0 RS }'
+
+# Full Disks
+# cat localdisks fcdisks >full2 2>/dev/null
+
+# Ornek USB view
+## /dev/disk/by-path/pci-0000:00:1a.7-usb-0:3:1.0-scsi-0:0:0:0
+
+# awk 'NR==FNR{a[$1]=$NF;next}/mpath/{print}!/mpath/{if($NF~"[active]")x="ACTIVE PATH";else x="PASSIVE PATH";for(i in a)if($4==i)print $0,x,"[device has " a[i] " partitons]"}' diskparts full2 > full4
+
+
+# full disks
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Disk Devices " $0 }'
+cat /proc/partitions >proc_parts
+
+awk '$3==1' proc_parts |grep "" >/dev/null
+if [ $? -eq 0 ] ; then
+for part in $(awk '$3==1{print $NF}' proc_parts)
+do
+parentpart=$(echo $part|sed 's/[0-9]*$//g')
+part_info=$(fdisk -l 2>/dev/null |grep $parentpart|grep $part|awk '{print $NF}')
+part=$(echo $part|sed 's/\//\\\//g')
+part_info=$(echo $part_info|sed 's/\//\\\//g')
+sed 's/\(.*\) 1 '$part'/\1 '$part_info' '$part'/' proc_parts >proc_parts.tmp ; mv proc_parts.tmp proc_parts
+done
+fi
+
+# awk 'NR>2&&!/dm/&&!/loop/{if($NF~"/")sub(".*/","",$NF);a[$NF]=$3;b[$NF]="("$1","$2")";}NR>2&&!/sd/&&!/c.d/{x=$NF;sub("[0-9].*","",x);if(j~x)print $NF,$3/1024/1024" GB","("$1","$2")";else print RS $NF,$3/1024/1024" GB","("$1","$2")" ;j=$NF}END{print "";x=0;for(i in a){xx=0;if(i!~"[1-9][0-9]*$")for(k in a){if(k==i){disk[x]=i;disksize[x]=a[i]/1024/1024" GB";x++}else{if(k~i"p*[1-9][0-9]*$"){subdisk[i xx]=k;subdisksize[i xx]=a[k]/1024/1024" GB";;xx++;}}arr[i]=xx;}};for(xxx=0;xxx<x;xxx++){if(disk[xxx] in b)print disk[xxx],disksize[xxx],b[disk[xxx]];for(c in arr)if(disk[xxx]==c){for(xxxx=0;xxxx<arr[c];xxxx++){if(subdisk[disk[xxx] xxxx] in b)print "\\_" subdisk[disk[xxx] xxxx],subdisksize[disk[xxx] xxxx],b[subdisk[disk[xxx] xxxx]]};print ""}}}' proc_parts >parts_ready
+
+
+awk 'NR>2&&!/dm/&&!/loop/{a[$NF]=$3;b[$NF]="("$1","$2")";}NR>2&&!/sd/&&!/cciss/&&!/c.d/{x=$NF;sub("[0-9].*","",x);if(j~x)print $NF,$3/1024/1024" GB","("$1","$2")";else print RS $NF,$3/1024/1024" GB","("$1","$2")" ;j=$NF}END{print "";x=0;for(i in a){xx=0;if(i!~"[1-9][0-9]*$")for(k in a){if(k==i){disk[x]=i;disksize[x]=a[i]/1024/1024" GB";x++}else{if(k~i"p*[1-9][0-9]*$"){subdisk[i xx]=k;subdisksize[i xx]=a[k]/1024/1024" GB";;xx++;}}arr[i]=xx;}};for(xxx=0;xxx<x;xxx++){if(disk[xxx] in b)print disk[xxx],disksize[xxx],b[disk[xxx]];for(c in arr)if(disk[xxx]==c){for(xxxx=0;xxxx<arr[c];xxxx++){if(subdisk[disk[xxx] xxxx] in b)print "\\_" subdisk[disk[xxx] xxxx],subdisksize[disk[xxx] xxxx],b[subdisk[disk[xxx] xxxx]]};print ""}}}' proc_parts >parts_ready
+
+#awk 'NR>2&&!/dm/{if($NF~"/")sub(".*/","",$NF);a[$NF]=$3;b[$NF]="("$1","$2")";}END{x=0;for(i in a){xx=0;if(i!~"[1-9][0-9]*$")for(k in a){if(k==i){disk[x]=i;disksize[x]=a[i]/1024/1024" GB";x++}else{if(k~i"p*[1-9][0-9]*$"){subdisk[i xx]=k;subdisksize[i xx]=a[k]/1024/1024" GB";;xx++;}}arr[i]=xx;}};for(xxx=0;xxx<x;xxx++){if(disk[xxx] in b)print disk[xxx],disksize[xxx],b[disk[xxx]];for(c in arr)if(disk[xxx]==c){for(xxxx=0;xxxx<arr[c];xxxx++){if(subdisk[disk[xxx] xxxx] in b)print "\\_" subdisk[disk[xxx] xxxx],subdisksize[disk[xxx] xxxx],b[subdisk[disk[xxx] xxxx]]};print ""}}}' proc_parts >parts_ready
+
+cat /proc/mounts >proc_mounts
+
+awk 'NR==FNR{if(/\\_/)sub(/\\_/,"",$1);if(NF)a[$1];next}{sub("/dev/","",$1);for(i in a)if(i~$1)print i,$3}' parts_ready proc_mounts > fs_mounts
+
+
+if [ ! -s fs_mounts ] ; then
+awk '!/^\s*$/{if(/\\_/)sub(/\\_/,"",$1);print $1}' parts_ready > unknown_devs
+cat parts_ready > fullview_sd
+else
+
+awk 'NR==FNR{a[$1]=$2;next}
+{if(/\\_/){
+sub(/\\_/,"",$1);
+if($1 in a)print "\\_" $0,a[$1]
+else print "\\_" $0}
+else {
+if($1 in a)print $0,a[$1]
+else print}
+}' fs_mounts parts_ready > fullview_sd
+
+awk '$5==""&&!/^\s*$/{if(/\\_/)sub(/\\_/,"",$1);print $1;}' fullview_sd > unknown_devs
+fi
+
+#awk 'NR==FNR{a[$1];next}{if(/\\_/){x=$1;sub(/\\_/,"",$1)}if(NF)if(!($1 in a))print $1}' fs_mounts parts_ready > unknown_fs_devices
+#
+
+if [ -s unknown_devs ] ; then
+ls -1 /lib*/modules/$(uname -r)/kernel/fs > support_fs
+awk '$2==""{print $1}$2!=""{print $2}' /proc/filesystems >> support_fs
+awk '{a[$1]}END{for(i in a)print i;print "boot" RS "swap" RS "LVM";for(i=2;i<=3;i++)print "LVM"i}' support_fs > support_fs_uniq
+
+
+while read -r device ; do
+file -sL "/dev/"$device >test.fs
+x=0
+wcx=$(awk 'END{print NR}' RS=" "  test.fs)
+fs=""
+for i in $(awk '1' RS=" " test.fs )
+do
+grep "$i\b" support_fs_uniq >/dev/null
+if [ $? -eq 0 ] ; then
+if [ "$i" = "boot" ] ; then
+fs=$(awk -F":" '{split($2,disk," ");for(i=1;i<=20;i++){if((disk[i]~";")||(disk[i]~","))c++;if(c==2)break};for(k=1;k<=i;k++){if((disk[k]~";")||(disk[k]~","))sub("[;,]","",disk[k]);if(disk[k])if(k!=i)printf "%s%c" ,disk[k],"_";else printf "%s\n",disk[k]}}' test.fs )
+fi
+[ ! -z "$fs" ] && i="$fs"
+device=$(echo "$device"|sed 's/\//\\\//g')
+i=$(echo "$i"|sed 's;[()];;g'|sed 's/\//\\\//g')
+sed '/'$device'\b/s/$/ '$i' /' fullview_sd > fullview_sd.new
+mv fullview_sd.new fullview_sd
+break
+else
+((x++))
+fi
+done
+if [ $x -eq $wcx ] ; then
+#fs=$(echo "$fs"|sed 's/[(!)]/\\&/g')
+fsuns=$(awk -F':' '{$1="";print $0}' test.fs)
+line=$(awk '/'$device'/{print NR;exit}' fullview_sd)
+awk -v b="$fsuns" -v line=$line 'NR==line{print $0,b"( unsupported fs !! )"}NR!=line{print}' fullview_sd > fullview_sd.new
+mv fullview_sd.new fullview_sd
+fi
+done <unknown_devs
+fi
+
+
+cat fullview_sd >parts_ready
+
+
+
+# with multipath
+if [ -s full4 ] ; then
+# multipath and disk devices mix
+awk '{x=$3;while(getline)if(!/mpath/){if($3~":")dms[$4]=x;else dms[$3]=x}else x=$3}END{for(i in dms)print i,dms[i]}' full4 > full4_dms
+
+#awk 'NR==FNR{a[$2]=$1;next}{b[$2]=$3;}END{for(i in b){cc=0;for(j in b)if((b[j]~b[i])&&(b[i]!=b[j])){cc++;if(cc>1)c[i]=c[i]FS j"("b[j]")"; else c[i]=c[i]?c[i] FS i"("b[i]")" FS j"("b[j]")":i"("b[i]")" FS j"("b[j]")"}}for(i in c)for(k in a)if(i==k)print a[k],c[i]}' full4_dms full3 > full4_dms_sd
+
+awk 'NR==FNR{a[$2]=$1;next}{b[$2]=$3;}END{for(i in b){cc=0;for(j in b)if((b[j]~b[i])&&(b[i]!=b[j])){cc++;if(cc>1)c[i]=c[i]FS j"( "b[j]" ->)"; else c[i]=c[i]?c[i] FS i"( "b[i]" ->)" FS j"( "b[j]" ->)":i"( "b[i]" ->)" FS j"( "b[j]" ->)"}}for(i in c)for(k in a)if(i==k){printf "%s ",a[k];n=split(c[i],dms,"->");for(jj=1;jj<n;jj++){if(dms[jj]!~/mpath.*p/)printf "%s ",dms[jj]"-> " a[k]; else {x=dms[jj];;sub(/.*mpath.*p/,"",dms[jj]);sub(" ","",dms[jj]);;printf "%s ", x "-> " a[k] dms[jj]}}; printf "%s",")\n"}}' full4_dms full3 > full4_dms_parts
+
+# complete view
+#awk 'NR==FNR{x=$1;$1="";sub("^ ","");a[x]=" \\_"$0;next}FNR>1{if($1 in a){xx=RS $0 RS a[$1]} else xx=xx?xx:xx RS $0};!/NF/{printf "%s",xx;xx=""}' full4_dms_parts parts_ready
+
+# detail view
+# without gsub support
+awk '{$1="";$0=$0;for(i=1;i<=NF;i++){if($i~"dm-")c++};for(j=1;j<=c;j++)sub("\\(","");$1=$1}1' full4_dms_parts| awk -v RS=")" '1' > full4_dms_parts_revise
+#awk 'NR==FNR{if(NF)a[$NF]="("$2" = "$1")";next}/\\_/{x=$1;sub(/\\_/,"",x);if(x in a)print $0 RS FS FS "\\_"a[x];else print "\\_" $0}!/\\_/{if($1 in a)print $0 RS FS "\\_"a[$1];else print }' full4_dms_parts_revise parts_ready
+
+awk 'NR==FNR{if(NF)a[$NF]="("$2" = "$1")";next}/\\_/{x=$1;sub(/\\_/,"",x);if(x in a)print $0 RS FS FS "\\_"a[x];else print $0}!/\\_/{if($1 in a)print $0 RS FS "\\_"a[$1];else print }' full4_dms_parts_revise parts_ready
+
+awk 'BEGIN{$70=OFS="=";print RS $0 RS }'
+
+else
+
+cat parts_ready
+
+awk 'BEGIN{$70=OFS="=";print RS $0 RS }'
+fi
+
+# without multipath ( lvs ? )
+
+# is enable lvm
+lvs 2>/dev/null >lvsthis
+if [ -s lvsthis ] ; then
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Logical Volumes " $0 RS }'
+
+lvs | awk 'NR>1{a[$2]=a[$2]?a[$2] RS "\\_" $1 FS $4 FS : RS "\\_" $1 FS $4 FS}END{for(i in a)print i,a[i],RS}' >lvs1
+
+while read -r vg size; do echo "$vg"|grep "\\\_" >/dev/null; if [ $? -eq 0 ] ; then 
+vgx=$(echo "$vg"|sed 's/\\_//')
+dmx=$(ls -ltr /dev/*|grep "$vgx"|awk 'END{sub("../","",$NF);print $NF}')
+majmin=$(ls -ltr /dev/|awk '$NF=="'$dmx'"&&!/^l/{print "("$5 $6")"}')
+echo $vg $dmx $size $majmin
+else echo $vg $size
+fi
+done <lvs1 >lvs2
+pvs | awk 'NR>1' >pvs1
+awk 'NR==FNR{if($(NF-4)~"/dev/"){x++;a["empty_vol"x]=$1;b["empty_vol"x]=$(NF-1)};a[$2]=$1;b[$2]=$5;next}{if($1 in a){sub("/dev/","",a[$1]);print $1,"("a[$1]")",b[$1]} else print;}END{for(i in a)if(i~"empty")print "NO VG" RS a[i],b[i]}' pvs1 lvs2 > fullview_lvm
+cat fullview_lvm
+
+awk 'BEGIN{$80=OFS="=";print RS $0 RS }'
+
+
+# extra full info
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Full Disk info " $0 RS }'
+
+#awk 'NR==FNR{if(NF)if(!/\\_/){sub("\\(","",$2);sub("\\)","",$2);x=$2;}if(/\\_/)a[x]=a[x]?a[x]RS FS $0:$0;;next}{if(!/\\_/){if($1 in a)print $0 RS FS a[$1];else print} else {sub(/\\_/,"",$1);if($1 in a)print "\\_" $0 RS FS a[$1];else print }}' fullview_lvm parts_ready
+
+awk 'NR==FNR{if(NF)if(!/\\_/){sub("\\(","",$2);sub("\\)","",$2);x=$2;};if(/\\_/)a[x]=a[x]?a[x]RS FS $0:$0;;next}{if(!/\\_/){if($1 in a)print $0 RS FS a[$1];else print} else {sub(/\\_/,"",$1);if($1 in a)print "\\_" $0 RS FS a[$1]; else print "\\_" $0 }}' fullview_lvm parts_ready > parts_ready_2
+
+
+awk 'NR==FNR{if(NF&&/dm/)a[$1]=$NF;next}NR!=FNR{if(/\\_/){if($2 in a)print $0,a[$2] ; else print $0} else print $0 }' parts_ready parts_ready_2
+
+
+awk 'BEGIN{$72=OFS="=";print RS $0 RS }'
+
+fi
+
+
+# dmsetup
+dmsetup ls --tree 2>/dev/null >dms
+if [ -s dms ] ; then
+grep "No devices" dms >/dev/null 
+if [ $? -ne 0 ] ; then
+ls -ltr /dev/|sed 's/,//' >alldevs
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Device Mapper " $0 RS }'
+awk '{split($NF,majmin,":");sub("\\(","",majmin[1]);sub("\\)","",majmin[2]);print $1,majmin[1],majmin[2]}' dms|
+while read -r vg maj min ; do awk -vvg=$vg -vmaj=$maj -vmin=$min '$5==maj&&$6==min{print vg,"("maj":"min")",$NF}' alldevs; done
+awk 'BEGIN{$71=OFS="=";print RS $0 RS }'
+fi
+fi
+
+# lsblk
+lsblk -f 2>/dev/null >lsblocks
+if [ -s lsblocks ] ; then
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Block Devices " $0 RS }'
+lsblk -f
+awk 'BEGIN{$71=OFS="=";print RS $0 RS }'
+fi
+
+
+# Loop Devices
+grep loop proc_mounts 2>/dev/null >loops
+if [ -s loops ] ; then
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Loop Devices " $0 RS }'
+awk '{print $2}' loops >loops_mnts
+df -hP|awk 'NR==1{printf "%-50s %20s %8s %8s %8s %18s\n",$1,$2,$3,$4,$5,$6}'
+awk 'BEGIN{$120=OFS="=";print $0 RS }'
+while read -r mounts ; do 
+df -hP $mounts|awk 'END{print}'
+done<loops_mnts >loops_mtns_revise
+awk '{printf "%-50s %20s %8s %8s %8s %18s\n",$1,$2,$3,$4,$5,$6}' loops_mtns_revise
+awk 'BEGIN{$70=OFS="=";print RS $0 RS }'
+fi
+
+
+
+# block devices
+#ls -ltr /sys/block/*/device|awk '/pci/{if(!/cciss/){split($(NF-2),hosttarget,"/");n=split($NF,pcihosttarget,"/");f=6;if(pcihosttarget[f]!~"host"&&!/ide/)x=++f;else x=f;if(pcihosttarget[x]~"ide")pcihosttarget[x]="Ide";if(/sr/||/cd/)pcihosttarget[5]=pcihosttarget[6];printf "%-12s %6s %8s %4s\n",pcihosttarget[5],pcihosttarget[x],pcihosttarget[n],hosttarget[4]};if(/cciss/){split($(NF-2),hosttarget,"/");split(hosttarget[4],hosttargetsplit,"!");;n=split($NF,pcihosttarget,"/");printf "%-12s %6s %8s %4s\n",pcihosttarget[n],hosttargetsplit[1],"Raid",hosttargetsplit[2];}}' > devices
+
+>devices
+
+ls -ltr /sys/block/*/device|awk '/ide/{split($(NF-2),hosttarget,"/");f=4;n=split($NF,idehosttarget,"/");while(idehosttarget[f]!~"ide")f++;print idehosttarget[f-1],idehosttarget[f],idehosttarget[n],hosttarget[4];exit}/pci/&&!/cciss/{split($(NF-2),hosttarget,"/");c=6;n=split($NF,pcihosttarget,"/");while(pcihosttarget[c]!~"host")c++;;print pcihosttarget[c-1],pcihosttarget[c],pcihosttarget[n],hosttarget[4]}/cciss/{split($(NF-2),hosttarget,"/");split(hosttarget[4],hosttargetsplit,"!");;n=split($NF,pcihosttarget,"/");printf "%-12s %6s %8s %4s\n",pcihosttarget[n],hosttargetsplit[1],"Raid",hosttargetsplit[2];}' >devices
+
+
+if [ ! -s devices ] ; then
+ls -ltr /sys/block/*/device|awk '{n=split($NF,targets,"/");c=split($(NF-2),disks,"/");print targets[n],disks[c-1]}' >blockdevs
+ls -dltr /sys/bus/pci/devices/*/host*/target*|awk '{n=split($NF,targets,"/");f=4;while(targets[f]!~"host")f++;print targets[n],targets[f],targets[f-1]}' >devs
+awk 'BEGIN{x=":"}NR==FNR{split($1,target,x);xx=target[1] x target[2] x target[3];a[xx]=$NF;next}{sub("target","",$1);if($1 in a)print $NF,$2,$1,a[$1]}' blockdevs devs >devices
+fi
+
+if [ ! -s devices ] ; then
+echo "We cannot found any devices , script maybe need to update !! "
+exit 1
+fi
+
+grep -E 'ide|hda|ata|sr' devices >/dev/null
+if [ $? -eq 0 ] ; then
+dmesg_ide=$(awk '{print $NF}' devices|grep -E 'ide|hda|ata|sr')
+#ide_bus=$(dmesg|grep -Ei '\bide\b|\bata\b'|grep '.*:.*:.*'|sed -n 's/.* \(.*:.*:.*\):.*/\1/p'|sort|uniq)
+ide_bus=$(dmesg|grep -Ei '\bide\b|\bata\b'|grep '.*:.*:.*'|grep -i pci|sed -n 's/.* \(.*:.*:.*\)/\1/p'|sort|uniq)
+cc=$(echo "$ide_bus"|wc -l )
+if [ $cc -gt 1 ] ; then
+echo "Multiple IDE controller ? !!! "
+echo "Unfortunately script cares only 1 IDE controller !!! "
+ide_bus=$(echo "$ide_bus"|sed -n '1p')
+fi
+
+
+sed '/ide/s/[^ ]* \(.*\)/'$ide_bus' \1/' devices >devices.tmp ; mv devices.tmp devices
+
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " IDE/ATA info " $0 RS }'
+dmesg_ide=$(awk '{print $NF}' devices|grep -E 'ide|hda|ata|sr')
+for i in $dmesg_ide
+do
+dmesg|grep -Ei $i
+done
+dmesg|grep -E 'CD-ROM|CDROM|CDRW'
+awk 'BEGIN{$70=OFS="=";print RS $0}'
+fi
+
+
+# Udevinfo
+for i in $(awk '{print $NF}' devices)
+do 
+which udevinfo >/dev/null 2>&1
+[ $? -eq 0 ] && udevinfo=udevinfo || udevinfo="udevadm info"
+k=$($udevinfo -a -p /block/$i|awk -F"=" '/vendor/||/model/||/media/{printf "%s ",$NF}')
+if [ ! -z "$k" ] ; then
+sed '/'$i'/s/$/ '"($k)"'/' devices >devices.tmp ; mv devices.tmp devices
+fi
+done
+
+
+echo|awk 'BEGIN{$120=OFS="=";printf "%s%s%s%s%s%s%s",RS,RS,RS,"Pci:<bus>:<slot>.<func> -  Host - Host:<bus>:<target>.<lun> - Disk_device\n",$0,RS,RS}{if(p!=$1)system("lspci -s " $1);print "\\_"  $0;p=$1}' devices
+#{printf "%16s%16s%14s%24s\n",$1,$2,$3,$4}' devices
+
+awk 'BEGIN{$120=OFS="=";print RS $0 RS}'
+
+
+######################################### #########################################
+
+# search parts from scsi id ??? ( but some problems may be occured about udev implementations ? )
+
+# ls -ltr /dev/disk/by-id/scsi*|sed 's/.*\/dev\/disk\/by-id\/scsi-\(.*\) ->.*\/\(.*\)$/\1 \2/' > scsiids
+
+######################################### #########################################
+
+
+
+# try mapdevs
+mapdevsx=$(find $HOME -name "mapdevs" -type f -perm -544 -exec ls -ltr {} \; |awk 'END{print $NF}' 2>/dev/null)
+if [ ! -z "$mapdevsx" ] ; then
+awk 'BEGIN{$28=OFS="=";print RS RS $0 " Mapdevs info " $0 RS }'
+$mapdevsx -gxpw 2>/dev/null
+awk 'BEGIN{$70=OFS="=";print RS $0 RS}'
+fi
+
+

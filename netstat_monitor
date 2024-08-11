@@ -1,0 +1,940 @@
+# @ygemici unix.com
+# ./suptime Remote_Addr Local_Port Local_Addr
+# ./suptime 192.168.56.1 22 192.168.56.4
+# ./suptime 192.168.56.1 22 192.168.56.4 10
+# ./suptime 192.168.56.1 22 192.168.56.4 10 1 [ 10 defa 1 sn araliklarla ]
+
+# version update : 14/07/2016
+# version update : 15/07/2018
+
+
+#echo PORTLU CALISMIYOR
+#./netstatv2.sh 127.0.0.1 25 127.0.0.1 40 1
+# nc 127.0.0.1 25 &
+
+function go() {
+
+ # Socket Unix Zamanini aliyoruz
+ time=$(find /proc/$pid/fd/ -lname "socket:\[$inodex\]" -printf "%A@\n" -quit 2>/dev/null )
+
+ if [ $? -eq 0 ] ; then
+ stime=$(printf '%.2fs\n' $(bc <<<"$(date +%s.%N) - $time"))
+## (standard_in) 2: syntax error for bc is not reading the "'$time'" value ##
+
+ # saniye bilgisini tarih formatina çeviriyoruz v.2
+ sdaytime=$(echo|awk -va="$stime" 'BEGIN{;ORS="";;
+ day=a/3600/24;;hour=a/3600%24;minute=(a%3600)/60;saniye=a%60;
+ printf "%d %2s %d %2s %d %2s %d %2s", day,"gun",hour,"saat",minute,"dk",saniye,"sn";}')
+
+echo "$nstat"|grep "off" >/dev/null 2>&1 && printf "%s %18s %8s %s %4s %12s\n" "$nstat" "->" "$stime" "=" "$sdaytime" 2>/dev/null
+echo "$nstat"|grep "keepalive"  >/dev/null 2>&1 && printf "%s %9s %8s %s %4s %14s\n" "$nstat" "->" "$stime" "=" "$sdaytime" "[ keepalive ]" 2>/dev/null
+echo "$nstat"|grep "on"  >/dev/null 2>&1 && printf "%s %18s %8s %s %4s %20s\n" "$nstat" "->" "$stime" "=" "$sdaytime" "[ retransmission ]" 2>/dev/null
+
+#printf '%.2fs\n' $(bc <<<"$(date +%s.%N) - $time")
+else
+awk 'BEGIN{$82=OFS="-";print}'
+ echo "-> Process and inode [$inodex] was closed! for [$laddr:$m_lport] local and for [$raddr:$dec_rport] remote address"
+awk 'BEGIN{$82=OFS="-";print}'
+ #echo "Process and inode [$inodex] was closed! for [:$dec_rport] local and for [:$m_lport] remote port"
+#awk 'BEGIN{$52=OFS="-";print}'
+fi
+}
+
+
+function checkstate() {
+others="";othersandestabs="";testothers="";testestabs="";
+#get_allports;
+oldports=( $( get_allports; ) )
+
+if [ ! -z "$nosocketp" ] && [ -z "$nosocket" ] ; then
+echo
+awk 'BEGIN{$35=OFS="-";print $0 }'
+echo -en "-> There are some new connections!!";
+echo -en "\r"
+echo
+awk 'BEGIN{$35=OFS="-";print $0 RS}'
+#printf "\n%s %5s %s %10s %23s %26s %9s %26s %37s\n" "Proto" "Recv-Q" "Send-Q" "Local" "Remote" "State" "Pid" "TCP timers" "Socket times-new"
+#awk 'BEGIN{$156=OFS="=";print}'
+fi
+
+
+oldtoken=""
+if [ ! -z "$token" ] && [ -z "$tokendenied" ] ; then
+printf "\n%s %5s %s %10s %23s %26s %9s %26s %37s\n" "Proto" "Recv-Q" "Send-Q" "Local" "Remote" "State" "Pid" "TCP timers" "Socket times_new2"
+awk 'BEGIN{$156=OFS="=";print}'
+oldtoken=$token
+token=""
+tokendenied=1
+fi
+
+
+testestabs=$( netstat -ant |awk '$4~"'$laddr:'" && $5~"'$raddr:'" && ($6=="SYN_SENT"||$6=="CLOSE_WAIT"||$6=="LISTEN"||$6=="ESTABLISHED"){print "ok";exit}' )
+if [ ! -z "$testestabs" ] ; then
+((l++))
+if [ $l -eq 1 ] && [ -z "$oldtoken" ] ; then
+printf "\n%s %5s %s %10s %23s %26s %9s %26s %37s\n" "Proto" "Recv-Q" "Send-Q" "Local" "Remote" "State" "Pid" "TCP timers" "Socket times-3"
+awk 'BEGIN{$156=OFS="=";print}'
+fi
+((ll++))
+if [ $((ll%3)) -eq 1 ] && [ $ll -gt 1 ] && [ -z "$oldtoken" ] ; then
+printf "\n%s %5s %s %10s %23s %26s %9s %26s %37s\n" "Proto" "Recv-Q" "Send-Q" "Local" "Remote" "State" "Pid" "TCP timers" "Socket times-32"
+awk 'BEGIN{$156=OFS="=";print}'
+fi
+
+establisheds #"$raddr" "$f_laddrs" "$f_lports";
+#printf "%72s\n" "-"
+#get_allports
+fi
+
+oldportsnew=( $( get_allports; ) )
+get_closed
+
+
+testothers=$(netstat -ant |awk '$4~"'$laddr:'" && $5~"'$raddr:'" && ($6!="SYN_SENT"&&$6!="CLOSE_WAIT"&&$6!="LISTEN"&&$6!="ESTABLISHED"){print "ok";exit}' )
+if [ ! -z "$testothers" ] ; then
+((ff++))
+if [ $ff -eq 1 ] ; then
+[ ! -z "$testestabs" ] && printf "%72s\n" "-"
+#if [ -z "$testestabs" ] ; then
+printf "\n%s %5s %s %10s %23s %26s %9s %26s\n" "Proto" "Recv-Q" "Send-Q" "Local" "Remote" "State" "Pid" "TCP timers2"
+awk 'BEGIN{$156=OFS="=";print}'
+fi
+
+((xx++))
+
+testestabs=$( netstat -ant |awk '$4~"'$laddr:'" && $5~"'$raddr:'" && ($6=="SYN_SENT"||$6=="CLOSE_WAIT"||$6=="LISTEN"||$6=="ESTABLISHED"){print "ok";exit}' )
+if [ -z "$testestabs" ] ; then
+tokendenied=""
+if [ $((xx%3)) -eq 1 ] && [ $xx -gt 3 ] ; then
+#echo why 444 $ff
+printf "\n%s %5s %s %10s %23s %26s %9s %26s\n" "Proto" "Recv-Q" "Send-Q" "Local" "Remote" "State" "Pid" "TCP timers"
+awk 'BEGIN{$156=OFS="=";print}'
+fi
+netstat -antop |awk '$4~"'$laddr:'" && $5~"'$raddr:'" && ($6!="SYN_SENT"&&$6!="CLOSE_WAIT"&&$6!="LISTEN"&&$6!="ESTABLISHED")'
+token=""
+else
+token=1
+netstat -antop |awk '$4~"'$laddr:'" && $5~"'$raddr:'" && ($6!="SYN_SENT"&&$6!="CLOSE_WAIT"&&$6!="LISTEN"&&$6!="ESTABLISHED")'
+fi
+
+fi
+
+
+printf "%72s\n" "-"
+
+
+#get_allports;
+#oldportsnew=( $( get_allports; ) )
+#get_closed
+
+}
+
+
+function get_allports() {
+netstat -ant|awk '$4~"'$laddr:'" && $5~"'$raddr:'"{split($4,a,":");split($5,b,":");if(b[2]=="*")b[2]="0000";;print a[2]"_"b[2]}' | while read m_lport_rport
+do
+echo $m_lport_rport
+#[ ${#f_allports[@]} -eq 0 ] && f_allports=( $m_lport_rport ) || f_allports=( "${f_allports[@]}" $m_lport_rport )
+#f_allports=( "${f_allports[@]}" $m_lport_rport )
+done
+}
+
+diffx() {
+awk 'BEGIN{RS=ORS=" "}
+NR==FNR{a[$1]}NR!=FNR{a[$1];b[$1]}
+END{for(k in a)if(!(k in b)&&(k in a))print k}' <(echo -n "${!1}") <(echo -n "${!2}")
+}
+
+
+function get_closed() {
+#oldports=( "${f_laddrports[@]}" )
+
+closed_ports=( $(diffx oldports[@] oldportsnew[@]}) )
+#echo 1= "${oldports[@]}"
+#echo 2= "${oldportsnew[@]}"
+
+c_closed_ports=${#closed_ports[@]}
+if [ $c_closed_ports -ne 0 ] ; then
+for((i=0;i<$c_closed_ports;i++))
+do
+echo "${closed_ports[i]}"|awk '{split($1,a,"_");print a[1],a[2]}'|while read lport rport ; do
+awk 'BEGIN{$82=OFS="-";print}'
+echo "-> Process was closed! for [:$lport] local and [:$rport] remote port and for [:$laddr] local and [:$raddr] remote address"
+awk 'BEGIN{$82=OFS="-";print}'
+done
+done
+fi
+
+}
+
+function establisheds() {
+
+# Remote IP YI HEX CEVIR
+hex_raddr=$(echo "$raddr"|awk -F'.' '{for(i=NF;i>=1;i--)printf "%0.2X",$i;}')
+hex_laddr=$(echo "$laddr"|awk -F'.' '{for(i=NF;i>=1;i--)printf "%0.2X",$i;}')
+
+
+for((i=0;i<$c_f_lports;i++))
+do
+m_lport=${f_laddrports[i]}
+
+##PORT HEX e CEVIR
+hex_lport=$(echo "$m_lport"|awk '{printf "%0.4X",$1;}')
+
+# oldinodes=( ${inodes[@]} )
+
+#[ ! -z "$laddr" ] && inodes=( $(awk '$2=="'$hex_laddr:$hex_lport'" && $3~"'$hex_raddr:'" && $10!=0 {a[$10]}END{for(i in a)print i}' /proc/net/tcp) ) || inodes=( $(awk '$2~"':$hex_lport' *$" && $3~"'$hex_raddr:'" && $10!=0 {a[$10]}END{for(i in a)print i}' /proc/net/tcp) )
+
+inodes=( $(awk '$2=="'$hex_laddr:$hex_lport'" && $3~"'$hex_raddr:'" && $10!=0 {a[$10]}END{for(i in a)print i}' /proc/net/tcp) )
+
+c_inodes=${#inodes[@]}
+
+for((j=0;j<$c_inodes;j++))
+do
+inodex=${inodes[j]}
+
+hex_rport=$(awk '$2=="'$hex_laddr:$hex_lport'" && $3~"'$hex_raddr:'" && $10=="'$inodex'" {sub(".*:","",$3);print $3;}' /proc/net/tcp)
+
+# Elde ettigimiz Remote Hexadecimal Port bilgisini Decimal formata ceviriyoruz.
+dec_rport=$(awk 'BEGIN{printf "%d",0x'$hex_rport'}')
+[ $dec_rport -eq 0 ] && dec_rport='*'
+
+#if [  ! -z "$laddr" ] ; then
+nstat=$(netstat -antop|awk '$4=="'$laddr:$m_lport'" && $5=="'$raddr:$dec_rport'"')
+pid=$(netstat -anpt|awk '$4=="'$laddr:$m_lport'" && $5=="'$raddr:$dec_rport'" {sub("/.*","",$NF);print $NF}')
+#else
+#nstat=$(netstat -antop|awk '$4~"':$m_lport' *$" && $5=="'$raddr:$dec_rport'"')
+#pid=$(netstat -antp|awk '$4~"':$m_lport' *$" && $5=="'$raddr:$dec_rport'" {sub("/.*","",$NF);print $NF}')
+#fi
+[ ! -z "$pid" ] && go
+#echo "Process [$oldpid] and inode [$oldinodex] was closed! for [:$oldlport] local and for [:$olddec_rport] remote portx"
+
+
+done
+done
+
+}
+
+
+
+function loopx()
+{
+ # viewtime=$1 ; sleepdef=$2
+ while [ $viewtime -ne 0 ]
+ do
+ #i=$((i+1))
+ awk 'BEGIN{$88=OFS="=";print}'
+ #echo "$i. viewing.."
+ #netstat -antop
+ netstat -anto
+ viewtime=$((viewtime-1))
+ echo
+[ ! -z $sleeptime ] && sleep $sleeptime
+ done
+}
+
+function messag() {
+ echo "Usage 1 : $0 'Remote IP' ['lport'] 'Local IP' [viewtime] [sleeptime] [--follow]"
+ echo "Usage 2 : $0 'Remote IP' [viewtime]"
+ echo "Usage 3 : $0 "all" [viewtime] [sleeptime]"
+ exit 1
+}
+
+function checkip()
+{
+echo "$1"|grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' >/dev/null 2>&1
+}
+
+function checkview() {
+echo $1|grep -E '^[0-9]*$' >/dev/null 2>&1
+if [ $? -eq 0 ] ; then viewtime=$1 ; else echo "Specify the view times -> '[0-9]*'" ; messag ; fi
+}
+
+function checksleep() {
+echo $1|grep -E '^[0-9\.]*$' >/dev/null 2>&1
+if [ $? -eq 0 ] ; then sleeptime=$1 ; else echo "Specify the sleep interval -> '[0-9]*'" ; messag ; fi
+}
+
+
+function checktests()
+{
+case $1 in
+1)
+testx=$(netstat -ant | awk '$5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+if [ -z "$testx" ] ; then
+echo "No Socket connection from [$raddr] remote address"
+nosocket=1
+fi
+;;
+2)
+#if [ ${#f_laddrports[@]} -ne 0 ] ; then
+#for((i=0;i<$c_f_lports;i++))
+#do
+#testport=${f_laddrports[i]}
+#testx=$(netstat -ant | awk '$4~":'$testport' *$" && $5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+#testx=$(netstat -ant | awk '$4=="'$laddr:$testport'" && $5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+if [ -z "$laddr" ] ; then
+testx=$(netstat -ant | awk '$5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+else
+testx=$(netstat -ant | awk '$4~"'$laddr:'" && $5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+fi
+if [ -z "$testx" ] ; then
+nosocket=2
+if [ -z "$laddr" ] ; then
+echo "No Socket connection from [$raddr] remote address"
+else
+echo "No Socket connection from [$laddr] local and from [$raddr] remote address"
+fi
+fi
+#done
+#fi
+;;
+3)
+if [ ! -z "$follow" ] ; then
+if [ ! -z "$lport" ] ; then
+testlx=$(netstat -ant | awk '$4=="'$laddr:$lport'" && $5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+testrx=$(netstat -ant | awk '$4~"'$laddr:'" && $5=="'$raddr:$lport'" {sub(".*:","",$4);print $4}') ;
+if [ -z "$testlx" ] && [ -z "$testrx" ] ; then
+nosocket=3
+if [ ! -z "$port" ] ; then
+echo "No Socket connection from [$laddr] local address and from [$lport] local port and from [$raddr] remote address"
+else
+echo "No Socket connection from [$laddr] local address and from [$raddr] remote address"
+fi
+fi
+fi
+fi
+
+if [ -z "$follow" ] ; then
+if [ ! -z "$lport" ] ; then
+testlx=$(netstat -ant | awk '$4=="'$laddr:$lport'" && $5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+else
+testlx=$(netstat -ant | awk '$4~"'$laddr:'" && $5~"'$raddr:'" {sub(".*:","",$4);print $4}') ;
+fi
+if [ -z "$testlx" ] ; then
+nosocket=3
+if [ ! -z "$lport" ] ; then
+echo "No Socket connection from [$laddr] local address and from [$lport] local port and from [$raddr] remote address"
+else
+echo "No Socket connection from [$laddr] local address and from [$raddr] remote address"
+fi
+fi
+fi
+
+;;
+*) exit 1
+;;
+esac
+}
+
+
+function checkaddr() {
+
+#raddrchk="$1";lportchk=$2;laddrchk=$3
+
+# exact match
+# testraddrport=$(netstat -ant | awk '$4~":'$lport' *$" && $5~"'$raddr:'" {sub(".*:","",$4);a[$4]}END{for(i in a)print i}')
+
+
+nosocket=""
+
+case $check in
+1) checktests 1
+;;
+2) checktests 2
+;;
+3|4|5) if [ -z "$lport" ] ; then
+checktests 2
+else
+checktests 3
+fi
+;;
+esac
+
+}
+
+function checkport() {
+echo "$1"|grep -E '^[0-9]*$' >/dev/null 2>&1
+}
+
+function checkipport() {
+checkport "$1";
+if [ $? -eq 0 ] ; then lport=$1 ; laddr=""
+else
+checkip $1 ;
+if [ $? -eq 0 ] ; then laddr=$1 ; lport="" ; else echo "Specify the remote IPv4 address/local port" ; exit 1 ; fi
+fi
+}
+
+
+function checktwo() {
+
+case $# in
+2) checkip $1 ; if [ $? -eq 0 ] ; then raddr=$1 ; checkipport $2 ; fi
+;;
+3) if [ ! -z "$laddr" ] ; then # not ip
+checkview $3 ; else checkip $3 ; if [ $? -eq 0 ] ; then laddr=$3
+else echo "Specify the Local IPv4 address" ; messag ; fi ; fi
+;;
+4) if [ ! -z "$lport" ] ; then
+checkview $4 ; else checksleep $4 ; fi
+;;
+5) checksleep $5
+;;
+*) echo "Check the source code !! " ; exit 127 ;;
+esac
+
+}
+
+
+test_allsockets() {
+testx=$(netstat -ant |awk '/tcp/{print "ok";exit}')
+if [ -z "$testx" ] ; then
+echo "No Socket connection on the host ? "
+exit 1
+fi
+}
+
+
+function get_allcons() {
+test_allsockets
+netstat -antop|awk '/tcp/$5~"'$raddr:'"' > $allsockets
+#totalconnects=$( awk 'END{print NR}' $allsockets )
+if [ $? -ne 0 ] ; then echo "write error" ; exit 1 ; fi
+
+}
+
+check_closed_array()
+{
+match="$1";
+if [ ! -s "$closed_ports" ] ; then
+echo "$match" >>$closed_ports
+return 0
+else
+closedx=$(awk '$1=="'$match'"{print "ok";exit}' $closed_ports)
+if [ -z "$closedx" ] ; then
+echo "$match" >>$closed_ports
+return 0
+else
+return 1;
+fi
+fi
+}
+
+
+check_closed()
+{
+check_closed_array "$1"
+if [ $? -eq 0 ] ; then
+awk 'BEGIN{$86=OFS="-";print}'
+echo "-> Process was closed for [$laddr:$m_lport] local and [$raddr:$dec_rport] remote address"
+awk 'BEGIN{$86=OFS="-";print}'
+fi
+}
+
+
+function all()
+{
+
+get_allcons;
+
+#cc=0
+
+printf "\n%s %5s %s %10s %23s %26s %9s %26s %37s\n" "Proto" "Recv-Q" "Send-Q" "Local" "Remote" "State" "Pid" "TCP timers" "Socket times"
+awk 'BEGIN{$156=OFS="=";print}'
+echo -n "calculating socket times..."; # sleep 1;
+echo -en "\r"
+
+awk '{split($4,a,":");split($5,b,":");if(b[2]=="*")b[2]="0000";split($7,c,"/");print a[1],a[2],b[1],b[2],c[1]}' $allsockets |
+while read laddr m_lport raddr dec_rport pid
+do
+
+# Remote IP YI HEX CEVIR
+hex_laddr=$(echo "$laddr"|awk -F'.' '{for(i=NF;i>=1;i--)printf "%0.2X",$i;}')
+hex_raddr=$(echo "$raddr"|awk -F'.' '{for(i=NF;i>=1;i--)printf "%0.2X",$i;}')
+
+##PORT HEX e CEVIR
+hex_lport=$(echo "$m_lport"|awk '{printf "%0.4X",$1;}')
+hex_rport=$(echo "$dec_rport"|awk '{printf "%0.4X",$1;}')
+[ "$dec_rport" = "0000" ] && dec_rport='*'
+#hex_rport=$(awk '$2=="'$hex_laddr:$hex_lport'" && $3~"'$hex_raddr:'" && $10=="'$inodex'" {sub(".*:","",$3);print $3;}' /proc/net/tcp)
+
+
+inodex=( $(awk '$2=="'$hex_laddr:$hex_lport'" && $3=="'$hex_raddr:$hex_rport'" && $10!=0 {print $10}' /proc/net/tcp) )
+if [ ! -z "$inodex" ] ; then
+nstat=$(awk '$4=="'$laddr:$m_lport'" && $5=="'$raddr:$dec_rport'"' $allsockets )
+go
+else
+if [ -z "$nstat" ] ; then
+check_closed "${laddr}_${m_lport}_${raddr}_${dec_rport}"
+fi
+netstat -antop|awk '$4=="'$laddr:$m_lport'" && $5=="'$raddr:$dec_rport'"'
+fi
+
+[ ! -z $sleeptime ] && sleep $sleeptime
+done
+
+echo
+
+}
+
+
+watch() {
+echo
+allsockets=/tmp/netstatx.tmpXX
+closed_ports=/tmp/closedx.tmpXX
+> $closed_ports
+
+while [ $viewtime -ne 0 ]
+ do
+ #echo -e "\n$i. viewing.."
+all;
+ ((viewtime--))
+done
+
+}
+
+function defaults() {
+defview=1 ; viewtime=2 ; nondefview=3 ; sleepdef=0
+}
+
+function check_raddr() {
+if [ ! -z "$raddr" ] ; then
+awk 'BEGIN{$48=OFS="-";print RS $0 RS "Processing watching network ..." RS $0 RS }'
+fi
+}
+
+function go_sockets() {
+check_raddr;
+#[ -z $sleeptime ] && sleeptime=$defsleeptime
+
+
+[ -z $viewtime ] && viewtime=$defview
+
+ while [ $viewtime -ne 0 ]
+ do
+#echo -e "$i. viewing.."
+ ((viewtime--))
+
+nosocketp="$nosocket"
+
+#checkaddr >/dev/null ;
+get_ports
+
+((first++))
+checkaddr ;
+if [ -z "$nosocket" ] ; then
+
+checkstate;
+
+fi
+
+[ ! -z $sleeptime ] && sleep $sleeptime
+
+#[ -z "$nosocket" ] && printf "%72s\n" "-"
+ done
+echo
+
+}
+
+
+function get_ports() {
+
+if [ -z "$lport" ] ; then
+f_laddrports=( $(netstat -ant |awk '$4~"'$laddr':" && $5~"'$raddr':" {sub(".*:","",$4);a[$4]}END{for(i in a)print i}') )
+else
+f_laddrports=( "$lport" )
+fi
+
+if [ ! -z "$lport" ] ; then
+if [ ! -z "$follow" ] ; then
+f_laddrports=( $(netstat -ant |awk '$4=="'$laddr:$lport'" && $5~"'$raddr':" {sub(".*:","",$4);a[$4]}END{for(i in a)print i}') )
+f_laddrports=( "${f_laddrports[@]}" $(netstat -ant |awk '$4~"'$laddr':" && $5=="'$raddr:$lport'" {sub(".*:","",$4);a[$4]}END{for(i in a)print i}') )
+fi
+fi
+
+if [ -z "$laddr" ] ; then
+f_laddrports=( $(netstat -ant |awk '$5~"'$raddr':" {sub(".*:","",$4);a[$4]}END{for(i in a)print i}') )
+fi
+
+c_f_lports=${#f_laddrports[@]}
+
+}
+
+
+function suptime() {
+
+defaults;
+
+case "$1" in
+all) [ -z "$2" ] && viewtime=$defview || checkview $2
+[ -z "$3" ] && sleeptime="" || checksleep $3
+watch
+exit 0
+;;
+[-help]*) messag
+;;
+esac
+
+if [ $# -ne 0 ] ; then
+testarr=( "$@" )
+last=$((${#testarr[@]}-1))
+
+if [ "${testarr[last]}" = "--follow" ] ; then
+follow=1
+unset testarr[last]
+set -- "${testarr[@]}"
+fi
+
+
+for ((i=0;i<${#@};i++)); do
+echo "${testarr[i]}"| grep -E '^[0-9\.][0-9\.]*$' >/dev/null 2>&1
+[ $? -ne 0 ] && messag
+done
+
+fi
+
+
+case $# in
+  0) viewtime=$nondefview ; loopx ; exit 0 ;;
+  1) check=1;checkip $1 ; if [ $? -eq 0 ] ; then raddr=$1 ; check_raddr ; else checkview $1 ; fi ; checkaddr ; [ -z "$nosocket" ] && watch ; echo ; exit ;;
+  2) check=2;checkip $1 ; if [ $? -eq 0 ] ; then raddr=$1 ; check_raddr ; checkip $2 ; if [ $? -eq 0 ] ; then laddr=$2 ; else checkview $2 ; fi ; else checkview $1 ; checksleep $2 ; fi ; for((i=0;i<$viewtime;i++)) ; do checkaddr ; [ -z "$nosocket" ] && watch ; done ; echo ; exit ;;
+#  2) check=2;checkip $1 ; if [ $? -eq 0 ] ; then raddr=$1 ; check_raddr ;then checkview $2 ; else checkview $1 ; if [ $? -eq 0 ] ; then checksleep $2 ; for((i=0;i<$viewtime;i++)) ; do checkaddr ; [ -z "$nosocket" ] && watch ; done ; echo ; exit ; fi ; fi ;;
+  3) check=3;checktwo $1 $2 ; checktwo $1 $2 $3 ;;
+  4) check=4;checktwo $1 $2 ; checktwo $1 $2 $3 ; checktwo $1 $2 $3 $4 ;;
+  5) check=5;checktwo $1 $2 ; checktwo $1 $2 $3 ; checktwo $1 $2 $3 $4 ; checktwo $1 $2 $3 $4 $5 ;;
+  6) checkview $6 ; loopx ; exit ;;
+  7) checkview $6 ; checksleep $7 ; loopx ; exit ;;
+  *) messag ;;
+esac
+
+
+
+go_sockets;
+
+}
+
+
+suptime $@
+
+
+####################################
+# keepalive (6176.47/0/0)
+# <1st field> <2nd field>
+
+# The 1st field can have values:
+# keepalive - when the keepalive timer is ON for the socket
+# on - when the retransmission timer is ON for the socket
+# off - none of the above is ON
+
+# The 2nd field has THREE subfields:
+
+# (6176.47/0/0) -> (a/b/c)
+
+# a=timer value (a=keepalive timer, when 1st field="keepalive"; a=retransmission timer, when 1st field="on")
+# b=number of retransmissions that have occurred
+# c=number of keepalive probes that have been sent
+####################################
+
+ # saniye bilgisini tarih formatian çeviriyoruz v.1
+ # sdaytime=$(echo|awk -va="$stime" 'BEGIN{;sub(/\..*/,"",a);}
+ # a>=86400{day=a/3600/24;hour=a/3600%24;minute=(a%3600)/60;saniye=a%60}
+ # a<86400&&a>3600{day=0;hour=a/3600;minute=(a%3600)/60;saniye=a%60;}
+ # a<=3600{day=0;hour=0;minute=a/60;saniye=a%60;}
+ # {printf "%d %s %d %s %d %s %d %s", # day,"gun",hour,"saat",minute,"dakika",saniye,"saniye";}' ORS=)
+
+###########################
+#tcp_keepalive_time = 7200 (seconds)
+#tcp_keepalive_intvl = 75 (seconds)
+#tcp_keepalive_probes = 9 (number of probes)
+
+#TCP keepalive process waits for two hours (7200 secs) for socket activity before sending the first keepalive probe,
+#and then resend it every 75 seconds.
+#As long as there is TCP/IP socket communications going on and active, no keepalive packets are needed.
+###########################
+
+#########################################################################
+# hexrport=$(awk '$2~"'$lhex_addr'"&&$3~"'$hex_addr'"&&$10=="'$inode'" {sub(".*:","",$3);print $3;}' /proc/net/tcp)
+# f_port=$(awk 'BEGIN{printf "%d",0x'$hexport'}')
+
+#inodes=$(awk '$2~"'$lhex_addr'" && $3~"'$hex_addr:'" && $10!=0 {a[$10]}END{for(i in a)print i}' /proc/net/tcp)
+#########################################################################
+
+# Bizim Remote Adres/Remote Port ve Inode ile eslesen socket e ait Local Hexadecimal Port bilgisini aliyoruz.
+#lhexport=$(awk '$2~"'$lhex_addr'"&&$3~"'$hex_addr'"&&$10=="'$inode'" {sub(".*:","",$2);print $2;}' /proc/net/tcp)
+#lhexport=$(awk '$2~"'$lhex_addr'"&&$3~"'$hex_addr'"&&$10=="'$inode'" {sub(".*:","",$2);print $2;}' /proc/net/tcp)
+#lport=$(awk 'BEGIN{printf "%d",0x'$lhexport'}')
+
+ # Bizim Remote Adres/Remote Port ve Inode ile eslesen socket e ait Local Hexadecimal Port bilgisini aliyoruz.
+ #lport=$(awk 'BEGIN{printf "%d",0x'$lhexport'}')
+ #hexport=$(awk '$2~"'$f_lhexaddr'"&&$3~"'$hex_addr'"&&$10=="'$inode'" {sub(".*:","",$3);print $3;}' /proc/net/tcp)
+ # HEX CONERT DECIMAL
+ #f_port=$(awk 'BEGIN{printf "%d",0x'$hexport'}')
+ #nstat=$(netstat -anto|awk '$4~"'$lport'"&&$5=="'$f_addr:$f_port'"' )
+
+ # Karakterleri 2 li grublara bolup tersten yazar
+ # echo 1521|awk '{for(i=length($0);i>=1;i-=2)printf "%s", substr($0,i-1,i)}'
+ # Karakterleri 2 li grublara bolup duzden yazar
+ # echo 1521|awk '{for(i=1;i<=length($0);i+=2)printf "%s", substr ($0,i,2)}'
+
+
+# Local Adres bilgisi Tersten buyuk hexadecimal yaz
+ #lhex_addr=$(echo "$m_laddr"|awk -F'.' '{for(i=NF;i>=1;i--)printf "%0.2X",$i;}')
+
+#lsof bekletiyor , o yuzden kapattim
+#lsof -p $pid|grep $inode >/dev/null 2>&1
+#if [ $? -ne 0 ] ; then
+#echo "Inode [$inode\] was not found!  [:$m_laddr*local] [:$f_raddr*remote]  "
+#fi
+
+
+#echo Local "$laddr" Remote "$raddr" Port "$lport" View $viewtime Sleep $sleeptime;
+
+ #addr=${1:?Specify the remote IPv4 address or Local port}
+ #port=${2:?Specify the local IPv4 address}
+ #sleeptime=${4-$def} #:?default sleep count is 1}
+ #viewtime=${5-$def} #:?default view count is 1}
+
+
+ # Remote Adres bilgisi Tersten buyuk hexadecimal yaz
+ # tum socketlara ait inodelarini buluyoruz
+# Remote Port bilgisi 4 lu formatta buyuk hexadecimal yaz
+
+
+#####################################################################################################
+## TARIH HESAPLAMA ACIKLAMALARI
+
+# day=a/3600/24 ->
+# saniyelerimizi 3600 e bolerek saat bilgisine çeviriyoruz.
+# Toplam saat bilgisini de 24 saate *(1 gün deðeri olan 24 saat i) bölüyoruz.
+# Ortaya çýkan deðer , bizim gün bilgimiz oluyor.
+
+# hour=(a/3600)%24 ->
+# saniyelerimizi 3600 e bolerek saat bilgisine çeviriyoruz.
+#Bu toplam saat bilgisinden de 24 saati *(1 gün deðeri olan 24 saat i) çýkýyoruz.
+# Kalan süre , günlerden arta kalan saat bilgisini öðrenmiþ oluyoruz.
+
+# minute=(a%3600)/60 ->
+# saniyelerimizdeki , saatleri (3600) çýkýyoruz.
+# Kalan (1 saat den küçük süreyi) saniyeleri 60 (1 dakika deðeri 60 sn) a bölerek saatlerden çýkýldýktan sonra kalan dakika bilgisini öðrenmiþ oluyoruz.
+
+# saniye=a%60 ->
+# saniyelerimizdeki , 60 (toplam saniyelerimizden dakikalarý çýkartmýþ oluyoruz) a bölüp kalan saniyelerimizin bilgisini öðrenmiþ oluyoruz.
+
+#####################################################################################################
+
+
+##  ORS ACIKLAMASI
+## awk in her output line dan sonra newline eklemesinden dolayi printf
+## kullanilsa bile , "sdaytime" deðeri bir sonraki satira yaziliyordu.
+## Cozum olarak awk ORS="" kullanýldý.
+## Yada bu þekilde ->  awk '{.. }' ORS= 
+
+## SANIRIM ORS= KOMUTU OUTPUT UN BASINDAKI VE SONUNDAKI NEWLINE LARI KALDIRIYOR.
+
+
+#  Ornek Çýktý
+# =================
+# # ./suptime 10.100.110.124 8080 10.100.110.224
+# tcp        0      0 10.100.110.224:45615        10.100.110.124:8080         ESTABLISHED off (0.00/0/0) ->> 8082.74s   -> 0 gun 2 saat 14 dakika 42 saniye
+# tcp        0      0 10.100.110.224:45618        10.100.110.124:8080         ESTABLISHED off (0.00/0/0) ->> 8082.76s   -> 0 gun 2 saat 14 dakika 42 saniye
+# tcp        0      0 10.100.110.224:45619        10.100.110.124:8080         ESTABLISHED off (0.00/0/0) ->> 8082.78s   -> 0 gun 2 saat 14 dakika 42 saniye
+# tcp        0      0 10.100.110.224:45602        10.100.110.124:8080         ESTABLISHED off (0.00/0/0) ->> 8082.81s   -> 0 gun 2 saat 14 dakika 42 saniye
+# tcp        0      0 10.100.110.224:45611        10.100.110.124:8080         ESTABLISHED off (0.00/0/0) ->> 8082.83s   -> 0 gun 2 saat 14 dakika 42 saniye
+
+
+
+## http://ithitman.blogspot.com/2015/04/what-are-tcp-spurious-retransmissions.html
+
+##TCP Retransmissions - These are the normal (althought not so normal if it happens quite often) everyday retransmissions in which the Packets sent are not acknowledged by receiver within a certain amount time (derived from SRTT .. smoothed round trip time). This is also sometimes referred to as TCP retransmission due to RTO (Retransmit Timeout). TCP retransmissions due to RTO is worse than other causes of TCP retransmissions because depending on your TCP implementation, the flow can go to slowstart, congestion window (cwnd) can be cut in half and the performance is hit with major penalties.
+
+
+
+############################################################################################
+
+# How many times will TCP retransmit
+#--------------------------------------
+#https://stackoverflow.com/questions/5227520/how-many-times-will-tcp-retransmit
+#
+
+#If the server program crashes, the kernel will clean up all open sockets appropriately.
+#
+#(Well, appropriate from a TCP point of view; it might violate the application layer protocol, but applications should be prepared for this event.)
+#
+#If the server kernel crashes and does not come back up, the number and timing of retries depends if the socket were connected yet or not:
+#
+#
+#/proc/sys/net/ipv4/tcp_retries1
+#--------------------------------
+#   tcp_retries1 (integer; default: 3; since Linux 2.2)
+#          The number of times TCP will attempt to
+#          retransmit a packet on an established connection
+#          normally, without the extra effort of getting
+#          the network layers involved.  Once we exceed
+#          this number of retransmits, we first have the
+#          network layer update the route if possible
+#          before each new retransmit.  The default is the
+#          RFC specified minimum of 3.
+#
+#/proc/sys/net/ipv4/tcp_retries2
+#--------------------------------
+#   tcp_retries2 (integer; default: 15; since Linux 2.2)
+#          The maximum number of times a TCP packet is
+#          retransmitted in established state before giving
+#          up.  The default value is 15, which corresponds
+#          to a duration of approximately between 13 to 30
+#          minutes, depending on the retransmission
+#          timeout.  The RFC 1122 specified minimum limit
+#          of 100 seconds is typically deemed too short.
+#
+#(From tcp(7).)
+#
+#If the server kernel crashes and does come back up, it won't know about any of the sockets, and will RST those follow-on packets, enabling failure much faster.
+#
+#If any single-point-of-failure routers along the way crash, if they come back up quickly enough, the connection may continue working.
+#This would require that firewalls and routers be stateless, or if they are stateful, have rulesets that allow preexisting connections to continue running.
+#(Potentially unsafe, different firewall admins have different policies about this.)
+#
+#The failures are returned to the program with errno set to ECONNRESET (at least for send(2)).
+
+
+#-------------------------------------------------------------------------------------------------------------------------------
+
+
+
+## The /proc/net/tcp documentation
+## =======================================
+## This is the documentation about /proc/net/tcp available from the Linux kernel source distribution:
+##
+##  This document describes the interfaces /proc/net/tcp and
+##  /proc/net/tcp6.  Note that these interfaces are deprecated in favor
+##  of tcp_diag.
+##
+##  These /proc interfaces provide information about currently active TCP
+##  connections, and are implemented by tcp4_seq_show() in
+##  net/ipv4/tcp_ipv4.c and tcp6_seq_show() in net/ipv6/tcp_ipv6.c,
+##  respectively.
+##
+##  It will first list all listening TCP sockets, and next list all
+##  established TCP connections. A typical entry of /proc/net/tcp would
+##  look like this (split up into 3 parts because of the length of the
+##  line):
+##
+##    46: 010310AC:9C4C 030310AC:1770 01
+##    |      |      |      |      |   |--> connection state
+##    |      |      |      |      |------> remote TCP port number
+##    |      |      |      |-------------> remote IPv4 address
+##    |      |      |--------------------> local TCP port number
+##    |      |---------------------------> local IPv4 address
+##    |----------------------------------> number of entry
+##
+##    00000150:00000000 01:00000019 00000000
+##       |        |     |     |       |--> number of unrecovered RTO timeouts
+##       |        |     |     |----------> number of jiffies until timer expires
+##       |        |     |----------------> timer_active (see below)
+##       |        |----------------------> receive-queue
+##       |-------------------------------> transmit-queue
+##
+##    1000        0 54165785 4 cd1e6040 25 4 27 3 -1
+##     |          |    |     |    |     |  | |  | |--> slow start size threshold,
+##     |          |    |     |    |     |  | |  |      or -1 if the threshold
+##     |          |    |     |    |     |  | |  |      is >= 0xFFFF
+##     |          |    |     |    |     |  | |  |----> sending congestion window
+##     |          |    |     |    |     |  | |-------> (ack.quick<<1)|ack.pingpong
+##     |          |    |     |    |     |  |---------> Predicted tick of soft clock
+##     |          |    |     |    |     |              (delayed ACK control data)
+##     |          |    |     |    |     |------------> retransmit timeout
+##     |          |    |     |    |------------------> location of socket in memory
+##     |          |    |     |-----------------------> socket reference count
+##     |          |    |-----------------------------> inode
+##     |          |----------------------------------> unanswered 0-window probes
+##     |---------------------------------------------> uid
+##
+##  timer_active:
+##   0  no timer is pending
+##   1  retransmit-timer is pending
+##   2  another timer (e.g. delayed ack or keepalive) is pending
+##   3  this is a socket in TIME_WAIT state. Not all fields will contain
+##      data (or even exist)
+##   4  zero window probe timer is pending
+#------------------------------------------------------------------------------------------------
+#TCP Zero Window is when the Window size in a machine remains at zero for a specified amount of time.
+#This means that a client is not able to receive further information at the moment, and
+#the TCP transmission is halted until it can process the information in its receive buffer.
+
+#TCP Window size is the amount of information that a machine can receive during a TCP session and still be able to process the data. Think of it like a TCP receive buffer. When a machine initiates a TCP connection to a server, it will let the server know how much data it can receive by the Window Size.
+#
+#In many Windows machines, this value is around 64512 bytes. As the TCP session is initiated and the server begins sending data, the client will decrement it's Window Size as this buffer fills. At the same time, the client is processing the data in the buffer, and is emptying it, making room for more data. Through TCP ACK frames, the client informs the server of how much room is in this buffer. If the TCP Window Size goes down to 0, the client will not be able to receive any more data until it processes and opens the buffer up again. In this case, Protocol Expert will alert a "Zero Window" in Expert View.
+#
+#Troubleshooting a Zero Window For one reason or another, the machine alerting the Zero Window will not receive any more data from the host. It could be that the machine is running too many processes at that moment, and its processor is maxed. Or it could be that there is an error in the TCP receiver, like a Windows registry misconfiguration. Try to determine what the client was doing when the TCP Zero Window happened.
+#
+#https://wiki.wireshark.org/TCP%20ZeroWindow
+#------------------------------------------------------------------------------------------------
+
+## /proc/net/tcp hexadecimal to decimal cevrimi
+## =============================================
+##
+## The above shows:
+##
+## On line sl 0: a listening port on tcp/2208. st = 0A = LISTEN
+## On line s1 6: An established session on tcp/22. st = 01 = ESTABLISHED
+## On line sl 7: An socket in TIME_WAIT state after ssh logout. No inode. st = 06 = TIME_WAIT
+## Can anyone expand on this list? The proc(5) manpage is quite terse on the subject stating:
+##
+##    /proc/net/tcp
+##           Holds a dump of the TCP socket table. Much of the information is not of use apart from debugging.
+##                The "sl" value is the kernel hash slot for the socket, the "local address" is  the  local  address  and
+##           port  number pair.  The "remote address" is the remote address and port number pair (if connected).
+##                St is the internal status of the socket.
+##                The tx_queue and rx_queue are the outgoing and incom-
+##           ing data queue in terms of kernel memory usage.
+##                The "tr", "tm->when", and "rexmits" fields hold internal information of the kernel socket state and are only useful  for  debugging.
+##                The  "uid"  field holds the effective UID of the creator of the socket.
+##
+##
+##
+##
+## They should match to the enum in ./include/net/tcp_states.h in the linux kernel sources:
+##
+## enum {
+##     TCP_ESTABLISHED = 1,
+##     TCP_SYN_SENT,
+##     TCP_SYN_RECV,
+##     TCP_FIN_WAIT1,
+##     TCP_FIN_WAIT2,
+##     TCP_TIME_WAIT, = 6
+##     TCP_CLOSE,
+##     TCP_CLOSE_WAIT, = 8
+##     TCP_LAST_ACK,
+##     TCP_LISTEN,
+##     TCP_CLOSING,    /* Now a valid state */
+##
+##     TCP_MAX_STATES  /* Leave at the end! */
+## };
+## As for your 2. question, are you really sure there's not an sshd listening on e.g. 0.0.0.0:22 ?
+## If not, I suspect what you're seeing is related to v4-mapped-on-v6 sockets, see e.g. man 7 ipv6
+##
+##
+## it's an enum, and it starts with 1.
+## So e.g. TCP_SYN_SENT is 2, TCP_LISTEN is 10.
+## And 10 in decimal is A in hex, which is the 0A you see in /proc/net/tcp
+##
+##
+
+#ORNEK
+#[root@cws bin]# netstat -an|grep 110.100
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:53236        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:5392         TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:44495        ESTABLISHED
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:24636        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:16967        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:58791        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:32207        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:12558        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:38424        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:44155        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:3018         TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:33329        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:52389        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:48688        TIME_WAIT
+#tcp        0      0 10.100.110.142:8080         10.100.110.100:19879        TIME_WAIT
