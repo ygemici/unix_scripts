@@ -385,7 +385,6 @@ for f in /sys/class/$subsys/*; do
 
 
     ########iscsi########
-    ######test : edb1ebssgc01p - epa1ccbsgc04p
 
     # [iscsi]
     iscsi_connection)
@@ -654,12 +653,7 @@ for f in /sys/class/$subsys/*; do
     [ $c -eq 1 ] && printf "%10s %23s %22s %10s %10s \n" "PortN" "NodeN" "Speed" "Driver" "Model" && awk 'BEGIN{$92=OFS="-";print $0; }'
     printf "%23s %23s %10s %8s (%-s) \n" "$portn" "$noden" "$speed" "$driver" "$name"
     ;;
-
-#[root@edb1ebssgc01p ckadmin]# ll /sys/class/fc_* -d
-#drwxr-xr-x 2 root root 0 Apr 11 04:32 /sys/class/fc_host
-#drwxr-xr-x 2 root root 0 Sep  6 19:21 /sys/class/fc_remote_ports
-#drwxr-xr-x 2 root root 0 Apr 12 19:17 /sys/class/fc_transport
-#drwxr-xr-x 2 root root 0 Sep  6 19:21 /sys/class/fc_vports
+
 
     esac
 
