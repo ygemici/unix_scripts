@@ -6,10 +6,7 @@
 ######## ########
 
 ## ueventget() : thanks @Graeme
-#https://unix.stackexchange.com/questions/97676/how-to-find-the-driver-module-associated-with-a-device-on-linux
-
-
-## edb1ebssgc01p DEVAM scsi_host ve fc ler
+#https://unix.stackexchange.com/questions/97676/how-to-find-the-driver-module-associated-with-a-device-on-linux
 
 
 ueventget_block() {
