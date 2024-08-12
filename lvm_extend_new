@@ -72,7 +72,7 @@ echo -en " [ $disk ] diski kullanilarak VG EXTEND edilecek. Emin degilseniz isle
 sleep 0.4s;
 echo -en "\033[1A"
 echo -en "\033[2K"
-#echo -en "                                                                                               ";
+#echo -en "                                                                                              
 sleep 0.4s;
 done
 echo -en " [ $disk ] diski kullanilarak VG EXTEND edilecek. Emin degilseniz islemi [Ctrl-C] ile kesebilirsiniz !! \n"
@@ -307,7 +307,7 @@ echo
 
 
 growpart_ex_menu() {
-echo "[root@edb1ytsdbv01pp ~]# growpart /dev/sdb 1"
+echo "growpart /dev/sdb 1"
 echo "CHANGED: partition=1 start=2048 old: size=419428352 end=419430400 new: size=2147481567 end=2147483615"
 }
 
