@@ -253,8 +253,6 @@ case $subsys in
 
     main_subbus=$(echo $maindev|sed 's/.\(pci[0-9]\):.*/\1/')
 
-    echo $maindev xxx $maindevice xx $main_subbus BUDURRRR
-
 
     for subdev in ${maindevice}/${main_subbus}* ; do
 
