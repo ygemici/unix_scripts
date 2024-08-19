@@ -1811,10 +1811,10 @@ echo "fstab dosyasi eski haline geri donuldu .. "
 
 
 fstab_check() {
-ismountalready=0
+isfstabinready=0
 checkl=$(grep $(echo "$mp"|sed 's/[_-]/\./g') /etc/fstab )
 if [ ! -z "$checkl" ] ; then
-ismountalready=1
+isfstabinready=1
 echo
 echo "->> fstab icinde onceden olusturulmus benzer isimde MP bilgisi gorunuyor.. "
 sleep 1
@@ -1887,7 +1887,7 @@ echo "Yeni MP bilgisi basariyla '/etc/fstab' a eklenildi [OK] "
 ###MOUNT
 echo
 echo "---------- MOUNT (new) ----------"
-[ "$ismountalready" -eq 0 ] && mount -v /$mp || mount -v $lvmmapperdev /$mp
+[ "$isfstabinready" -eq 0 ] && mount -v /$mp || mount -v $lvmmapperdev /$mp
 mntst=$?
 if [ $mntst -ne 0 ] ; then
 df -h /$mp &>/dev/null
@@ -1920,11 +1920,11 @@ echo "---------- MKFS (new) ----------"
 sleep 2
 printit 20
 case "$fst" in
-xfs)  mkfs.xfs  "$lvmmapperdev" ; errchk $? "mkfs.xfs"
+xfs)  mkfs.xfs  "$lvmmapperdev" || umount -v /$mp && mkfs.xfs  "$lvmmapperdev" ; errchk $? "mkfs.xfs"
 ;;
-ext4) mkfs.ext4 "$lvmmapperdev" ; errchk $? "mkfs.ext4"
+ext4) mkfs.ext4 "$lvmmapperdev" || umount -v /$mp && mkfs.xfs  "$lvmmapperdev" ; errchk $? "mkfs.ext4"
 ;;
-ext3) mkfs.ext3 "$lvmmapperdev" ; errchk $? "mkfs.ext3"
+ext3) mkfs.ext3 "$lvmmapperdev" || umount -v /$mp && mkfs.xfs  "$lvmmapperdev" ; errchk $? "mkfs.ext3"
 ;;
 *) echo "Uygulama Hatasi !! Destek icin 'Yucel Gemici' ile irtibata gecin.."
 sleep 1
