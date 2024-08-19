@@ -72,7 +72,7 @@ echo -en " [ $disk ] diski kullanilarak VG EXTEND edilecek. Emin degilseniz isle
 sleep 0.4s;
 echo -en "\033[1A"
 echo -en "\033[2K"
-#echo -en "                                                                                              
+#echo -en "
 sleep 0.4s;
 done
 echo -en " [ $disk ] diski kullanilarak VG EXTEND edilecek. Emin degilseniz islemi [Ctrl-C] ile kesebilirsiniz !! \n"
@@ -196,8 +196,10 @@ echo "[$disk] diski icin size extend islemi uygulanmak isteniyorsa [new] paramet
 errormsg
 fi
 ;;
-"vg") if [ -z "$vgc" ] ; then
-echo "[$disk] uzerinde [$1] isminde bir VG bulunamadi !! "
+"new") vgcc=$1
+isanothervg=$(pvs|awk -v a=$vgcc '$2==a{print $1}'|grep -v $disk)
+if [ ! -z "$isanothervg" ] ; then
+echo "[$vgcc] isimli [VG] zaten [$isanothervg] diski uzerinde tanimli gorunuyor !! "
 errormsg
 fi
 ;;
@@ -1633,7 +1635,7 @@ else
 pvsdiskn=$(pvs 2>/dev/null|awk -v a="$vgx" '$2==a{sub("/dev/","");printf "%s ",$1}')
 pvscx=$(echo "$pvsdiskn"|awk 'BEGIN{if(NF>1)print "ok"}')
 [ ! -z "$pvscx" ] && ekler="diskleri" || ekler="diski"
-if [ ! -z "$pvsdiskn" ] ; then 
+if [ ! -z "$pvsdiskn" ] ; then
 echo "->> [$vgx] VG bilgisi [ $pvsdiskn] $ekler uzerinde zaten mevcut durumda gorunuyor ..."
 sleep 2
 fi
@@ -1920,11 +1922,11 @@ echo "---------- MKFS (new) ----------"
 sleep 2
 printit 20
 case "$fst" in
-xfs)  mkfs.xfs  "$lvmmapperdev" || umount -v /$mp && mkfs.xfs  "$lvmmapperdev" ; errchk $? "mkfs.xfs"
+xfs)  mkfs.xfs  "$lvmmapperdev" ; if [ $? -ne 0 ] ; then umount -v /$mp && mkfs.xfs -f "$lvmmapperdev" ; errchk $? "mkfs.xfs" ; fi
 ;;
-ext4) mkfs.ext4 "$lvmmapperdev" || umount -v /$mp && mkfs.xfs  "$lvmmapperdev" ; errchk $? "mkfs.ext4"
+ext4) mkfs.ext4 "$lvmmapperdev" ; if [ $? -ne 0 ] ; then umount -v /$mp && mkfs.ext4 -f "$lvmmapperdev" ; errchk $? "mkfs.ext4" ; fi
 ;;
-ext3) mkfs.ext3 "$lvmmapperdev" || umount -v /$mp && mkfs.xfs  "$lvmmapperdev" ; errchk $? "mkfs.ext3"
+ext3) mkfs.ext3 "$lvmmapperdev" ; if [ $? -ne 0 ] ; then umount -v /$mp && mkfs.ext3 -f "$lvmmapperdev" ; errchk $? "mkfs.ext3" ; fi
 ;;
 *) echo "Uygulama Hatasi !! Destek icin 'Yucel Gemici' ile irtibata gecin.."
 sleep 1
@@ -1969,7 +1971,7 @@ if [ -z "$1" ] ; then
 eho "Bir timeout suresi girilmesi gerekiyor !! "
 exit 2
 fi
-read -t $1 -p "xfs/ext[34] secimlerinden birini yapabilir siniz ? .. " fst
+read -t $1 -p "xfs/ext[34] secimlerinden birini yapabilirsiniz ? .. " fst
 #sleep $1
 #kill $!
 #fschk_new
@@ -2859,7 +2861,7 @@ vgx="$2";lvx="$3"
 case "$4" in
 "ext") vgcheck "$vgx" "ext" ; lvcheck "$lvx" "ext" ; vgxpostchk "ext"
 ;;
-"new") vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
+"new") vgscheck "$vgx" new ; vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
 ;;
 *)extnewmsg;
 ;;
@@ -2880,7 +2882,7 @@ vgx="$2";
 case $3 in
 "ext") vgcheck "$vgx" "ext" ; lvguess "$devdisk" "$vgx" ; lvcheck "$lvx" "ext" ; vgxpostchk "ext"
 ;;
-"new") vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
+"new") vgscheck "$vgx" "new" ; vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
 ;;
 *)pvscheck "ext" ; lvx=$3 ; lvcheck "$lvx" "ext"
 echo -e "\n->> islem tipi belirtilmedigi icin Default olarak [ext] bilgisi kullanilacak !!" ;
@@ -2898,7 +2900,7 @@ vgx="$2";lvx="$3"
 case "$4" in
 "ext") vgcheck "$vgx" "ext" ; lvcheck "$lvx" "ext" ; vgxpostchk "ext"
 ;;
-"new") vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
+"new") vgscheck "$vgx" "new" ; vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
 ;;
 *)extnewmsg;
 ;;
@@ -2919,6 +2921,7 @@ vguess "$devdisk"
 echo "[new] parametresi kullanilamaz !! "
 echo "[ext] olarak islemlere devam ediliyor .. "
 sleep 2
+vgscheck "$vgx" "new"
 vguess "$devdisk"
 ;;
 *)
@@ -2944,7 +2947,7 @@ vgx="$2";
 case $3 in
 "ext") vgcheck "$vgx" "ext" ; lvguess "$devdisk" "$vgx" ; lvcheck "$lvx" "ext" ; vgxpostchk "ext"
 ;;
-"new") vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
+"new") vgscheck "$vgx" "new" ; vgcheck "$vgx" "new" ; lvcheck "$lvx" "new" ; vgxpostchk "new"
 ;;
 *)extnewmsg;
 ;;
@@ -3030,5 +3033,4 @@ fi
 ###yucel gemici 2023
 firstcheck "$1"
 justdoit $@;
-
 
