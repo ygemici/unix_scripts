@@ -3,10 +3,11 @@
 ######## ########
 # YUCEL GEMICI ##
 # Linux Device Check - 2023 #
+# Not yet completed !!!! #
 ######## ########
 
 ## ueventget() : thanks @Graeme
-#https://unix.stackexchange.com/questions/97676/how-to-find-the-driver-module-associated-with-a-device-on-linux
+#https://unix.stackexchange.com/questions/97676/how-to-find-the-driver-module-associated-with-a-device-on-linux
 
 
 ueventget_block() {
@@ -651,7 +652,8 @@ for f in /sys/class/$subsys/*; do
     [ $c -eq 1 ] && printf "%10s %23s %22s %10s %10s \n" "PortN" "NodeN" "Speed" "Driver" "Model" && awk 'BEGIN{$92=OFS="-";print $0; }'
     printf "%23s %23s %10s %8s (%-s) \n" "$portn" "$noden" "$speed" "$driver" "$name"
     ;;
-
+
+
 
     esac
 
