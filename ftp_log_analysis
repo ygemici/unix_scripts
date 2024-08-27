@@ -20,7 +20,7 @@
 #Feb 23 00:00:03 ftpserver vsftpd: Mon Feb 23 00:00:03 2015 [pid 12098] [user2] OK LOGIN: Client "212.156.45.xx"
 #Feb 23 00:00:05 ftpserver vsftpd: Mon Feb 23 00:00:05 2015 [pid 12102] CONNECT: Client "95.0.40.xxx"
 #Feb 23 00:00:05 ftpserver vsftpd: Mon Feb 23 00:00:05 2015 [pid 12101] [user2] OK LOGIN: Client "95.0.40.xxx"
-#Feb 23 00:00:05 ftpserver vsftpd: Mon Feb 23 00:00:05 2015 [pid 12103] [firm2] OK DOWNLOAD: Client "95.0.40.xxx", "/XXXCARD/user2/000157_20150210134732_data.txt", 1320 bytes, 64.16Kbyte/sec
+#Feb 23 00:00:05 ftpserver vsftpd: Mon Feb 23 00:00:05 2015 [pid 12103] [user2] OK DOWNLOAD: Client "95.0.40.xxx", "/XXXCARD/user2/000157_20150210134732_data.txt", 1320 bytes, 64.16Kbyte/sec
 #Feb 23 00:00:06 ftpserver vsftpd: Mon Feb 23 00:00:06 2015 [pid 12105] CONNECT: Client "95.0.40.xxx"
 #Feb 23 00:00:06 ftpserver vsftpd: Mon Feb 23 00:00:06 2015 [pid 12104] [user2] OK LOGIN: Client "95.0.40.xxx"
 #Feb 23 00:00:07 ftpserver vsftpd: Mon Feb 23 00:00:07 2015 [pid 12106] [user2] OK DOWNLOAD: Client "95.0.40.xxx", "/XXXCARD/user2/000157_20150210141757_data.txt", 330 bytes, 14.80Kbyte/sec
