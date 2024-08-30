@@ -13,9 +13,6 @@
 
 #04-12-2023 # new parametresi gelistirildi.. xfs/ext4 mkfs desteği..
 
-## redhat8tstsrv sunucuda testlere devam edilecek - lvext ##
-## size bilgisi test edilecek !! ##
-
 
 printit() {
 awk -v a="$1" 'BEGIN{$a=OFS="-";print $0;}';
