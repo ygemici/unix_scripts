@@ -7,6 +7,37 @@
 # some needed works for more than call the same function !!! :s
 ################################################################################
 
+#-------------------------------------------------
+#      | SOLARIS SPARC MPATH/HBA/SAN/DISK INFORMATIONs |
+#      -------------------------------------------------
+#      1-) HBA states [online/offline]:
+#      2-) HBA-LUN-PORT General Informations:
+#      3-) HBA-LUN-PORT-PATH Specific Informations: (WWN)
+
+#      4-) Storage[EMC/IBM/HITACHI] Disks [MPxIO]: (LABEL_NAME or DISK ID)
+#      5-) Storage[EMC/IBM/HITACHI] Disks [LABEL -> DISK ID MATCH]: (LABEL_NAME)
+#      6-) Storage[EMC/IBM/HITACHI -> Host WWN ]: (WWN)
+#      7-) Storage[EMC/IBM/HITACHI -> Remote WWN ]: (PWWN)
+#      8-) Storage[EMC/IBM/HITACHI -> WWN_PWWN_LUN ]: (LABEL_NAME or DISK ID)
+#      9-) Non MPxIO Disks List:
+#     10-) Disks Errors: (LABEL_NAME)
+#     11-) Extendend Infos [LUN-WWN-RWWN-NWWN-PATHS (ONLINE/OFFLINE)]: (LABEL_NAME or DISK ID)
+
+#     12-) Inq Infos [[EMC/IBM/HITACHI Device-Serial-WWN-Label]: (LABEL_NAME or DISK ID)
+#     13-) Inq Infos [DEVICE-VEND-PROD-REV-SER NUM-CAP(kb)]: (DISK ID)
+#     14-) Inq HBA Infos [HBA-Vendor-Port Type-Speed]: (Host WWN)
+
+#     15-) DMESG ERROR ANALYZER: '[dd][fs][mm][ ,;][dd][fs][mm]'
+
+#     [ ALL parameters is OPTIONAL (AVALIABLE PARAMETERS SPECIFIED in the PARENTHESES) ]
+#================================================================================
+
+#Usage -> ./solaris_san_fc_check [y|ny|yy|n : Re-Scan the system force [y]es or [n]o] [menu_nr: (1-15)] [parameters]
+#================================================================================
+
+#Select Storage Informations ... [1-15] [q/x] ?
+################################################################################
+
 function check_tools() {
 id="/usr/bin/id"
 if [ ! -x "$id" ] ; then echo "ID check cannot execute !! " ; exit 1 ; fi
