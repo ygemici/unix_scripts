@@ -13,6 +13,9 @@
 
 #04-12-2023 # new parametresi gelistirildi.. xfs/ext4 mkfs desteği..
 
+## redhat8tstsrv sunucuda testlere devam edilecek - lvext ##
+## size bilgisi test edilecek !! ##
+
 
 printit() {
 awk -v a="$1" 'BEGIN{$a=OFS="-";print $0;}';
@@ -1332,6 +1335,8 @@ printit 70
 #pvc=$(pvs|grep "/$disk "|awk '{print $2}')
 #if [ -z "$pvc" ] ; then
 pvcreate "$devdisk" ; errchk $? "pvcreate"
+echo "$devdisk yeni bir PV diski olarak olusturuldu .. "
+sleep 1
 #else
 
 ################
@@ -2094,11 +2099,25 @@ lvguess() {
 diskchk=$1
 vgchk=$2
 
-########
+
+######## Default olarak verilen disk bilgisi icin YENI PV olusturulur ########
 vgdiskchk=$(pvs|awk -v a="$diskchk" '$1==a{print $2}')
 if [ "$vgdiskchk" != "$vgchk" ] ; then
-echo "[$disk] diski uzerinde [$vgchk] isminde bir [VG] bilgisi bulunamadi !! "
-errormsg
+echo "[$disk] diski uzerinde [$vgchk] isminde bir [VG] bilgisi bulunamadi !!! "
+echo "[$disk] diski bir PV disk olarak gorunmuyor !! "
+sleep 2
+
+#################
+echo "[$disk] diski yeni bir PV diski olarak olusturulucak !!! "
+printit 40
+sleep 5
+pvcreatex
+sleep 5
+
+echo "[$disk] diski $vgchk isimli [VG] e dahil ediliyor .. "
+printit 40
+sleep 5
+vgextend $vgchk $diskchk ; errchk $? "vgextend"
 fi
 
 
