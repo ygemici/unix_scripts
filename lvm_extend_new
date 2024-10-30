@@ -2099,25 +2099,26 @@ lvguess() {
 diskchk=$1
 vgchk=$2
 
-
-######## Default olarak verilen disk bilgisi icin YENI PV olusturulur ########
+########
 vgdiskchk=$(pvs|awk -v a="$diskchk" '$1==a{print $2}')
 if [ "$vgdiskchk" != "$vgchk" ] ; then
 echo "[$disk] diski uzerinde [$vgchk] isminde bir [VG] bilgisi bulunamadi !!! "
-echo "[$disk] diski bir PV disk olarak gorunmuyor !! "
-sleep 2
 
-#################
-echo "[$disk] diski yeni bir PV diski olarak olusturulucak !!! "
+ispvvgok=$(pvs $devdisk 2>/dev/null |awk -v a="$vgchk" 'NR>1{if($2!=a)print $2}')
+if [ -z "$ispvvgok" ] ; then
+echo "[$disk] diski uzerinde yeni LVM label olusturuluyor .. "
 printit 40
-sleep 5
 pvcreatex
 sleep 5
 
-echo "[$disk] diski $vgchk isimli [VG] e dahil ediliyor .. "
+echo "[$disk] diski $vgchk [VG] e dahil ediliyor .. "
 printit 40
-sleep 5
+sleep 2
 vgextend $vgchk $diskchk ; errchk $? "vgextend"
+else
+echo "[$disk] diski uzerinde FARKLI bir [-> $ispvvgok] bilgisi tespit edildi !!! "
+errormsg
+fi
 fi
 
 
