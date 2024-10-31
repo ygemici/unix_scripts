@@ -120,7 +120,7 @@ $DMIDECODE -t 4 2>/dev/null 1>&2
 $DMIDECODE -t 17 2>/dev/null 1>&2
  if [ $? -eq 0 ] ; then
   MEMORY_ALL=$($DMIDECODE -t 17|awk '/^ *$/{x++};END{print x-1}')
-  MEMORY_NONEMPTY=$($DMIDECODE -t 17|grep "Size:"|grep B|awk -F':'  '{a[$NF]++}END{for(i in a)print a[i]" X" i}')
+  MEMORY_NONEMPTY=$($DMIDECODE -t 17|grep "Size:"|grep B|grep -v Volatile|awk -F':' '{a[$NF]++}END{for(i in a)ii=i;gsub("[0-9 ]*","",ii);print a[i]" X" i " = " a[i]*i " "ii}')
   NONEMPTYC=$(echo "$MEMORY_NONEMPTY"|sed 's/[^0-9][0-9]*//g')
   EMPTYC=$(awk -va="$MEMORY_ALL" -vb="$NONEMPTYC" 'BEGIN{print a-b}')
  else
