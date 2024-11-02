@@ -73,7 +73,7 @@ fullinfosz=/tmp/.scsivmsz
 
 
 
-#[root@ksunxtestrhel6 ~]# ls -l /sys/block/sd*/device|awk -F"/" '{sub(".*block/","");gsub(":"," ");print $1,$NF}'
+#[root@ksunxtestr ~]# ls -l /sys/block/sd*/device|awk -F"/" '{sub(".*block/","");gsub(":"," ");print $1,$NF}'
 #sda 9 0 0 0
 #sdb 32 0 9 0
 
@@ -96,12 +96,12 @@ fullinfosz=/tmp/.scsivmsz
 #[root@BEDvOSOSDB01 0000:02:00.0]#
 
 #####host3#### -> +-11.0-[02]----00.0 - LSI Logic
-#[root@BEDvOSOSDB01 0000:02:00.0]# grep -l "" /sys/devices/*/*/*/host*/*/*/vendor
+#[root@ksunxtestr 0000:02:00.0]# grep -l "" /sys/devices/*/*/*/host*/*/*/vendor
 #/sys/devices/pci0000:00/0000:00:11.0/0000:02:00.0/host3/target3:0:0/3:0:0:0/vendor
 #/sys/devices/pci0000:00/0000:00:11.0/0000:02:00.0/host3/target3:0:1/3:0:1:0/vendor
 #/sys/devices/pci0000:00/0000:00:11.0/0000:02:00.0/host3/target3:0:2/3:0:2:0/vendor
 
-#[root@BEDvOSOSDB01 0000:02:00.0]# lspci -v -t|grep -i scsi
+#[root@ksunxtestr 0000:02:00.0]# lspci -v -t|grep -i scsi
 #           +-10.0  LSI Logic / Symbios Logic 53c1030 PCI-X Fusion-MPT Dual Ultra320 SCSI
 #           +-11.0-[02]----00.0  LSI Logic / Symbios Logic 53c1030 PCI-X Fusion-MPT Dual Ultra320 SCSI
 
@@ -115,7 +115,7 @@ fullinfosz=/tmp/.scsivmsz
 #sdx=$(ls -d "$x"/block/s[d]* 2>/dev/null|awk -F'/' '{print $NF}') ;
 #[ ! -z "$sdx" ] && echo "$sdx $(cat "$nonscsi" )"; done >$sdvendors
 
-#[root@ksunxtestrhel6 ~]# grep -l "" /sys/devices/*/*/*/host*/*/*/vendor|while read -r nonscsi ; do
+#[root@ksunxtestr ~]# grep -l "" /sys/devices/*/*/*/host*/*/*/vendor|while read -r nonscsi ; do
 #> x=$(echo "$nonscsi"|sed 's/\/vendor//');sdx=$(ls -d "$x"/block/s[dr]* |awk -F'/' '{print $NF}') ;
 #> echo "$sdx $(cat "$nonscsi" )"; done
 #sr0 NECVMWar
@@ -126,7 +126,7 @@ fullinfosz=/tmp/.scsivmsz
 #### eski sds
 ### sd* icin sata devicelar a geliyor. ( dvd ler haric ) !!!
 ## target dosyasi olusturulma tarihine gore ??
-#[root@eda1cbsdbv01p ~]# ls -l /sys/block/sd*/device
+#[root@ksunxtestr ~]# ls -l /sys/block/sd*/device
 #lrwxrwxrwx 1 root root 0 Nov 10  2021 /sys/block/sda/device -> ../../../0:0:0:0
 #lrwxrwxrwx 1 root root 0 Mar 23  2022 /sys/block/sdb/device -> ../../../3:0:0:0
 #lrwxrwxrwx 1 root root 0 Mar 23  2022 /sys/block/sdc/device -> ../../../4:0:0:0
@@ -905,7 +905,7 @@ fi
 ## target bilgisi (target-host)
 ## ( VM uzerinde disk eklenme tarihi olabilir ?? .. yada VM uzerinde hangi SCSi host-target bilgisi ile eklendigine gor siralama degisebilir ?? )
 ## or : /sys/devices/pci0000:00/0000:00:15.0/0000:03:00.0/host0/target0:0:0/0:0:0:0
-#root@eda1ososdbv01p ~]# ls -l /sys/devices/*/*/*/host*/*/*/vendor
+#root@ksunxtestr ~]# ls -l /sys/devices/*/*/*/host*/*/*/vendor
 #-r--r--r-- 1 root root 4096 Sep 12 18:04 /sys/devices/pci0000:00/0000:00:07.1/ata2/host5/target5:0:0/5:0:0:0/vendor
 #-r--r--r-- 1 root root 4096 Sep 12 18:04 /sys/devices/pci0000:00/0000:00:15.0/0000:03:00.0/host0/target0:0:0/0:0:0:0/vendor
 #-r--r--r-- 1 root root 4096 Sep 12 18:04 /sys/devices/pci0000:00/0000:00:15.1/0000:04:00.0/host1/target1:0:0/1:0:0:0/vendor
@@ -936,7 +936,7 @@ fi
 #sr0 5 0 0 0
 
 ##lssci
-#[root@eda1ososdbv01p ~]# lsscsi -x
+#[root@ksunxtestr ~]# lsscsi -x
 #[0:0:0:0x0000]              disk    VMware   Virtual disk     2.0   /dev/sda
 #[1:0:0:0x0000]              disk    VMware   Virtual disk     2.0   /dev/sdb
 #[1:0:1:0x0000]              disk    VMware   Virtual disk     2.0   /dev/sdc
