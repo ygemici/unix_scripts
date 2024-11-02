@@ -90,10 +90,10 @@ fullinfosz=/tmp/.scsivmsz
 # asagidaki 'grep -l "" ' ... komutunda bu dizin bilgisi olmadigi icin [sda] diski bulunamiyordu !!
 
 #####host2#### -> +-10.0 - LSI Logic
-#[root@BEDvOSOSDB01 0000:02:00.0]# grep -l "" /sys/devices/*/*/host*/*/*/vendor
+#[root@ksunxtestr 0000:02:00.0]# grep -l "" /sys/devices/*/*/host*/*/*/vendor
 #/sys/devices/pci0000:00/0000:00:07.1/host1/target1:0:0/1:0:0:0/vendor
 #/sys/devices/pci0000:00/0000:00:10.0/host2/target2:0:0/2:0:0:0/vendor
-#[root@BEDvOSOSDB01 0000:02:00.0]#
+#[root@ksunxtestr 0000:02:00.0]#
 
 #####host3#### -> +-11.0-[02]----00.0 - LSI Logic
 #[root@ksunxtestr 0000:02:00.0]# grep -l "" /sys/devices/*/*/*/host*/*/*/vendor
@@ -917,7 +917,7 @@ fi
 
 ## disk ismi sirasina gore ( sda , sdb , sdc .. ) = 1
 ## or :
-#[root@eda1ososdbv01p ~]# ls -l /sys/block/s[dr]*/device
+#[root@ksunxtestr ~]# ls -l /sys/block/s[dr]*/device
 #lrwxrwxrwx 1 root root 0 Aug 22 11:48 /sys/block/sda/device -> ../../../0:0:0:0
 #lrwxrwxrwx 1 root root 0 Aug 22 11:48 /sys/block/sdb/device -> ../../../1:0:0:0
 #lrwxrwxrwx 1 root root 0 Aug 22 11:48 /sys/block/sdc/device -> ../../../1:0:1:0
@@ -926,7 +926,7 @@ fi
 #lrwxrwxrwx 1 root root 0 Aug 22 11:48 /sys/block/sdf/device -> ../../../2:0:1:0
 #lrwxrwxrwx 1 root root 0 Aug 22 11:48 /sys/block/sr0/device -> ../../../5:0:0:0
 
-#[root@eda1ososdbv01p ~]# ls -l /sys/block/s[dr]*/device|awk -F"/" '{sub(".*block/","");gsub(":"," ");print $1,$NF}'
+#[root@ksunxtestr ~]# ls -l /sys/block/s[dr]*/device|awk -F"/" '{sub(".*block/","");gsub(":"," ");print $1,$NF}'
 #sda 0 0 0 0
 #sdb 1 0 0 0
 #sdc 1 0 1 0
