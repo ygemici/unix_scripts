@@ -7,24 +7,23 @@
 # version update : 14/07/2016
 # version update : 15/07/2018
 
-
-#echo PORTLU CALISMIYOR
 #./netstatv2.sh 127.0.0.1 25 127.0.0.1 40 1
 # nc 127.0.0.1 25 &
 
+
 function go() {
 
- # Socket Unix Zamanini aliyoruz
- time=$(find /proc/$pid/fd/ -lname "socket:\[$inodex\]" -printf "%A@\n" -quit 2>/dev/null )
+# Socket Unix Zamanini aliyoruz
+time=$(find /proc/$pid/fd/ -lname "socket:\[$inodex\]" -printf "%A@\n" -quit 2>/dev/null )
 
- if [ $? -eq 0 ] ; then
- stime=$(printf '%.2fs\n' $(bc <<<"$(date +%s.%N) - $time"))
+if [ $? -eq 0 ] ; then
+stime=$(printf '%.2fs\n' $(bc <<<"$(date +%s.%N) - $time"))
 ## (standard_in) 2: syntax error for bc is not reading the "'$time'" value ##
 
- # saniye bilgisini tarih formatina çeviriyoruz v.2
- sdaytime=$(echo|awk -va="$stime" 'BEGIN{;ORS="";;
- day=a/3600/24;;hour=a/3600%24;minute=(a%3600)/60;saniye=a%60;
- printf "%d %2s %d %2s %d %2s %d %2s", day,"gun",hour,"saat",minute,"dk",saniye,"sn";}')
+# saniye bilgisini tarih formatina çeviriyoruz v.2
+sdaytime=$(echo|awk -va="$stime" 'BEGIN{;ORS="";;
+day=a/3600/24;;hour=a/3600%24;minute=(a%3600)/60;saniye=a%60;
+printf "%d %2s %d %2s %d %2s %d %2s", day,"gun",hour,"saat",minute,"dk",saniye,"sn";}')
 
 echo "$nstat"|grep "off" >/dev/null 2>&1 && printf "%s %18s %8s %s %4s %12s\n" "$nstat" "->" "$stime" "=" "$sdaytime" 2>/dev/null
 echo "$nstat"|grep "keepalive"  >/dev/null 2>&1 && printf "%s %9s %8s %s %4s %14s\n" "$nstat" "->" "$stime" "=" "$sdaytime" "[ keepalive ]" 2>/dev/null
