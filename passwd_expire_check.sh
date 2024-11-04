@@ -16,15 +16,16 @@ if [ ! $? -eq 0 ]; then
 echo "There is no user named with '$1' "
 exit 1
 fi
-
 }
 user_check $1
+
 
 expire_check() {
 expirestatus=$(chage -l $1|awk -F'[: ]' '/Password expires/{print $4}')
 [[ "$expirestatus" == "never" ]] && echo -e "Password expire status is NEVER for '$1' user.\nNo need to send an email !!" && exit
 }
 expire_check $1
+
 
 doit() {
 expiretime=$(date '+%s' -d $(chage -l "$1"|\
@@ -56,4 +57,3 @@ system("echo \"Please change your password within the next in '$expl' days\" |ma
 else print "Password expires in '$expl' days for user '$1'"}'
 }
 doit $1 "$2" "$3"
-
