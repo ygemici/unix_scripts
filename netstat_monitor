@@ -7,9 +7,19 @@
 # version update : 14/07/2016
 # version update : 15/07/2018
 
-#./netstatv2.sh 127.0.0.1 25 127.0.0.1 40 1
-# nc 127.0.0.1 25 &
-
+#./suptime 127.0.0.1 25 127.0.0.1 40 1 == ( nc 127.0.0.1 25 & )
+### exs
+############################################################################################
+#### [root@redhat8_yucel ~]# bash suptime all 1 1
+####
+#### Proto Recv-Q Send-Q      Local                  Remote                      State       Pid                 TCP timers                          Socket times
+#### ============================================================================================================================================================
+#### tcp        0      0 0.0.0.0:111             0.0.0.0:*               LISTEN      1/systemd            off (0.00/0/0)                 ->  681.55s = 0 gun 0 saat 11 dk 21 sn
+#### tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      234929/sshd          off (0.00/0/0)                 ->  682.57s = 0 gun 0 saat 11 dk 22 sn
+#### tcp        0      0 0.0.0.0:514             0.0.0.0:*               LISTEN      1696/rsyslogd        off (0.00/0/0)                 ->  683.60s = 0 gun 0 saat 11 dk 23 sn
+#### tcp        0     72 10.xx.xx.xx:xx         xx.xx.xx.xx:xx           ESTABLISHED 1075453/sshd: root   on (0.10/0/0)                  ->  684.63s = 0 gun 0 saat 11 dk 24 sn   [ retransmission ]
+#### tcp6       0      0 10.xx.xx.xx:9100       10.xx.xx.xx:44472        ESTABLISHED 1579/node_exporter   keepalive (7.17/0/0)
+############################################################################################
 
 function go() {
 
