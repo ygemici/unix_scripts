@@ -11,6 +11,30 @@
 ### gelistirme ve kod ayiklama
 ### guess2 19-08-2023
 
+###exs
+### [root@redhat8_yucel ~]# lsscsi -s
+### [0:0:0:0]    disk    VMware   Virtual disk     2.0   /dev/sda   64.4GB
+### [0:0:1:0]    disk    VMware   Virtual disk     2.0   /dev/sdb   40.8GB
+### [0:0:2:0]    disk    VMware   Virtual disk     2.0   /dev/sdc   2.14GB
+### [0:0:3:0]    disk    VMware   Virtual disk     2.0   /dev/sdd   3.43GB
+### [3:0:0:0]    cd/dvd  NECVMWar VMware SATA CD00 1.00  /dev/sr0   1.07GB
+### [4:0:0:0]    disk    ATA      VMware Virtual S 0001  /dev/sde   1.07GB
+### [5:0:0:0]    disk    ATA      VMware Virtual S 0001  /dev/sdf   1.07GB
+### [33:0:0:0]   disk    ATA      VMware Virtual S 0001  /dev/sdg   1.07GB
+### [34:0:0:0]   disk    ATA      VMware Virtual S 0001  /dev/sdh   1.07GB
+
+### [root@redhat8_yucel ~]# bash vmtoscsi.sh
+### -normal-
+### sda  [0:0:0:0]       VMware        <=====>       VM-scsi(0:0)              Hard Disk 1 - [60G]
+### sdb  [0:0:1:0]       VMware        <=====>       VM-scsi(0:1)              Hard Disk 2 - [38G]
+### sdc  [0:0:2:0]       VMware        <=====>       VM-scsi(0:2)              Hard Disk 3 - [2G]
+### sdd  [0:0:3:0]       VMware        <=====>       VM-scsi(0:3)              Hard Disk 4 - [3.2G]
+### sde  [4:0:0:0]       ATA           <=====>        VM-ata(0:0)              Hard Disk 5 - [1G]
+### sdf  [5:0:0:0]       ATA           <=====>        VM-ata(1:0)              Hard Disk 6 - [1G]
+### sdg  [3:3:0:00]      ATA           <=====>        VM-ata(2:0)              Hard Disk 7 - [1G]
+### sdh  [3:4:0:00]      ATA           <=====>        VM-ata(3:1)              Hard Disk 8 - [1G]
+
+
 
 #Dsk   VM  H:B:T:L - ( VM id )
 #---   --- ---------------------
