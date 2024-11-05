@@ -31,8 +31,8 @@
 ### sdd  [0:0:3:0]       VMware        <=====>       VM-scsi(0:3)              Hard Disk 4 - [3.2G]
 ### sde  [4:0:0:0]       ATA           <=====>        VM-ata(0:0)              Hard Disk 5 - [1G]
 ### sdf  [5:0:0:0]       ATA           <=====>        VM-ata(1:0)              Hard Disk 6 - [1G]
-### sdg  [3:3:0:00]      ATA           <=====>        VM-ata(2:0)              Hard Disk 7 - [1G]
-### sdh  [3:4:0:00]      ATA           <=====>        VM-ata(3:1)              Hard Disk 8 - [1G]
+### sdg  [3:3:0:0]      ATA           <=====>        VM-ata(2:0)              Hard Disk 7 - [1G]
+### sdh  [3:4:0:0]      ATA           <=====>        VM-ata(3:1)              Hard Disk 8 - [1G]
 
 
 
