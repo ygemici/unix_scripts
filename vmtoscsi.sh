@@ -179,7 +179,7 @@ sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs >${sds}_sorted_tmp1
 sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs|sed 's/[:]//g' >${sds}_sorted_tmp2
 sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs|sed 's/[: ]/x/g'|awk -F'x' '{a[x++]=$2 $3 $4 $5;b[y++]=$1;}END{for(i=0;i<x;i++)asort(a,c,"@val_num_asc");for(i=1;i<=x;i++)print c[i]}' >${sds}_sorted_tmp3
 awk 'FNR==NR{a[$2]=$1;next}{if($1 in a)print a[$1] FS $1}' ${sds}_sorted_tmp2 ${sds}_sorted_tmp3 >${sds}_sorted_tmp4
-awk 'FNR==NR{a[$1]=$2;next}{if($1 in a)print $1 FS a[$1]}' ${sds}_sorted_tmp1 ${sds}_sorted_tmp4 >${sds}_sorted
+awk 'FNR==NR{a[$1]=$2;next}{if($1 in a)print $1 FS a[$1]}' ${sds}_sorted_tmp1 ${sds}_sorted_tmp4|sed 's/[:]/ /g' >${sds}_sorted
 
 
 
