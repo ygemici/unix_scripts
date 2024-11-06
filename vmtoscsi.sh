@@ -169,10 +169,18 @@ sdx=$(ls -d "$i"/s[d]* 2>/dev/null|awk -F'/' '{print $NF}')
 [ ! -z "$sdx" ] && echo "$sdx $i" ; done >$devs
 
 #target numara sirasina gore
-sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs|sed 's/://g'|\
-awk '{a[x++]=$2;b[y++]=$1;}END{for(i=1;i<x;i++)for(j=0;j<x-i;j++)if(a[j]>a[j+1])\
-{temp=a[j+1];a[j+1]=a[j];a[j]=temp;temp2=b[j+1];b[j+1]=b[j];b[j]=temp2}for(i=0;i<x;i++)print b[i] FS a[i]}'|\
-sed 's/\([^ ]*\) \(.\)\(.\)\(.\)\(.\)/\1 \2 \3 \4 \5/g' >${sds}_sorted
+#sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs|sed 's/://g'|\
+#awk '{a[x++]=$2;b[y++]=$1;}END{for(i=1;i<x;i++)for(j=0;j<x-i;j++)if(a[j]>a[j+1])\
+#{temp=a[j+1];a[j+1]=a[j];a[j]=temp;temp2=b[j+1];b[j+1]=b[j];b[j]=temp2}for(i=0;i<x;i++)print b[i] FS a[i]}'|\
+#sed 's/\([^ ]*\) \(.\)\(.\)\(.\)\(.\)/\1 \2 \3 \4 \5/g' >${sds}_sorted
+
+#target numara sirasina gore - new
+sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs >${sds}_sorted_tmp1
+sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs|sed 's/[:]//g' >${sds}_sorted_tmp2
+sed 's;^\([^ ]*\).*target[^ ]*/\([^ ]*\)/[^ ]*;\1 \2;' $devs|sed 's/[: ]/x/g'|awk -F'x' '{a[x++]=$2 $3 $4 $5;b[y++]=$1;}END{for(i=0;i<x;i++)asort(a,c,"@val_num_asc");for(i=1;i<=x;i++)print c[i]}' >${sds}_sorted_tmp3
+awk 'FNR==NR{a[$2]=$1;next}{if($1 in a)print a[$1] FS $1}' ${sds}_sorted_tmp2 ${sds}_sorted_tmp3 >${sds}_sorted_tmp4
+awk 'FNR==NR{a[$1]=$2;next}{if($1 in a)print $1 FS a[$1]}' ${sds}_sorted_tmp1 ${sds}_sorted_tmp4 >${sds}_sorted
+
 
 
 ## centos 5.6 da vendor bilgileri getirilemiyordu..kod genellestirildi. 05-12-2022
