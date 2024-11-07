@@ -34,7 +34,8 @@ awk 'BEGIN{ORS="=";;m="Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec"};
 {sub(",","",$2);split(m,a);for(i=1;i<=12;i++)if(a[i]==$1)printf "%02s/%s/%s",i,$2,$3}'))
 expl=$(awk -vnow=$(date '+%s') -vexpt=$expiretime 'BEGIN{print int((expt-now)/60/60/24)}')
 
-if [[ ! $(echo "$2"|grep -o '.*@.*\..*') || -z "$2" ]] ; then
+if [ ! -z "$2" ] ; then
+if [[ ! $(echo "$2"|grep -o '.*@.*\..*') ]] ; then
 echo "Please give a valid e-mail address for report !!"
 echo -e "Local mail account is used this time -> '$USER@$(hostname)' \n"
 mailaddr="$USER@$(hostname)"
@@ -42,6 +43,7 @@ expiredays=$2
 else
 mailaddr="$2"
 [ ! -z "$3" ] && expiredays="$3"
+fi
 fi
 
 if [[ $(echo "$expl"|grep '-') ]]; then
@@ -52,6 +54,7 @@ exit
 fi
 
 awk -v e=$expl -v i="$expiredays" 'BEGIN{if(e<i&&e>1){
+print "Password expires in '$expl' days for user '$1'";
 print "An e-mail (Password Expiration WARNING!!) sent to ( '$mailaddr' )..";
 system("echo \"Please change your password within the next in '$expl' days\" |mail -s \"Password Expire Notification\" '$mailaddr'")}
 else print "Password expires in '$expl' days for user '$1'"}'
