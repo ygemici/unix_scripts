@@ -3,6 +3,13 @@
 # *     unix.com ftp return-codes   	                   *
 # *     @ygemici					   *
 # *     uses $HOME/.netrc for auto-login		   *
+###exs
+# a=$(./unix.com-ftp.sh 10.100.110.83 cd dir1) && echo $a
+#250
+# a=$(./unix.com-ftp.sh 10.100.110.83 get file2) && echo $a
+#226
+# a=$(./unix.com-ftp.sh 10.100.110.83 cd dir2) && echo $a
+#550
 # \********************************************************/
 arrayX=($@ ); ftpcmd="${arrayX[@]:1}";ok=0
 echo "$ftpcmd"|/usr/bin/ftp -v "${arrayX[0]}"> /tmp/tmpuxXXXX.ftp
