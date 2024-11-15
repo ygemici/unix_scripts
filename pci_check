@@ -10,6 +10,39 @@
 #https://unix.stackexchange.com/questions/97676/how-to-find-the-driver-module-associated-with-a-device-on-linux
 
 
+### exs
+#####################
+[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
+#Pcibus          Dev_id         Driver     Pciid-Modalias(Module)           Pci-device
+#------------    -------       --------   ----------------------     ------------------------------------------------------------
+#0000:00:00.0   0000:00:00.0    UNKOWN              N/A                               Intel Corporation Ice Lake Memory Map/VT-d
+#0000:00:00.1   0000:00:00.1    UNKOWN              N/A                                   Intel Corporation Ice Lake Mesh 2 PCIe
+#0000:00:00.2   0000:00:00.2    UNKOWN              N/A                                           Intel Corporation Ice Lake RAS
+#0000:00:00.4   0000:00:00.4    UNKOWN              N/A                                           Intel Corporation Ice Lake IEH
+#0000:00:01.0   0000:00:01.0    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
+#0000:00:01.1   0000:00:01.1    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
+#0000:00:01.2   0000:00:01.2    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
+#0000:00:01.3   0000:00:01.3    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
+
+
+#[root@XXXXXXXXXXXX ~]# bash pci_check net
+#   Device [MAC_Addr] :                 Driver        State
+#--------------------------------------------------------------
+#Bonding devices [Permanent Mac]
+#-------
+#ens10f0np0 [xx:xx:xx:xx:xx:xx]
+#ens10f1np1 [xx:xx:xx:xx:xx:xx]
+# ens3f0np0 [xx:xx:xx:xx:xx:xx]
+# ens3f1np1 [xx:xx:xx:xx:xx:xx]
+#========================
+#     bond0 [xx:xx:xx:xx:xx:xx] :        bonding       (up)
+#ens10f0np0 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
+#ens10f1np1 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
+# ens3f0np0 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
+# ens3f1np1 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
+#        lo [xx:xx:xx:xx:xx:xx] :            N/A  (unknown)
+
+
 ueventget_block() {
 #dev = sdx
 dev="$1"
