@@ -12,7 +12,7 @@
 
 ### exs
 #####################
-[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
+#[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
 #Pcibus          Dev_id         Driver     Pciid-Modalias(Module)           Pci-device
 #------------    -------       --------   ----------------------     ------------------------------------------------------------
 #0000:00:00.0   0000:00:00.0    UNKOWN              N/A                               Intel Corporation Ice Lake Memory Map/VT-d
