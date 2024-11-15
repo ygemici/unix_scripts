@@ -63,11 +63,13 @@ done
 
 ueventget_pci() {
     uevents="$1"
+    device="$2"
     pci_id=$(echo "$uevents"|grep PCI_ID|cut -d'=' -f2 )
-    vendor_id=$(echo "$pci_id"|cut -d':' -f1 )
+    if [ ! -z "$pci_id" ] ; then
     dev_id=$(echo "$pci_id"|cut -d':' -f2 )
-    modul=$(grep "$vendor_id" /lib/modules/$(uname -r)/modules.alias |grep "${dev_id}"[^0-9]|awk '{print $NF}')
-    modulu=$(echo "$modul"|awk '{a[$1]}END{for(i in a)print i}')
+    vendor_id=$(echo "$pci_id"|cut -d':' -f1 )
+    [ ! -z "$vendor_id" ] && [ ! -z "$dev_id" ] && modul=$(grep "$vendor_id" /lib/modules/$(uname -r)/modules.alias |grep "${dev_id}"[^0-9]|awk '{print $NF}')
+    [ ! -z "$modul" ] && modulu=$(echo "$modul"|awk '{a[$1]}END{for(i in a)print i}')
     modulc=$(echo "$modulu"|awk '{a[$1]}END{for(i in a)c++;print c}')
     if [ $modulc -gt 1 ] ; then
     echo "$vendor_id xx $dev_id has MATCHING MULTIPLE MODULEs ?? -> [$modul] "
@@ -76,9 +78,26 @@ ueventget_pci() {
     else
     modul="$modulu"
     fi
+    else
+   ### echo "pci_id does not detected from [uevent] for [$device] !! " ###
+    if [ ! -z "$uevents" ] ; then
+    #echo "[ $uevents ] "
+    #sleep 1
+    driver=$(echo "$uevents"|grep DRIVER|cut -d'=' -f2 )
+    dev_id="N/A"
+    vendor_id="N/A"
+    fi
+fi
 
-    pci_modalias=$(echo "$uevents"|grep MODALIAS|cut -d':' -f2|sed 's/.*\(.\{8\}\)$/\1/')
+    ### modalias ###
+    pci_modalias=$(echo "$uevents"|grep MODALIAS|cut -d':' -f2|sed 's/^\(.\{18\}\).*$/\1/')
+    if [ ! -z "$pci_modalias" ] ; then
     modul2=$(grep "$pci_modalias" /lib/modules/$(uname -r)/modules.alias |cut -d" " -f3 )
+    else
+    [ -f "$device/modalias" ] && modaliasf=$(cat "$device/modalias" |sed 's/^\(.\{18\}\).*$/\1/' )
+    [ ! -z "$modaliasf" ] && modul2=$(grep "$modaliasf" /lib/modules/$(uname -r)/modules.alias |cut -d" " -f3 )
+    fi
+
 
     #### gerekirse "lspci -s PCI_BUS" ile PCI DEVICE ISMI DE EKLENEBILIR ####
 
@@ -95,9 +114,10 @@ ueventget_pci() {
     hwids=""
     fi
     fi
+
     if [ ! -z "$hwids" ] ; then
-    deviceid=$(cat $(readlink -e "$maindevices/$i/device") )
-    vendorid=$(cat $(readlink -e "$maindevices/$i/vendor") )
+    [ -f "$maindevices/$device/device" ] && deviceid=$(cat $(readlink -e "$maindevices/$device/device") )
+    [ -f "$maindevices/$device/vendor" ] && vendorid=$(cat $(readlink -e "$maindevices/$device/vendor") )
     if [ ! -z "$deviceid" ] && [ ! -z "$vendorid" ] ; then
     devid2=$(echo "$deviceid"|sed 's/0x//')
     venid2=$(echo "$vendorid"|sed 's/0x//')
@@ -105,6 +125,8 @@ ueventget_pci() {
    pciinfos=$(awk -v a="$devid2" -v b="$venid2" '$0~"^"b{for(i=2;i<=NF;i++)vendor=(vendor)?vendor FS $i:$i;while(getline){if($0~/^ /)break;;if($1==a){for(i=2;i<=NF;i++)device=(device)?device FS $i:$i;break}}if(!device)device="N/A";print vendor FS device}' $hwids )
 
     fi
+    else
+    echo "device_id and vendor_id cannot be detected !! "
     fi
 
 }
@@ -190,37 +212,47 @@ module_or_builtin() {
 
 
 ueventget_pci_pre() {
-    devices_path_pci="$1"
-    devpath_pci="$2"
+    device_path_dev="$1"
+    device_path_pci="$2"
 
-    echo "$devices_path_pci" xx $devpath_pci
 
-    uevents=$(cat $(readlink -e $devpath_pci/device/uevent) )
-    echo "readlink -e "$devpath_pci"/device/uevent"
+    [ ! -z "$device_path_pci" ] && [ -f $(readlink -e "$device_path_pci")/uevent ] && uevents=$(cat $(readlink -e "$device_path_pci")/uevent )
 
     if [ -z "$uevents" ] ; then
-    echo "Uevents cannot be found from [$devpath_pci] !! " ;
+    ### echo "Uevents cannot be found from [ $device_path_pci ] !! " ; ###
     driver="UNKOWN";
 
     else
 
-    ueventget_pci "$uevents";
+    if [ ! -z "$device_path_dev" ] ; then
+    ueventget_pci "$uevents" "$device_path_dev"
+    [ -f "$device_path_dev"/driver ] && driver=$(basename 2>/dev/null $(readlink -e "$device_path_dev")/driver )
+    fi
 
-   echo xxxx "$devices_path_pci/$devpath_pci/driver"
-
-    driver=$(basename 2>/dev/null $(readlink -e "$devices_path_pci/$devpath_pci)/driver") )
     [ -z "$driver" ] && driver=$(echo "$uevents"|grep DRIVER|cut -d'=' -f2)
     [ -z "$driver" ] && driver="N/A"
     [ -z "$modul" ] && modul="N/A"
-    [ -z "$modul2" ] && modul2="N/A"
+    #[ -z "$modul2" ] && modul2="N/A"
 
-    linuxdevid=$(ls -l $mainclass/*|awk -F'/' -v a="$devpath_pci" '$0~a{print $NF}' )
+
+    #  echo "$main_class xxx $device_path_pci"
+
+
+    #[ ! -z "$device_path_pci" ] && linuxdevid=$(ls -1 $main_class/|awk -v a="$device_path_pci" '{m=split(a,b,":");if($1==b[m])print $1}' )
+    #echo "$device_path_pci"
+    [ ! -z "$device_path_pci" ] && linuxdevid=$(echo "$device_path_pci"|awk -F'/' '{sub(/:pci.*/,"",$NF);print $NF}' )
     [ -z "$linuxdevid" ] && linuxdevid="N/A"
-    pci_bus=$(readlink -e "$devpath_pci"|awk -F'/' '{print $5}' )
+    pci_bus=$(readlink -e "$device_path_pci"|awk -F'/' '{print $5}' )
     [ -z "$pci_bus" ] && pci_bus="N/A"
-    #echo "$mainclass" x $i x $linuxdevid x "$pci_bus" x "$linuxdevid" x "$driver" x "$modul" x "$modul2" x "$pciinfos"
-    printf "%-14s %8s %12s %18s %68s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul-$modul2" "$pciinfos"
+    #################
+    if [ "$modul" != "$modul2" ] && [ ! -z "$modul2" ] ; then
+    printf "%-14s %8s %9s %20s %68s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul-($modul2)" "$pciinfos"
+    else
+    printf "%-14s %8s %9s %16s %72s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul" "$pciinfos"
+    #################
     fi
+    fi
+
 }
 
 
@@ -234,40 +266,44 @@ case $subsys in
     # pci bus
     pci_bus)
     main_bus="0000"
-    main_subbus="0000:"
-    mainclass="/sys/class/$subsys"
-    maindevices="/sys/devices/pci${main_bus}"
+    #main_subbus="0000:"
+    main_class="/sys/class/$subsys"
+    main_devices="/sys/devices/pci${main_bus}"
 
     # Aslinda Tum device lar toplu olarak burda yer aliyor..
     ###/sys/bus/pci/devices/
 
     #if [ $? -ne 0 ] ; then echo "PCI Main Bus access problem !! " ; exit 1 ; fi
 
-    printf "%12s %10s %12s %21s %20s %s\n" "Pcibus"  "Dev_id"  "Driver"  "Pciid-Modalias"     "Pci-device"
-    printf "%12s %10s %14s %20s %22s %s\n" "------------"  "-------" "--------"  "--------------"   "    ------------------------------------------------------------"
+    printf "%-12s %9s %14s %26s %20s %s\n" "Pcibus"  "Dev_id"  "Driver"  "Pciid-Modalias(Module)"     "Pci-device"
+    printf "%-12s %10s %14s %24s %22s %s\n" "------------"  "-------" "--------"  "----------------------"   "    ------------------------------------------------------------"
 
 
-    for maindev in ${mainclass}/* ; do
-    maindevice=$(readlink -e $maindev/device)
-    sleep 1
-    ueventget_pci_pre "$main_devices" "$maindev"
-
-    main_subbus=$(echo $maindev|sed 's/.\(pci[0-9]\):.*/\1/')
+for main_devbus in ${main_class}/* ; do
+#main_devbus="/sys/class/pci_bus/0000:00"
 
 
-    for subdev in ${maindevice}/${main_subbus}* ; do
+    main_dev=$(readlink -e $(readlink -e $main_devbus)/device )
 
-    main_devices_sub="$main_devices/$subdev"
-    ueventget_pci_pre "$main_devices_sub" "$subdev"
 
-    ####uevent pci
-    ####
+#main_dev="/sys/devices/pci0000:00"
 
-    #driverd=$(readlink -e $(readlink -e $mainclass)/device/driver )
-    #driver=$(basename $driverd)
-    #printf "%-14s %4s %-22s %-16s %-16s %40s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul" "$modul2" "$pciinfos"
+
+    ueventget_pci_pre "$main_dev" "$main_devbus"
+
+    main_subbus=$(echo "$main_dev"|sed 's/.*pci\([0-9]*\):.*/\1/')
+
+
+for sub_dev in ${main_devbus}/device/${main_subbus}:* ; do
+
+   sub_dev_bus=$(readlink -e "$sub_dev")
+
+    ueventget_pci_pre "$sub_dev" "$sub_dev_bus"
+
     done
-    done
+done
+
+
     #awk 'BEGIN{$70=OFS="-";print $0; print RS}'
 
     ;;
@@ -351,13 +387,15 @@ for f in /sys/class/$subsys/*; do
     [ $c -eq 1 ] && printf "%10s [%s] : %22s %12s\n" "Device" "MAC_Addr" "Driver" "State" && awk 'BEGIN{$62=OFS="-";print $0; }'
     addr=$(cat "$f/address" 2>/dev/null)
     operstate=$(cat "$f/operstate" 2>/dev/null)
-    [ -z "$addr" ] && addr="N/A"
-    [ -z "$operstate" ] && addr="N/A"
-    case "$f" in
-    bond)driver="bonding"
+    #[ -z "$addr" ] && addr="N/A"
+    [ -z "$operstate" ] && operstate="N/A"
+    case "$dev" in
+    bond*)driver="bonding"
+    bonddevs=$(awk '{for(i=1;i<NF;i++)if($i~"Permanent HW addr"){sub(" *","",$1);split($i,a,": ");printf "%10s [%10s]\n",$1,a[2]}}' FS="\n" RS="Slave Interface:" /proc/net/bonding/$dev 2>/dev/null )
+    [ ! -z "$bonddevs" ] && echo -e "Bonding devices [Permanent Mac] \n-------\n$bonddevs" && echo "========================"
     esac
-    [ "$dev" != "lo" ] && module_or_builtin "CONFIG_$driver=" "$driver" && [ ! -z "$modul2" ] && driver="$modul2"
-    printf "%10s [%s] : %16s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
+    #[ "$dev" != "lo" ] && module_or_builtin "CONFIG_$driver=" "$driver" && [ ! -z "$modul2" ] && [ ! -z "$driver" ] && driver="$modul2"
+    [ ! -z "$addr" ] && printf "%10s [%s] : %14s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
     ;;
 
 
