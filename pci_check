@@ -102,12 +102,13 @@ ueventget_pci() {
     dev_id=$(echo "$pci_id"|cut -d':' -f2 )
     vendor_id=$(echo "$pci_id"|cut -d':' -f1 )
     [ ! -z "$vendor_id" ] && [ ! -z "$dev_id" ] && modul=$(grep "$vendor_id" /lib/modules/$(uname -r)/modules.alias |grep "${dev_id}"[^0-9]|awk '{print $NF}')
+    [ -z "$modul" ] && modul="N/A"
     [ ! -z "$modul" ] && modulu=$(echo "$modul"|awk '{a[$1]}END{for(i in a)print i}')
     modulc=$(echo "$modulu"|awk '{a[$1]}END{for(i in a)c++;print c}')
     if [ $modulc -gt 1 ] ; then
     echo "$vendor_id xx $dev_id has MATCHING MULTIPLE MODULEs ?? -> [$modul] "
     #sleep 1
-    modul="N/A"
+    modul="Multiple"
     else
     modul="$modulu"
     fi
@@ -253,7 +254,7 @@ ueventget_pci_pre() {
 
     if [ -z "$uevents" ] ; then
     ### echo "Uevents cannot be found from [ $device_path_pci ] !! " ; ###
-    driver="UNKOWN";
+    driver="N/A";
 
     else
 
@@ -268,22 +269,16 @@ ueventget_pci_pre() {
     #[ -z "$modul2" ] && modul2="N/A"
 
 
-    #  echo "$main_class xxx $device_path_pci"
-
 
     #[ ! -z "$device_path_pci" ] && linuxdevid=$(ls -1 $main_class/|awk -v a="$device_path_pci" '{m=split(a,b,":");if($1==b[m])print $1}' )
     #echo "$device_path_pci"
     [ ! -z "$device_path_pci" ] && linuxdevid=$(echo "$device_path_pci"|awk -F'/' '{sub(/:pci.*/,"",$NF);print $NF}' )
     [ -z "$linuxdevid" ] && linuxdevid="N/A"
-    pci_bus=$(readlink -e "$device_path_pci"|awk -F'/' '{print $5}' )
+    pci_bus=$(readlink -e "$device_path_pci"|awk -F'/' '{print $NF}' )
     [ -z "$pci_bus" ] && pci_bus="N/A"
     #################
-    if [ "$modul" != "$modul2" ] && [ ! -z "$modul2" ] ; then
-    printf "%-14s %8s %9s %20s %68s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul-($modul2)" "$pciinfos"
-    else
-    printf "%-14s %8s %9s %16s %72s\n" "$pci_bus" "$linuxdevid" "$driver" "$modul" "$pciinfos"
+    printf "%-20s %12s %20s %74s\n" "$pci_bus" "$devid2-$venid2" "[$driver]-[$modul]" "$pciinfos"
     #################
-    fi
     fi
 
 }
@@ -308,8 +303,8 @@ case $subsys in
 
     #if [ $? -ne 0 ] ; then echo "PCI Main Bus access problem !! " ; exit 1 ; fi
 
-    printf "%-12s %9s %14s %26s %20s %s\n" "Pcibus"  "Dev_id"  "Driver"  "Pciid-Modalias(Module)"     "Pci-device"
-    printf "%-12s %10s %14s %24s %22s %s\n" "------------"  "-------" "--------"  "----------------------"   "    ------------------------------------------------------------"
+    printf "%-12s %18s %23s %20s %10s\n" "Pcibus"  "Dev_id"  "Driver-Module"  "Pci-device"
+    printf "%-12s %20s %22s %22s %s\n" "------------"  "---------" "------------------"   "        -------------------------------------------------------------------"
 
 
 for main_devbus in ${main_class}/* ; do
@@ -776,3 +771,4 @@ fi
 ###lets go
 menux "$1"
 justdoit "$1"
+
