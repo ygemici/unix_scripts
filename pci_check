@@ -12,6 +12,7 @@
 
 ### exs
 #####################
+#old format
 #[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
 #Pcibus          Dev_id         Driver     Pciid-Modalias(Module)           Pci-device
 #------------    -------       --------   ----------------------     ------------------------------------------------------------
@@ -23,6 +24,46 @@
 #0000:00:01.1   0000:00:01.1    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
 #0000:00:01.2   0000:00:01.2    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
 #0000:00:01.3   0000:00:01.3    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
+
+#new format
+#[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
+#Pcibus                   Dev_id           Driver-Module           Pci-device
+#------------            ---------     ------------------         -------------------------------------------------------------------
+#0000:00:00.0            2020-8086          [N/A]-[N/A]                                                      Intel Corporation N/A
+#0000:00:04.0            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
+#0000:00:04.1            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
+#0000:00:04.2            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
+#0000:00:04.3            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
+#0000:00:04.4            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
+#0000:00:04.5            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
+#0000:00:04.6            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
+
+#[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus net
+#    Device [MAC_Addr] :                 Driver        State
+#--------------------------------------------------------------
+#Bonding devices [Permanent Mac]
+#-------
+#      eno6 [48:df:37:9d:99:68]
+#    ens1f1 [48:df:37:a7:7b:68]
+#========================
+#     bond0 [48:df:37:9d:99:68] :        bonding       (up)
+#Bonding devices [Permanent Mac]
+-------
+#      eno5 [48:df:37:9d:99:60]
+#    ens1f0 [48:df:37:a7:7b:60]
+#========================
+#     bond1 [48:df:37:9d:99:60] :        bonding       (up)
+#      eno1 [94:40:c9:18:dc:10] :            tg3     (down)
+#      eno2 [94:40:c9:18:dc:11] :            tg3     (down)
+#      eno3 [94:40:c9:18:dc:12] :            tg3     (down)
+#      eno4 [94:40:c9:18:dc:13] :            tg3     (down)
+#      eno5 [48:df:37:9d:99:60] :           i40e       (up)
+#      eno6 [48:df:37:9d:99:68] :           i40e       (up)
+#    ens1f0 [48:df:37:9d:99:60] :           i40e       (up)
+#    ens1f1 [48:df:37:9d:99:68] :           i40e       (up)
+#        lo [00:00:00:00:00:00] :            N/A  (unknown)
+#    virbr0 [52:54:00:8f:5e:8b] :            N/A     (down)
+#virbr0-nic [52:54:00:8f:5e:8b] :            N/A     (down)
 
 
 #[root@XXXXXXXXXXXX ~]# bash pci_check net
@@ -458,17 +499,17 @@ for f in /sys/class/$subsys/*; do
     [ $c -eq 1 ] && printf "%12s %16s %26s \n" "Remote_IP" "Remote_Port" "Local_Port" && awk 'BEGIN{$74=OFS="-";print $0; }'
     for i in $f* ; do
     iscsiconn=$i
-    #iscsi_rip=$(cat $i/persistent_address)
-    iscsi_rip=$(cat $i/address)
-    iscsi_lport=$(cat $i/local_port)
-    iscsi_rport=$(cat $i/port)
+    #iscsi_rip=$(cat $i/persistent_address 2>/dev/null)
+    iscsi_rip=$(cat $i/address 2>/dev/null)
+    iscsi_lport=$(cat $i/local_port 2>/dev/null)
+    iscsi_rport=$(cat $i/port 2>/dev/null)
     printf "%14s %12s %26s \n" "$iscsi_rip" "[:$iscsi_rport]" "[:$iscsi_lport]"
     echo
     [ $c -eq 1 ] && printf "%22s \n" "Iscsi_Disks" && awk 'BEGIN{$44=OFS="-";print $0; }'
-    ls -ltr /dev/disk/by-path/ 2>/dev/null|grep $iscsi_rip
+    ls -ltr /dev/disk/by-path/ 2>/dev/null|grep $iscsi_rip 2>/dev/null
     echo
     [ $c -eq 1 ] && printf "%22s \n" "Iscsi_Disks_sd" && awk 'BEGIN{$44=OFS="-";print $0; }'
-    for i in $(ls -ltr /dev/disk/by-path/ 2>/dev/null|grep $iscsi_rip|awk -F'/' '{print $NF}') ; do
+    for i in $(ls -ltr /dev/disk/by-path/ 2>/dev/null|grep $iscsi_rip 2>/dev/null|awk -F'/' '{print $NF}') ; do
     echo $(lsblk /dev/$i 2>/dev/null|awk 'END{sub("^..","",$1);print $1}') "->" $i
     done
     echo "----------"
@@ -481,8 +522,8 @@ for f in /sys/class/$subsys/*; do
     [ $c -eq 1 ] && printf "%10s %20s %28s\n" "Iscsi_Host" "[Local_IP]" "Iscsi_HW_addr" && awk 'BEGIN{$64=OFS="-";print $0; }'
     for i in $f* ; do
     iscsihost=$(basename $i)
-    iscsi_ip=$(cat $i/ipaddress)
-    iscsi_hw=$(cat $i/hwaddress)
+    iscsi_ip=$(cat $i/ipaddress 2>/dev/null)
+    iscsi_hw=$(cat $i/hwaddress 2>/dev/null)
     printf "%10s %20s %28s \n" "$iscsihost" "$iscsi_ip" "$iscsi_hw"
     done
     ;;
@@ -492,7 +533,7 @@ for f in /sys/class/$subsys/*; do
     iscsi_trans=$(ls -d $f|awk -F'/' '{print $NF}')
     for i in $iscsi_trans ; do
     modinfo $i &>/dev/null && iscsi_mod=$(modinfo $i|awk -F':' '/desc/{print $NF}') && echo Mod : $i "-> " $iscsi_mod
-    iscsi_macs=$(iscsiadm -m iface|grep $i|awk '{split($1,a,".");split(a[2],b,":");printf "%s",b[1]":"b[2]":"b[3]":"b[4]":"b[5]":"b[6];printf "\n"}')
+    iscsi_macs=$(iscsiadm -m iface|grep $i 2>/dev/null|awk '{split($1,a,".");split(a[2],b,":");printf "%s",b[1]":"b[2]":"b[3]":"b[4]":"b[5]":"b[6];printf "\n"}')
     for j in $iscsi_macs ; do
     if [ "$j" != ":::::" ] ; then
     iface=$(ip a|grep -B1 "$j"|awk -F':' 'NR==1{print $2}')
@@ -508,8 +549,8 @@ for f in /sys/class/$subsys/*; do
     [ $c -eq 1 ] && printf "%22s %40s %24s \n" "Target" "Initiator" "State" && awk 'BEGIN{$92=OFS="-";print $0; }'
     iscsi_sess=$(ls -d $f)
     for i in $iscsi_sess ; do
-    tname=$(cat $i/targetname)
-    iname=$(cat $i/initiatorname)
+    tname=$(cat $i/targetname 2>/dev/null)
+    iname=$(cat $i/initiatorname 2>/dev/null)
     state=$(cat $i/state)
     printf "%38s %38s %14s \n" "$tname" "$iname" "$state"
     done
