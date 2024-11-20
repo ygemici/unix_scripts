@@ -86,22 +86,7 @@
 #virbr0-nic [52:54:00:8f:5e:8b] :            N/A     (down)
 
 
-#[root@XXXXXXXXXXXX ~]# bash pci_check net
-#   Device [MAC_Addr] :                 Driver        State
-#--------------------------------------------------------------
-#Bonding devices [Permanent Mac]
-#-------
-#ens10f0np0 [xx:xx:xx:xx:xx:xx]
-#ens10f1np1 [xx:xx:xx:xx:xx:xx]
-# ens3f0np0 [xx:xx:xx:xx:xx:xx]
-# ens3f1np1 [xx:xx:xx:xx:xx:xx]
-#========================
-#     bond0 [xx:xx:xx:xx:xx:xx] :        bonding       (up)
-#ens10f0np0 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
-#ens10f1np1 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
-# ens3f0np0 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
-# ens3f1np1 [xx:xx:xx:xx:xx:xx] :        bnxt_en       (up)
-#        lo [xx:xx:xx:xx:xx:xx] :            N/A  (unknown)
+
 
 
 ueventget_block() {
