@@ -12,6 +12,9 @@
 
 ### exs
 #####################
+
+
+### SCSI ###
 #[root@XXXXXXXXXXXX ~]# bash pci_check scsi_host
 #     Scsi_Host                                                            Target              Driver
 #--------------------------------------------------------------------------------------------------------
@@ -39,6 +42,7 @@
 
 
 
+### PCI BUS ###
 #[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
 #Pcibus                   Dev_id           Driver-Module           Pci-device
 #------------            ---------     ------------------         -------------------------------------------------------------------
@@ -51,7 +55,10 @@
 #0000:00:04.5            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
 #0000:00:04.6            2021-8086          [N/A]-[N/A]                               Intel Corporation Sky Lake-E CBDMA Registers
 
-#[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus net
+
+
+### NETWORK ###
+#[root@XXXXXXXXXXXX ~]# bash pci_check net
 #    Device [MAC_Addr] :                 Driver        State
 #--------------------------------------------------------------
 #Bonding devices [Permanent Mac]
