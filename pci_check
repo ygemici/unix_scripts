@@ -106,9 +106,10 @@ ueventget_pci() {
     [ ! -z "$modul" ] && modulu=$(echo "$modul"|awk '{a[$1]}END{for(i in a)print i}')
     modulc=$(echo "$modulu"|awk '{a[$1]}END{for(i in a)c++;print c}')
     if [ $modulc -gt 1 ] ; then
-    echo "$vendor_id xx $dev_id has MATCHING MULTIPLE MODULEs ?? -> [$modul] "
-    #sleep 1
-    modul="Multiple"
+    modul=$(echo "$modul"|awk '!a[$0]++'|awk -v RS= '{$1=$1}1' OFS="-")
+    echo -e "\n->>> [$dev_id-$vendor_id] has MATCHING MULTIPLE MODULEs ?? -> [$modul]"
+    sleep 1
+    #modul="$(echo "$modul"|awk '!a[$0]++'|sed ':a;N;$!ba;s/\n/-/g')"
     else
     modul="$modulu"
     fi
