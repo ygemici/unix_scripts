@@ -12,20 +12,33 @@
 
 ### exs
 #####################
-#old format
-#[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
-#Pcibus          Dev_id         Driver     Pciid-Modalias(Module)           Pci-device
-#------------    -------       --------   ----------------------     ------------------------------------------------------------
-#0000:00:00.0   0000:00:00.0    UNKOWN              N/A                               Intel Corporation Ice Lake Memory Map/VT-d
-#0000:00:00.1   0000:00:00.1    UNKOWN              N/A                                   Intel Corporation Ice Lake Mesh 2 PCIe
-#0000:00:00.2   0000:00:00.2    UNKOWN              N/A                                           Intel Corporation Ice Lake RAS
-#0000:00:00.4   0000:00:00.4    UNKOWN              N/A                                           Intel Corporation Ice Lake IEH
-#0000:00:01.0   0000:00:01.0    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
-#0000:00:01.1   0000:00:01.1    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
-#0000:00:01.2   0000:00:01.2    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
-#0000:00:01.3   0000:00:01.3    UNKOWN          ioatdma                  Intel Corporation Ice Lake CBDMA [QuickData Technology]
+#[root@XXXXXXXXXXXX ~]# bash pci_check scsi_host
+#     Scsi_Host                                                            Target              Driver
+#--------------------------------------------------------------------------------------------------------
 
-#new format
+#     host0(usb-storage)
+#           /sys/devices/pci0000:00/0000:00:14.0/usb3/3-4/3-4:1.0/host0    0:0:0:0             sd
+#====================================================================================
+
+#     host1([fc?])                                                                             qla2xxx
+#/sys/devices/pci0000:ae/0000:ae:00.0/0000:af:00.0/host1                   0:0:0:0
+
+#====================================================================================
+
+#     host2(smartpqi)
+#               /sys/devices/pci0000:5b/0000:5b:00.0/0000:5c:00.0/host2    2:1:0:0             sd
+#                                                                          2:1:0:1             sd
+#                                                                          2:1:0:2             sd
+#                                                                          2:2:0:0 HPE P816i-a SR Gen10
+#====================================================================================
+
+#     host3([fc?])                                                                             qla2xxx
+#/sys/devices/pci0000:ae/0000:ae:02.0/0000:b0:00.0/host3                   2:2:0:0
+
+#====================================================================================
+
+
+
 #[root@XXXXXXXXXXXX ~]# bash pci_check pci_bus |head
 #Pcibus                   Dev_id           Driver-Module           Pci-device
 #------------            ---------     ------------------         -------------------------------------------------------------------
