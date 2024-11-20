@@ -585,46 +585,49 @@ for f in /sys/class/$subsys/*; do
     ########################
 
 
+    
     scsi_host)
     ### target ###
     ((c++))
-    [ $c -eq 1 ] && printf "%14s %65s %20s \n" "Scsi_Host" "Target" "Driver" && awk 'BEGIN{$104=OFS="-";print $0 RS}'
+    [ $c -eq 1 ] && printf "%14s %65s %19s \n" "Scsi_Host" "Target" "Driver" && awk 'BEGIN{$104=OFS="-";print $0 RS}'
     driver=$(basename $(readlink -e $(readlink -e "$f"|sed 's/\/host.*//')/driver))
 
 
     for td in $(ls -d $f/device/target* 2>/dev/null ); do
-
     if [ ! -z "$td" ] ; then
     #blockdev=$(echo "$td"|sed 's/.*target//')
     #printf "%10s" "%16s" "$f" "$td"
-    #hostid=$(echo "$f"|sed 's/.host\([0-9]\)$/\1/')
-    htcl=$(echo "$td"|sed 's/.target\([0-9:]\)$/\1/')
+    #hostid=$(echo "$f"|sed 's/.*host\([0-9]\).*/\1/')
+    #tcl=$(echo "$td"|sed 's/.*target\([0-9:]*\).*/\1/')
+    tcl=$(echo "$td"|sed 's/.*target\(.*\)/\1/')
     scsihost=$(basename "$f")
     devicedir=$(readlink -e "$f/device" )
 
-    ((cc++))
-    for devpath in $td/$htcl:*; do
+    for devpath in $td/$tcl:*; do
     scsitarget=$(basename "$devpath")
     driverd=$(basename "$(readlink -e $devpath/driver)" )
     modeld_vendor=$(cat $(readlink -e "$devpath"/vendor))
     modeld_model=$(cat $(readlink -e "$devpath"/model))
+    ((cc++))
     [ -z "$driverd" ] && driverd="$(echo $modeld_vendor $modeld_model)"
-    [ $cc -eq 1 ] && printf "%10s %88s \n%-s %25s %15s" "$scsihost" "$driver" "$devicedir" "($scsitarget)" "$driverd"||printf "\n%81s %21s\n" "($scsitarget)" "$driverd"
+    [ $cc -eq 1 ] && printf "%10s(%s)\n%70s %10s %14s" "$scsihost" "$driver" "$devicedir" "$scsitarget" "$driverd" || printf "\n%81s %14s" "$scsitarget" "$driverd"
     done
     fi
     done
+    cc=0
 
 
     #### non-scsi host ( eg : iscsi , fc ) ####
-    ls $f/device/*_host >/dev/null 2>&1
-    if [ $? -eq 0 ] ; then
-    scsihost=$(basename "$f")
     otherhosts=0
+    ls $f/device/*_host >/dev/null 2>&1|grep -v " scsi_host"
+    if [ $? -eq 0 ] ; then
+    echo "non-scsi host"
+    scsihost=$(basename "$f")
     modeldescr=$(cat $f/modeldesc 2>/dev/null)
     hosts=$(ls -d $f/device/_host|grep -v '/scsi_host$'|sed 's;./;;')
 
     for otherhost in $hosts; do
-    [ ! -z "$modeldescr" ] && printf "%10s [%s] %40s %37s\n" "$scsihost" "$otherhost" "($modeldescr)" "$driver" || printf "%10s [%s] %78s\n" "$scsihost" "$otherhost" "$driver"
+    [ ! -z "$modeldescr" ] && printf "%10s [%s] %40s %40s\n" "$scsihost" "$otherhost" "($modeldescr)" "$driver" || printf "%10s [%s] %80s" "$scsihost" "$otherhost" "$driver"
     otherhosts=1
     done
     fi
@@ -637,9 +640,8 @@ for f in /sys/class/$subsys/*; do
     if [ $? -ne 0 ] ; then
     if [ $otherhosts -eq 0 ] ; then
     scsi_other_host=$(basename "$f")
-    printf "%10s %92s\n" "$scsi_other_host" "$driver"
+    printf "%17s %83s\n" "$scsi_other_host([fc?])" "$driver"
     fi
-
 
     devicedir=$(readlink -e "$f/device" )
     devpath=$(basename $(echo "$devicedir"))
@@ -648,7 +650,7 @@ for f in /sys/class/$subsys/*; do
     #procname=$(cat $hostdir/proc_name )
     #[ -z "$procname" ] || [ "$procname" = '(null)' ] && procname="N/A"
     [ -z "$scsitarget" ] && scsitarget="[N/A]"
-    printf "%-72s  %-s\n" "$devicedir" "$scsitarget"
+    printf "%s %25s\n" "$devicedir" "$scsitarget"
 
 
     #scsi_rports
