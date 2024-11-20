@@ -6,17 +6,73 @@
 ## Script does not use 'lscpu' for that there is not in the system default installion but tries to the lshw for get the some informations 
 ## Please feedback to me for wrong results on the which you tested systems
 
-
 ##### HYPERTHREAD FIZIKSEL HOSTTA ACIK FAKAT SUNUCULAR ESKIDEN KALMA OLDUGU ICIN KERNEL CPU LARI O SEKILDE KALMIS OLABILIR
 ##### HTTP SUPPORT EVENT DETECT ASTIR VE VM CLIENT NOT DETECT PHYSICAL HYPER THREAD 
 #### OLD VM OYLEYSE BIR CARE VARMI THREAD SIBLINBGS VARSA OK DEYEBILIRIZZ
 
 #### YENI SISTEMLERDE "systemd-virtuald" ile sistemin SANAL olup olmadigi anlasilabilir !!
 
+
+##exs output
+#Script works within the -> bash <- SHELL  [OK]
+#======================================================================
+#Not Supported shells -> (ash,bsh,csh,tcsh..)
+#Not Tested shells -> (dash,mksh,psh,rc..)
+#======================================================================
+#"Red Hat Enterprise Linux 9.4 (Plow)"
+
+#======================================================================
+#VIRTUAL PLATFORM DETECTED !!
+
+#======================================================================
+
+#HOSTNAME --> openshift4
+#======================================================================
+
+#WARNING(s):
+
+#======================================================================
+
+#HT_SUPPORT: NO [ most likely !!! ] (in PHYSCIAL HOST )
+#HT status : IT is VM !! ( HT seems DISABLED via Operating System [but vm client already has virtual core(s)] )
+#======================================================================
+
+# VM VIEW
+#======================================================================
+# 0.(physical cpu) --> 0.(logical cpu) --> 0 ( vcore )
+#======================================================================
+#======================================================================
+
+# HARDWARE && SYSTEM INFORMATIONS..........
+#======================================================================
+#HARDWARE PLATFORM:  VMware, Inc. VMware20,1 VMW201.00V.24006586.B64.2406042154
+#======================================================================
+#TOTAL CPU SLOTS: 128 (PHYSICAL HOST)
+#CPU SOCKETS COUNT: ?
+#vCPU SOCKETS COUNT: 1
+#CORE SOCKETS PER CPU: Not Detected
+#VCORE_SOCKETS_PER_CPU: 1
+#THREAD PER CPU SOCKET: Not Detected
+#TOTAL THREADS (LOGICAL CPUs): [ Total Virtual Cores = 1 core(s) ] X [ 1 vCPU ] == 1 threads
+#CPU VENDOR: Intel
+#CPU Type: Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz
+#CPU Bit: 64 bit
+#Platform: x86_64
+#CPU Bit from Kernel CONF: 64 bit
+#======================================================================
+#TOTAL MEMORY SOCKETS: 128
+#INSTALLED MEMORY DIMM(s): 1 X 8 GB = 8 GB
+#EMPTY MEMORY SOCKETS: 127
+#======================================================================
+#Operating System:
+#Kernel Version: Linux 5.14.0-427.22.1.el9_4.x86_64 #1 SMP PREEMPT_DYNAMIC Mon Jun 10 09:23:36 EDT 2024
+#Kernel SMP Support: YES
+#===================================
+
+
+
 shellx=$(ps|grep $$|awk '{print $NF}')
 clear
-
-
 
 msg="Script has to execute with some bourne compatible shells ( bash,ksh,pdksh,zsh .. )"
 extt() {
