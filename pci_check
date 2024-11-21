@@ -20,23 +20,25 @@
 #--------------------------------------------------------------------------------------------------------
 
 #     host0(usb-storage)
-#           /sys/devices/pci0000:00/0000:00:14.0/usb3/3-4/3-4:1.0/host0    0:0:0:0             sd
+#           /sys/devices/pci0000:00/0000:00:14.0/usb3/3-4/3-4:1.0/host0
+#                                                                          0:0:0:0             sd
 #====================================================================================
 
 #     host1([fc?])                                                                             qla2xxx
-#/sys/devices/pci0000:ae/0000:ae:00.0/0000:af:00.0/host1                   0:0:0:0
-
+#/sys/devices/pci0000:ae/0000:ae:00.0/0000:af:00.0/host1                                   HPE SN1100Q 16Gb 1p FC HBA
+#
 #====================================================================================
 
-#     host2(smartpqi)
-#               /sys/devices/pci0000:5b/0000:5b:00.0/0000:5c:00.0/host2    2:1:0:0             sd
+#    host2(smartpqi)
+#               /sys/devices/pci0000:5b/0000:5b:00.0/0000:5c:00.0/host2
+#                                                                          2:1:0:0             sd
 #                                                                          2:1:0:1             sd
 #                                                                          2:1:0:2             sd
 #                                                                          2:2:0:0 HPE P816i-a SR Gen10
 #====================================================================================
 
 #     host3([fc?])                                                                             qla2xxx
-#/sys/devices/pci0000:ae/0000:ae:02.0/0000:b0:00.0/host3                   2:2:0:0
+#/sys/devices/pci0000:ae/0000:ae:02.0/0000:b0:00.0/host3                                   HPE SN1100Q 16Gb 1p FC HBA
 
 #====================================================================================
 
@@ -590,7 +592,7 @@ for f in /sys/class/$subsys/*; do
     ########################
 
 
-    
+
     scsi_host)
     ### target ###
     ((c++))
@@ -606,7 +608,8 @@ for f in /sys/class/$subsys/*; do
     #tcl=$(echo "$td"|sed 's/.*target\([0-9:]*\).*/\1/')
     tcl=$(echo "$td"|sed 's/.*target\(.*\)/\1/')
     scsihost=$(basename "$f")
-    devicedir=$(readlink -e "$f/device" )
+    devicedir=$(readlink -e "$f/device")
+
 
     for devpath in $td/$tcl:*; do
     scsitarget=$(basename "$devpath")
@@ -615,15 +618,17 @@ for f in /sys/class/$subsys/*; do
     modeld_model=$(cat $(readlink -e "$devpath"/model))
     ((cc++))
     [ -z "$driverd" ] && driverd="$(echo $modeld_vendor $modeld_model)"
-    [ $cc -eq 1 ] && printf "%10s(%s)\n%70s %10s %14s" "$scsihost" "$driver" "$devicedir" "$scsitarget" "$driverd" || printf "\n%81s %14s" "$scsitarget" "$driverd"
+    [ $cc -eq 1 ] && printf "%10s(%s)\n%70s \n%81s %14s" "$scsihost" "$driver" "$devicedir" "$scsitarget" "$driverd" || printf "\n%81s %14s" "$scsitarget" "$driverd"
     done
     fi
     done
     cc=0
 
 
+
     #### non-scsi host ( eg : iscsi , fc ) ####
     otherhosts=0
+    #echo $f non-scsi host
     ls $f/device/*_host >/dev/null 2>&1|grep -v " scsi_host"
     if [ $? -eq 0 ] ; then
     echo "non-scsi host"
@@ -640,7 +645,8 @@ for f in /sys/class/$subsys/*; do
 
 
     ((ccc++))
-    #### non-target ####
+    #### non-target ( eg : fc ) ####
+    #echo $f non-target
     ls $f/device/target* >/dev/null 2>&1
     if [ $? -ne 0 ] ; then
     if [ $otherhosts -eq 0 ] ; then
@@ -654,8 +660,10 @@ for f in /sys/class/$subsys/*; do
     hostdir=$(readlink -e "$f" )
     #procname=$(cat $hostdir/proc_name )
     #[ -z "$procname" ] || [ "$procname" = '(null)' ] && procname="N/A"
-    [ -z "$scsitarget" ] && scsitarget="[N/A]"
-    printf "%s %25s\n" "$devicedir" "$scsitarget"
+    #[ -z "$scsitarget" ] && scsitarget="[N/A]"
+    model=$(cat $f/model_desc 2>/dev/null)
+    printf "%s %60s\n" "$devicedir" "$model"
+    #printf "%s %25s\n" "$devicedir" "$scsitarget"
 
 
     #scsi_rports
@@ -707,7 +715,7 @@ for f in /sys/class/$subsys/*; do
     done
     ccccc=0
     fi
-    awk 'BEGIN{$84=OFS="=";print $0;}'
+    awk 'BEGIN{$84=OFS="=";print RS $0;}'
     echo
     ;;
 
@@ -820,4 +828,3 @@ fi
 ###lets go
 menux "$1"
 justdoit "$1"
-
