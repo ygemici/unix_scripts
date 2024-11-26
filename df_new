@@ -1,0 +1,1125 @@
+#!/bin/bash
+
+### Yucel Gemici ###
+### updated 18-10-2022
+### updated 10-07-2023
+### updated 16-08-2023
+### updated 05-09-2023
+### updated 24-10-2023
+######################
+
+###exs
+#[root@redhatrepo ~]# bash df_new
+#
+#--------------------------------------------------
+#redhatrepo 192.168.56.100
+#--------------------------------------------------
+
+#LVM VG/Device                                Mount          Logical_Size         Used           Available           Source        Usage%      Free%
+#==================================================================================================================================================
+#rhel_redhatrepo-root                             /             28.93GB            4.99GB         23.94GB             xfs            18          82
+#vg_repo-lv_repo                              /data            107.32GB           20.08GB         87.23GB             xfs            19          81
+#sda1                                         /boot              1.06GB            0.22GB          0.85GB             xfs            21          79
+#-------------------------------------------------------
+#Physical/Logical Total => 137.38GB/137.31GB = 0.07GB
+#-------------------------------------------------------
+
+
+defaults() {
+cd /tmp || exit 2
+mntxy="/tmp/mntestX.yz"
+if [ ! -d "$mntxy" ] ; then mkdir $mntxy || exit 2 ; fi
+lvmcheck=1
+}
+
+lvcheck() {
+which lvm >&/dev/null
+if [ $? -ne 0 ] ; then
+echo "Eger sunucuda LVM aktifse LVM komutlarinin erisilebilir olup olmadigini kontrol edin !! "
+echo "Script icinde LVM kullanılamıyor !! "
+lvmcheck=0
+fi
+}
+
+
+defaults; lvcheck
+
+
+
+scsi_disks() {
+fullscsiler=tmpXscsiler.x.y
+sadeiscsiler=tmpXiscsiler.x.y
+sadescsiler=tmpXsscsiler.x.y
+sadempathler=tmpXsscsi_mpathler.x.y
+sadempathsdx=tmpXsscsi_mpathler.sd.x.y
+sadescsiler2=tmpXsscsiler.x.y.2
+
+#parentscsiler=$(lsblk -d| awk '/ 8:/{print $1 }')
+lsblk --noheadings --raw|awk '/ 8:/{print $1}' >$fullscsiler
+lsblk -S &>/dev/null ;
+if [ $? -eq 0 ] ; then
+lsblk -S|awk '/iscsi/{print $1}' >$sadeiscsiler
+else
+lsscsi &>/dev/null
+if [ $? -eq 0 ] ; then
+lsscsi -t 2>&1|awk -F'/' -v a=iqn '$0~a{print $NF}' >$sadeiscsiler
+else
+ls -ltrR /dev|awk -F'/' -v a=iqn '$0~a{print $NF}' >$sadeiscsiler
+fi
+fi
+if [ -s "$sadeiscsiler" ]; then
+awk 'NR==FNR{a[$1];next}!($1 in a)' $sadeiscsiler $fullscsiler > $sadescsiler
+else
+cat $fullscsiler > $sadescsiler
+fi
+##mpath disk
+#lsblk --noheadings --raw -o NAME,TYPE|awk '$NF=="mpath"{m=$0;if(!(m in b)){a[x++]="mapper/"m;b[m];}}END{for(i=0;i<x;i++)print a[i]}' > $sadempathler
+lsblk --noheadings --raw -o NAME,TYPE|awk '$NF=="mpath"{m=$0;if(!(m in b)){a[x++]="mapper/"m;b[m];while(getline){if(/part/){sub("part","mpath_part",$NF);a[x++]="mapper/"$0} else break;}}}END{for(i=0;i<x;i++)print a[i]}' > $sadempathler
+grep mpath$ $sadempathler >> $sadescsiler
+multipath -ll 2>/dev/null|awk '/sd/{print $3}' >$sadempathsdx
+if [ -s "$sadempathsdx" ] ; then
+awk 'FNR==NR{a[$0];next}!($0 in a)' $sadempathsdx $sadescsiler >$sadescsiler2
+else
+cat $sadescsiler >$sadescsiler2
+fi
+}
+
+
+scsi_disks;
+
+
+
+
+### 1- PV Free alan ###
+#----------------------------------------
+lv_free_check() {
+freepv=tmpXpvfreePVXspaceY.y.x
+freepvtmp=tmpXpvfreePVXspacefullY.y.x
+freevg=tmpXvgfreeVGXspaceY.z.y
+freelv=tmpXvgfreeLVXspaceY.x.y
+freelvall=tmpXvgfreeALLLVVXspaceY.x.y
+freeall=tmpXvgfreeALLXspaceY.x.y
+>$freepv
+>$freevg
+
+if [ $lvmcheck -ne 0 ] ; then
+# LV Free PE alan
+
+# free size
+#pvdisplay -m 2>/dev/null|awk '{for(i=1;i<=NF;i++){if($i~"PV Size"){split($i,d," ");if(d[4]~"GiB")s=d[3]*1024*1024*1024/1000/1000/1000;if(d[4]~"TiB")s=d[3]*1024*1024*1024*1024/1000/1000/1000;if(d[4]~"MiB")s=d[3]*1024/1000/1000;if(d[4]~"KiB")s=d[3]*1024/1000/1000/1000;};if($i~"Free"){split($i,a," ");if((a[3]!="0")&&(a[3]!="1")){split($2,b," ");sub("/dev/","",b[3]);split($3,c," ");x=b[3];y=c[3];s+=0.5;printf "%s %s %d %s\n",x,y,s,"GB";x=""}}}}' RS="--- Physical volume ---" FS="\n" > $freepvtmp
+
+## 1GB dan buyukler ## iptal edildi ##
+#pvdisplay -m 2>/dev/null|awk '{for(i=1;i<=NF;i++){if($i~"PV Size"){split($i,d," ");sub("<","",d[3]);if(d[4]~"GiB")s=d[3]*1024*1024*1024/1000/1000/1000;if(d[4]~"TiB")s=d[3]*1024*1024*1024*1024/1000/1000/1000;if(d[4]~"MiB")s=d[3]*1024/1000/1000;if(d[4]~"KiB")s=d[3]*1024/1000/1000/1000;};if($i~"Free"){split($i,a," ");if(a[3]>1){split($2,b," ");sub("/dev/","",b[3]);split($3,c," ");x=b[3];y=c[3];s+=0.5;printf "%s %s %d %s\n",x,y,s,"GB";x=""}}}}' RS="--- Physical volume ---" FS="\n" > $freepvtmp
+
+#pvdisplay -m 2>/dev/null|awk '{for(i=1;i<=NF;i++){if($i~"PV Size"){split($i,d," ");sub("<","",d[3]);if(d[4]~"GiB")s=d[3]*1024*1024*1024/1000/1000/1000;if(d[4]~"TiB")s=d[3]*1024*1024*1024*1024/1000/1000/1000;if(d[4]~"MiB")s=d[3]*1024/1000/1000;if(d[4]~"KiB")s=d[3]*1024/1000/1000/1000;};if($i~"Free"){split($i,a," ");split($2,b," ");sub("/dev/","",b[3]);split($3,c," ");x=b[3];y=c[3];s+=0.5;printf "%s %s %d %s\n",x,y,s,"GB";x=""}}}' RS="--- [^.]* Physical volume ---" FS="\n" > $freepvtmp
+
+
+## pvs --units G = GB gosterir.
+##
+pvdisplay -m 2>/dev/null|awk '{for(i=1;i<=NF;i++){if($i~"PV Size"){split($i,d," ");sub("<","",d[3]);if(d[4]~"GiB")s=d[3]*1024*1024*1024/1000/1000/1000;if(d[4]~"TiB")s=d[3]*1024*1024*1024*1024/1000/1000/1000;if(d[4]~"MiB")s=d[3]*1024/1000/1000;if(d[4]~"KiB")s=d[3]*1024/1000/1000/1000;};if($i~"Free"){split($i,a," ");split($2,b," ");sub("/dev/","",b[3]);split($3,c," ");x=b[3];y=c[3];if(!y)y="No_VG";;printf "%s %s %.f %s\n",x,y,s,"GB";x=""}}}' RS="--- [^.]* Physical volume ---" FS="\n" > $freepvtmp
+
+
+
+## sadece native LVM-scsi ler..iscsi gibi diskler listeye alinmiyor.
+## farkli metodlarda uygulanabilir.ornegin file komutu sonucu no read gibi bir cikti alinirsa listeye alinmaz.
+##  file -sL /dev/sdf
+#/dev/sdf: writable, no read permission
+
+## iscsi ler iptal
+sadeiscsiler=.tmpXiscsiler.y
+
+
+while read -r sdxvgx lv size sizegb
+do
+file -sL /dev/$sdxvgx|grep LVM &>/dev/null ;
+if [ $? -eq 0 ] ; then
+grep "^$sdxvgx"$ $sadeiscsiler &>/dev/null
+if [ $? -ne 0 ] ; then
+outmapper=$(echo "$sdxvgx"|awk '{sub("mapper/","",$1);print}')
+sdxvgx=$outmapper
+echo "$sdxvgx $lv $size $sizegb" >>$freepv
+fi
+fi
+done < $freepvtmp
+
+
+#pvdisplay -m 2>/dev/null|awk '{for(i=1;i<=NF;i++)if(($i~"Free")&&($i!~" 0")){split($2,b," ");print b[length(b)]}}' RS="--- Physical volume ---" FS="\n" > $freepv
+
+## 1GB dan buyukler ## iptal edildi ##
+#vgdisplay 2>/dev/null|awk '{for(i=1;i<=NF;i++)if($i~"Free"){split($2,b," ");split($i,c," ");if(c[5]>1){if(c[8]~"GiB")s=c[7]*1024*1024*1024/1000/1000/1000;if(c[8]~"TiB")s=c[7]*1024*1024*1024/1000/1000;if(c[8]~"MiB")s=c[7]*1024/1000/1000;if(c[8]~"KiB")s=c[7]*1024/1000/1000/1000;printf "%16s %10s %s\n", b[3],s,"GB"}}}' RS="--- Volume group ---" FS="\n" ORS="\n" > $freevg
+
+
+## vgdisplay --units G komutu da GB cinsinden veriyor
+
+### vgdisplay birden fazla diske sahip VG bilgilerini ayri ayri vermiyor !! iptal
+##vgdisplay 2>/dev/null|awk '{for(i=1;i<=NF;i++){if($i~"VG Name"){split($i,a," ");vg=a[3];};if($i~"Free"){split($i,c," ");if(!c[8])s=0;else {if(c[8]~"GiB")s=c[7]*1024*1024*1024/1000/1000/1000;;if(c[8]~"TiB")s=c[7]*1024*1024*1024/1000/1000;if(c[8]~"MiB")s=c[7]*1024/1000/1000;if(c[8]~"KiB")s=c[7]*1024/1000/1000/1000};printf "%16s %10s %s\n", vg,s,"GB";next}}}' RS="--- Volume group ---" FS="\n" ORS="\n" > $freevg
+
+while read -r sdxvgx
+do
+case $sdxvgx in
+mpath*)newsdxvgx="/dev/mapper/$sdxvgx"
+;;
+*)newsdxvgx="/dev/$sdxvgx"
+;;
+esac
+
+
+pvs $newsdxvgx 2>/dev/null |awk 'NR>1{sub("/dev/","",$1);sub("mapper/","",$1);dev=$1;if($NF==0)s=0; else {sub("<","",$NF);if($NF~"g")s=$NF*1024*1024*1024/1000/1000/1000;;if($NF~"t")s=$NF*1024*1024*1024*1024/1000/1000/1000;if($NF~"m")s=$NF*1024/1000/1000;if($NF~"k")s=$NF*1024/1000/1000/1000};printf "%s %s %.f %s\n", dev,$2,s,"GB"}' >> $freevg
+done < $freepv
+
+#awk 'NR==FNR{a[$2]=$1;b[$2]=$3$4;next}{if($1 in a)print a[$1],$1,b[$1],$2,$3}' $freepv $freevg > $freelv
+# 1GB dan buyuk Free LV alanlari kabul ediliyor.
+## 1GB dan buyukler ## iptal edildi ##
+#awk 'NR==FNR{a[$2]=$1;b[$2]=$3$4;next}{if($1 in a){x=$2;sub(/\.[0-9]*/,"",$2);if($2>=1)print a[$1],$1,b[$1],$2,$3}}' $freepv $freevg > $freelv
+
+## 1 GB dan kucuk alanlar DIKKATE ALINMAYACAK. FAKAT burada degil PRINT sirasinda !!
+#awk 'NR==FNR{a[$1]=$2;b[$1]=$3$4;next}{if($1 in a){sub(/\.[0-9]*/,"",$3);print a[$1],$1,b[$1],$3$4}}' $freepv $freevg > $freelv
+#awk 'NR==FNR{if($2!~"rhel"){a[$1]=$2;b[$1]=$3$4};next}{if($1 in a){printf "%s %s %s %.f%s\n", a[$1],$1,b[$1],$3,$4}}' $freepv $freevg > $freelv
+
+###rhel ve ol isimli sisteme ait VG diskleri haric tutulacak !!! 20-02-2023
+awk 'NR==FNR{if($2!~/rhel|^ol$|^dg_|root/){a[$1]=$2;b[$1]=$3$4};next}{if($1 in a){printf "%s %s %s %.f%s\n", a[$1],$1,b[$1],$3,$4}}' $freepv $freevg > $freelv
+fi
+}
+
+
+lsblk_check() {
+which lsblk >&/dev/null
+if [ $? -ne 0 ] ; then
+echo "lsblk komutu bulunamadi !! "
+exit 3
+fi
+}
+
+
+lsblk_check ; lv_free_check
+
+
+
+
+parted_fdisk_chk() {
+which parted &>/dev/null ; x1=$? ; [ $x1 -eq 0 ] && parted_fdisk=1
+if [ $x1 -ne 0 ] ; then
+which fdisk &>/dev/null  ; x2=$? ; [ $x2 -eq 0 ] && parted_fdisk=2
+if [ $x2 -ne 0 ] ; then
+which sfdisk &>/dev/null ; x3=$? ; [ $x3 -eq 0 ] && parted_fdisk=3
+if [ $x3 -ne 0 ] ; then
+parted_fdisk=0
+echo "Disk toollari(parted,fdisk) bulunamadi !! " ; exit 2
+fi
+fi
+fi
+
+}
+
+parted_fdisk_chk
+
+
+
+
+pvschk() {
+dsk="$1"
+ispvs=$(pvs $dsk 2>/dev/null|awk 'NR>1&&($2!~/rhel|^ol$|^dg_|root/){print $1}' 2>/dev/null)
+#ispvs=$(awk 'NR>1&&($2!~/rhel|^ol$|^dg_|root/){print $1}' $pvstmp|grep "$dsk"'[0-9]*' 2>/dev/null)
+if [ ! -z "$ispvs" ] ; then
+###Ayni diske ait partitionlar FARKLI VG larda kullaniliyorsa diskdeki Free Alan TUM VG ler icin kullanilabilir !!
+vgdsk=( $(pvs|awk -v d="$dsk" 'NR>1&&$1~d{print $2}'|awk '!a[$0]++') )
+cc=${#vgdsk[@]}
+else
+vgdsk=""
+cc=0
+fi
+}
+
+
+pvs_size_check() {
+dsk=$1
+sleep 1
+pvsize=$(pvs --units G $dsk|awk 'END{sub("G","",$(NF-1));print $(NF-1);exit}')
+if [ -z "$pvsize" ] ; then
+echo "Disk($dsk) PV size hesaplanamadi !! "
+else
+
+case $2 in
+1)parted_fdisk_info=parted
+#rawsize=$(lsblk $dsk --byte --raw -o NAME,SIZE,MAJ:MIN|awk '/ 8:/{print $2}')
+rawsize=$(parted -s $dsk unit GB print 2>/dev/null |awk '/Disk/{sub("..$","",$NF);print $NF;exit}')
+#[ -z "$rawsize" ] && parted -s $dsk unit GB print
+;;
+2)parted_fdisk_info=fdisk
+rawsize=$(fdisk -l $dsk |awk -F',' '/Disk/{sub("bytes","",$2);printf "%.2f\n", $2/1000/1000/1000;exit}')
+#[ -z "$rawsize" ] && fdisk -l $dsk
+;;
+3)parted_fdisk_info=sfdisk
+rawsize=$(sfdisk -s $dsk |awk '{printf "%.2f\n", $1*1024/1000/1000/1000}')
+# [ -z "$rawsize" ] && sfdisk -s $dsk
+;;
+esac
+
+if [ -z "$rawsize" ] ; then
+#echo "Disk($dsk) icin RAW size bilgisi [$parted_fdisk_info] uzerinden hesaplanamadi !! "
+rawsize=$(fdisk -l $dsk 2>/dev/null|awk -F',' '/Disk/{sub("bytes","",$2);printf "%.2f\n", $2/1000/1000/1000;exit}')
+[ -z "$rawsize" ] && rawsize=$(sfdisk -s $dsk 2>/dev/null|awk '{printf "%.2f\n", $1*1024/1000/1000/1000}')
+fi
+
+if [ -z "$rawsize" ] ; then
+echo "Disk($dsk) icin RAW size bilgisi hesaplanamiyor !!! "
+else
+pvschk=$(awk -v a=$pvsize -v b=$rawsize 'BEGIN{if(a!=b){if(a+1<b)print b-a}}')
+if [ ! -z "$pvschk" ] ; then
+awk 'BEGIN{$56=OFS="=";printf "%s\n", $0 }'
+echo "$dsk icin [RAW size] ile [PV size] arasinda '$pvschk' GB alan fark bulundu !! "
+echo "'pvresize $dsk' komutunu kullanarak kullanilmayan bu alani LVM alanina dahil edebilirsiniz ... "
+awk 'BEGIN{$56=OFS="=";printf "%s\n", $0 }'
+sleep 1
+fi
+
+
+fi
+fi
+echo
+
+}
+
+
+### 2- Unallocated RAW disk Free alan ###
+#----------------------------------------
+printtable() {
+sdxx=$1; devxx="/dev/$sdxx" ;
+#echo $sdxx xx $devxx
+
+#vgxx=$(pvs 2>/dev/null|awk -v a="$umountdevice" 'NR>1&&$1==a{if(NF==6)print $2;else print "No_Name_VG"}') ; [ -z "$vgxx" ] && vgxx="RAW_disk"
+
+
+case $2 in
+
+
+1)###parted
+
+#parted -s $devxx unit GB print free 2>/dev/null|awk -v a="$sdxx" '$2~a{yy="NULL" FS a FS $3}$0~"Free Space"{x=$3;sub("GB","",$3);sub(/\.[0-9]*/,"",$3);if($3>1){split(yy,d," ");if(l~"Number")l=1;printf "%10s%14s%14s%10s%8s%20s\n",d[1],d[2],d[3],$4,l,x"["l"+]"}}{l=$1;}' >> $freeraw
+#parted -s $devxx unit GB print free 2>/dev/null|awk -v a="$sdxx" '$2~a{yy="NULL" FS a FS $3}$0~"Free Space"{x=$3;sub("GB","",$3);sub(/\.[0-9]*/,"",$3);if($3>1){split(yy,d," ");if(l~"Number")l=1;printf "%10s%14s%16s%14s%16s%16s\n",d[1],d[2],d[3],$4,x"["l"+]",a l}}{l=$1;}' >> $freeraw
+
+pvschk $devxx ;
+
+if [ -z "$vgdsk" ]; then
+vgdsk="No_PV"
+
+else
+if [ $cc -eq 1 ]; then
+pvs_size_check $devxx 1;
+#parted -s $devxx unit GB print free 2>/dev/null|awk -v a="$sdxx" -v b="$vgdsk" '$2~a{yy=b FS a FS $3}$0~"Free Space"{x=$3;sub("GB","",$3);sub(/\.[0-9]*/,"",$3);if($3>1){split(yy,d," ");if(l~"Number")l=1;printf "%10s%10s%16s%14s%16s%10s%16s\n",d[1],d[2],d[3],$4,x,"["l"+]",a l}}{l=$1;}' >> $freeraw
+parted -s $devxx unit GB print free 2>/dev/null|awk -v a="$sdxx" -v b="$vgdsk" '$2~a{yy=b FS a FS $3}$1~/^[0-9]$/{l=$1};$0~"Free Space"{x=$3;sub("GB","",$3);if($3>1){split(yy,d," ");printf "%10s%10s%16s%14s%16s%10s%16s\n",d[1],d[2],d[3],$4,x,"["l"+]",a l}}' >> $freeraw
+
+else
+if [ $cc -gt 1 ]; then
+for((i=0;i<$cc;i++)); do
+pvs_size_check $devxx 1;
+parted -s $devxx unit GB print free 2>/dev/null|awk -v a="$sdxx" -v b="${vgdsk[i]}" '$2~a{yy=b FS a FS $3}$0~"Free Space"{x=$3;sub("GB","",$3);sub(/\.[0-9]*/,"",$3);if($3>1){split(yy,d," ");if(l~"Number")l=1;printf "%10s%10s%16s%14s%16s%10s%16s\n",d[1],d[2],d[3],$4,x,"["l"+]",a l}}{l=$1;}' >> $freeraw
+done
+fi
+fi
+fi
+
+;;
+
+
+
+
+2)###fdisk
+### !!! fdisk ile partition aralarinda bosluklar bulunamayabilir.. ###
+### !!! Min 1 GB bosluk varsa bulunur..1953125s=1GB.. ###
+### !!! Min 1 GB bosluk varsa bulunur..1953125=1GB..-> DECIMAL ###
+
+#fdisk -l $devxx 2>&1|awk -v a="$sdxx" -v e="$vgxx" -v gbs="1953125" '$2~a{f=$5/1000/1000/1000;yy=e FS a FS f;t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%14s%10s%12s%14s %d%2s%4s\n",d[1],d[2],d[3]"GB","Free",x,"GB","["y"+]"};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%14s%10s%12s%14s %d%2s%4s\n",d[1],d[2],d[3]"GB","Free",x,"GB","["y"+]"}}' >> $freeraw
+
+
+
+##update -partition sirasi sorunu duzeltildi - 08.01.2023
+fdisk -l $devxx 2>&1 | grep Start &>/dev/null
+if [ $? -eq 0 ] ; then
+fdisk -l $devxx 2>&1 |\
+awk 'function sortm(k,idx){min=k;is=0;for(j=idx;j<=x;j++){if(a[j]<min){min=a[j];f=j;ff=idx;is=1}}if(is==1){t=a[ff];a[ff]=a[f];a[f]=t};newa[c++]=min;}
+{if(!/Start/)print;
+else{print;while(getline){a[++x]=$2;b[$2]=$0}}}
+END{for(i=1;i<=x;i++)sortm(a[i],i);for(l=0;l<c;l++)for(i in b){print b[newa[l]];break}}' > $fdiskreformat
+
+
+#awk -v a="$sdxx" -v gbs="1953125" '$2~a{f=$5/1000/1000/1000;yy="NULL" FS a FS f;t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(!y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16s%14s%26s%16s\n",d[1],d[2],d[3]"GB","Free",x"GB["y"+]",a y};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16s%14s%26s%16s\n",d[1],d[2],d[3]"GB","Free",x"GB["y"+]",a y}}' $fdiskreformat >> $freeraw
+
+#awk -v a="$sdxx" -v gbs="2097152" '$2~a{f=$5/1000/1000/1000;yy="NULL" FS a FS f;t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(!y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16.0f%s%14s%18.0f%s%20s\n",d[1],d[2],d[3],"GB","Free",x,"GB["y"+]",a y};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16.0f%s%14s%18.0f%s%20s\n",d[1],d[2],d[3],"GB","Free",x,"GB["y"+]",a y}}' $fdiskreformat >> $freeraw
+fi
+
+
+if [ -s "$fdiskreformat" ] ; then
+pvschk $devxx ;
+
+if [ -z "$vgdsk" ]; then
+vgdsk="No_PV"
+else
+if [ $cc -eq 1 ]; then
+pvs_size_check $devxx 2;
+
+###update 24-10-2023
+awk -v a="$sdxx" -v b="$vgdsk" -v gbs="2097152" '$2~a{f=$5/1000/1000/1000;yy=b FS a FS f;t=$(NF-1);}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;xx=$1;sub("/dev/","",xx);while(getline){if(($2-x)>=gbs){if(!y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14.2f%s%14s%14.2f%s%20s\n",d[1],d[2],"GB","Free",x,"GB ["xx"+]",xx};xx=$1;x=$3}}END{if(t-$3>=gbs){xx=$1;sub("/dev/","",xx);x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14.2f%s%14s%14.2f%s%20s\n",d[1],d[2],"GB","Free",x,"GB ["xx"+]",xx}}' $fdiskreformat >> $freeraw
+
+else
+if [ $cc -gt 1 ]; then
+for((i=0;i<$cc;i++)); do
+pvs_size_check $devxx 2;
+
+###update 24-10-2023
+awk -v a="$sdxx" -v b="${vgdsk[i]}" -v gbs="2097152" '$2~a{f=$5/1000/1000/1000;yy=b FS a FS f;t=$(NF-1);}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;xx=$1;sub("/dev/","",xx);while(getline){if(($2-x)>=gbs){if(!y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14.2f%s%14s%14.2f%s%20s\n",d[1],d[2],"GB","Free",x,"GB ["xx"+]",xx};xx=$1;x=$3}}END{if(t-$3>=gbs){xx=$1;sub("/dev/","",xx);x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14.2f%s%14s%14.2f%s%20s\n",d[1],d[2],"GB","Free",x,"GB ["xx"+]",xx}}' $fdiskreformat >> $freeraw
+
+#awk -v a="$sdxx" -v b="${vgdsk[i]}" -v gbs="2097152" '$2~a{f=$5/1000/1000/1000;yy=b FS a FS f;t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(!y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16.0f%s%14s%18.0f%s%20s\n",d[1],d[2],d[3],"GB","Free",x,"GB ["y"+]",a y};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16.0f%s%14s%18.0f%s%20s\n",d[1],d[2],d[3],"GB","Free",x,"GB ["y"+]",a y}}' $fdiskreformat >> $freeraw
+done
+fi
+fi
+fi
+else
+echo "fdisk uzerinden disk bilgisi bulunamadi !! "
+exit 3
+fi
+
+
+;;
+### toplam sektor sayisi
+### sudo blockdev --getsize64 /dev/sda
+
+
+
+
+
+3)###sfdisk
+### sfdisk ile direk olarak FREE SPACE bulunamiyor sanirim ??? ###
+### sector size
+###
+### !!! sfdisk ile partition aralarinda bosluklar bulunamayabilir.. ###
+### !!! Min 1 GB bosluk varsa bulunur..2097152 x 512 = 1073741824 bytes=1GB..-> BINARY ###
+### !!! Min 1 GB bosluk varsa bulunur..1953125 x 512 = 1000000000 bytes=1GiB..-> DECIMAL ###
+
+ss=$(cat /sys/block/$sdxx/queue/hw_sector_size)
+if [ ! -z "$ss" ] ; then
+
+##sfdisk -ds /dev/sda|awk -v a="$sdxx" -v s="$ss" -v gbs="1953125" 'function sfdisk_calx(x,a,b,c,d){if((x~"size=[0-9]")&&(x~"start=[0-9]")){a=d} if(a~"size=[0-9]"){split(a,arrx,"=");sub(",","",arrx[2]);ls=arrx[2]}else{if(x~"start=[0-9]")c=a;sub(",","",c);if(c!=0)ls=c;else next}{if(b~"start=[0-9]"){split(b,arrxx,"=");sub(",","",arrxx[2]);ss=arrxx[2]}else{sub(",","",d);ss=d}}lsx=ss+ls-1;}NR==1{s=$1/1024/1024"GB";}/start/{sfdisk_calx($0,$5,$3,$6,$4);;while(getline){f1=lsx;sfdisk_calx($0,$5,$3,$6,$4);;if((ss-f1)>=gbs){ts=(ss-f1)*s;printf "%14s%10s%12s %d%4s\n","NULL",a,s,"Free",ts,"GB["y"+]"}}}'
+
+#sfdisk -ds /dev/sda 2>&1|awk -v a="sda" -v sss="$sss" -v gbs="1953125" 'function sfdisk_calx(x,a,b,c,d){if((x~"size=[0-9]")&&(x~"start=[0-9]")){a=d} if(a~"size=[0-9]"){split(a,arrx,"=");sub(",","",arrx[2]);ls=arrx[2]}else{if(x~"start=[0-9]")c=a;sub(",","",c);if(c!=0)ls=c;else next}{if(b~"start=[0-9]"){split(b,arrxx,"=");sub(",","",arrxx[2]);ss=arrxx[2]}else{sub(",","",d);ss=d}}lsx=ss+ls-1;}NR==1{s=$1/1024/1024"GB"}/start/{y++;sfdisk_calx($0,$5,$3,$6,$4);;while(getline){y++;f1=lsx;sfdisk_calx($0,$5,$3,$6,$4);;if((ss-f1)>=gbs){ts=(ss-f1)*sss/1024/1024;printf "%14s%10s%12s %s%8s%s\n","NULL",a,s,"Free",ts,"GB["y"+]"}}}'
+
+### update - sfdisk --version
+#sfdisk from util-linux 2.23.2
+sfdisk -ds $devxx 2>&1|awk -v a="$sdxx" -v b="$vgdsk" -v sss="512" -v gbs="1953125" 'function sfdisk_calx(x,a,b,c,d){if((x~"size=[0-9]")&&(x~"start=[0-9]")){a=d} if(a~"size=[0-9]"){split(a,arrx,"=");sub(",","",arrx[2]);ls=arrx[2]}else{if(x~"start=[0-9]")c=a;sub(",","",c);if(c!=0)ls=c;else next}{if(b~"start=[0-9]"){split(b,arrxx,"=");sub(",","",arrxx[2]);ss=arrxx[2]}else{sub(",","",d);ss=d}}lsx=ss+ls-1;}NR==1{fs=$1;s=(fs*1024)/1000/1000/1000"GB"}/start/{sfdisk_calx($0,$5,$3,$6,$4);;while(getline){y++;f1=lsx;sfdisk_calx($0,$5,$3,$6,$4);;if((ss-f1)>=gbs){ts=(ss-f1)*(sss*1024)/1000/1000/1000;printf "%14s%10s%12s10%10s%10.2f%s\n",b,a,s,"Free",ts,"GB["y"+]"}}}END{if((fs-f1)>=gbs)printf "%14s%10s%12s%10s%10.0f%s\n",b,a,s,"Free",ts,"GB ["y"+]"}' >> $freeraw
+
+
+
+pvschk $devxx ;
+
+if [ -z "$vgdsk" ]; then
+vgdsk="No_PV"
+else
+if [ $cc -eq 1 ]; then
+pvs_size_check $devxx 3;
+sfdisk -ds $devxx 2>&1|awk -v a="$sdxx" -v b="$vgdsk" -v sss="512" -v gbs="1953125" 'function sfdisk_calx(x,a,b,c,d){if((x~"size=[0-9]")&&(x~"start=[0-9]")){a=d} if(a~"size=[0-9]"){split(a,arrx,"=");sub(",","",arrx[2]);ls=arrx[2]}else{if(x~"start=[0-9]")c=a;sub(",","",c);if(c!=0)ls=c;else next}{if(b~"start=[0-9]"){split(b,arrxx,"=");sub(",","",arrxx[2]);ss=arrxx[2]}else{sub(",","",d);ss=d}}lsx=ss+ls-1;}NR==1{fs=$1;s=(fs*1024)/1000/1000/1000"GB"}/start/{sfdisk_calx($0,$5,$3,$6,$4);;while(getline){y++;f1=lsx;sfdisk_calx($0,$5,$3,$6,$4);;if((ss-f1)>=gbs){ts=(ss-f1)*(sss*1024)/1000/1000/1000;printf "%14s%10s%12s10%10s%10.2f%s\n",b,a,s,"Free",ts,"GB["y"+]"}}}END{if((fs-f1)>=gbs)printf "%14s%10s%12s%10s%10.0f%s\n",b,a,s,"Free",ts,"GB ["y"+]"}' >> $freeraw
+else
+if [ $cc -gt 1 ]; then
+for((i=0;i<$cc;i++)); do
+pvs_size_check $devxx 3;
+sfdisk -ds $devxx 2>&1|awk -v a="$sdxx" -v b="${vgdsk[i]}" -v sss="512" -v gbs="1953125" 'function sfdisk_calx(x,a,b,c,d){if((x~"size=[0-9]")&&(x~"start=[0-9]")){a=d} if(a~"size=[0-9]"){split(a,arrx,"=");sub(",","",arrx[2]);ls=arrx[2]}else{if(x~"start=[0-9]")c=a;sub(",","",c);if(c!=0)ls=c;else next}{if(b~"start=[0-9]"){split(b,arrxx,"=");sub(",","",arrxx[2]);ss=arrxx[2]}else{sub(",","",d);ss=d}}lsx=ss+ls-1;}NR==1{fs=$1;s=(fs*1024)/1000/1000/1000"GB"}/start/{sfdisk_calx($0,$5,$3,$6,$4);;while(getline){y++;f1=lsx;sfdisk_calx($0,$5,$3,$6,$4);;if((ss-f1)>=gbs){ts=(ss-f1)*(sss*1024)/1000/1000/1000;printf "%14s%10s%12s10%10s%10.2f%s\n",b,a,s,"Free",ts,"GB["y"+]"}}}END{if((fs-f1)>=gbs)printf "%14s%10s%12s%10s%10.0f%s\n",b,a,s,"Free",ts,"GB ["y"+]"}' >> $freeraw
+done
+fi
+fi
+fi
+
+
+
+
+
+#[root@redhat8tstsrv output]# sfdisk -s /dev/sda
+#62914560
+#[root@redhat8tstsrv output]#
+
+#[root@redhat8tstsrv output]# sfdisk -d /dev/sda
+#label: gpt
+#label-id: 7F726F05-E95F-49F6-9421-C5426754BF96
+#device: /dev/sda
+#unit: sectors
+#first-lba: 34
+#last-lba: 125829086
+
+#/dev/sda1 : start=        2048, size=     1228800, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=C24D6897-2302-4071-BBFA-03D36361AEA4, name="EFI System Partition"
+#/dev/sda2 : start=     1230848, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=55DBF313-4A7F-4C2F-9BCC-86127D80E551
+#/dev/sda3 : start=     3328000, size=   107823104, type=E6D6D379-F507-44C2-A23C-238F2A3DF928, uuid=6B995C53-A138-4A61-BA9F-5F74B6C93046
+#[root@redhat8tstsrv output]#
+
+
+
+#sfdisk version
+sfdskv=$(sfdisk -v|awk 'END{printf "%0.f\n",$NF*100}')
+
+#####fdisk=sfdisk
+if [ "$sfdskv" -ge 232 ] ; then
+sfdisk -l $devxx 2>&1 | grep Start &>/dev/null
+if [ $? -eq 0 ] ; then
+sfdisk -l $devxx 2>&1 |\
+awk 'function sortm(k,idx){min=k;is=0;for(j=idx;j<=x;j++){if(a[j]<min){min=a[j];f=j;ff=idx;is=1}}if(is==1){t=a[ff];a[ff]=a[f];a[f]=t};newa[c++]=min;}
+{if(!/Start/)print;
+else{print;while(getline){a[++x]=$2;b[$2]=$0}}}
+END{for(i=1;i<=x;i++)sortm(a[i],i);for(l=0;l<c;l++)for(i in b){print b[newa[l]];break}}' > $fdiskreformat
+
+#awk -v a="$sdxx" -v gbs="1953125" '$2~a{f=$5/1000/1000/1000;yy="NULL" FS a FS f;t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(!y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16s%14s%26s%16s\n",d[1],d[2],d[3]"GB","Free",x"GB["y"+]",a y};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16s%14s%26s%16s\n",d[1],d[2],d[3]"GB","Free",x"GB["y"+]",a y}}' $fdiskreformat >> $freeraw
+
+
+pvschk $devxx ; [ -z "$vgdsk" ] && vgdsk="No_PV"
+awk -v a="$sdxx" -v b="$vgdsk" -v gbs="2097152" '$2~a{f=$5/1000/1000/1000;yy=b FS a FS f;t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(!y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16.0f%s%14s%18.0f%s%20s\n",d[1],d[2],d[3],"GB","Free",x,"GB ["y"+]",a y};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%10s%14s%16.0f%s%14s%18.0f%s%20s\n",d[1],d[2],d[3],"GB","Free",x,"GB ["y"+]",a y}}' $fdiskreformat >> $freeraw
+fi
+
+else
+
+sfdsktmp=/tmp/.tmpXrawsfdskfreeALLXspaceY.x.y
+sfdisk -s $devxx > $sfdsktmp
+sfdisk -d $devxx |grep start >> $sfdsktmp
+
+###10.01.2023 UPDATED - ygemici
+pvschk $devxx ; [ -z "$vgdsk" ] && vgdsk="No_PV"
+awk -F',' -v a="$sdxx" -v b="$vgdsk" -v sss="512" -v gbs="2097152" 'function sfdisk_calx(a,b){if((b~"size=.*[0-9]")&&(a~"start=.*[0-9]")){split(b,arrx,"=");if(arrx[2]!=0)ls=arrx[2];else next}{split(a,brrx,"=");ss=brrx[2]}lsx=ss+ls;}NR==1{fs=$1;s=(fs*1024)/1000/1000/1000;} \
+NR>1{split($1,sdx,":");sub("/dev/","",sdx[1]);dev=sdx[1];sub(".*: ","",$1);split($1,crrx,"=");if(crrx[2]>2048){sub("[^0-9]*","",sdx[1]);tsf=(crrx[2]*512)/1024/1024/1024;printf "%10s%14s%12d%s%10s%10.3f%4s%12s\n",b,a,s,"GB","Free",tsf,"GB["sdx[1]-1"+]",dev};sfdisk_calx($1,$2); \
+while(getline){olddev=dev;y++;f1=lsx;split($1,sdx,":");sub("/dev/","",sdx[1]);dev=sdx[1];sub(".*: ","",$1);sfdisk_calx($1,$2); \
+if((ss-f1)>=gbs){ts=(ss-f1)*(sss)/1024/1024/1024;printf "%10s%14s%12d%s%10s%10d%4s%12s\n",b,a,s,"GB","Free",ts,"GB["y"+]",olddev;}}} \
+END{totals=(2*fs);;if((totals-lsx)>=gbs){lts=(totals-lsx)*sss/1024/1024/1024;printf "%10s%14s%12d%s%10s%10d%4s%12s\n",b,a,s,"GB","Free",lts,"GB ["y+1"+]",dev}}' $sfdsktmp >> $freeraw
+
+fi
+fi
+;;
+
+*)#echo "$sdxx NULL" >> $freeraw
+echo "NULL" >> $freeraw
+;;
+
+esac
+}
+
+
+
+free_raw_chk() {
+freeraw=tmpXrawfreeY.x.z
+umountedraw=tmpXumountrawfreeY.x.z
+fdiskreformat=tmpXfdisk_rawfreeY.x.z
+nopartdisks=nopartdisks
+partdisks=partdisks
+
+>$umountedraw
+>$freeraw
+>$fdiskreformat
+>$nopartdisks
+>$partdisks
+
+##raw free space e sahip diskler icin olasi ( partitionlar icin ) PV bilgisi kontrolu
+pvsout=pvsout
+pvs 2>/dev/null >$pvsout
+
+#awk 'BEGIN{printf "%10s %28s\n", "Disk:Kapasite","Free RAW alan"}' ; awk 'BEGIN{$50=OFS="=";print $0;}'
+
+
+while read sdx mpathx
+do
+
+
+case $parted_fdisk in
+1)parted -s /dev/$sdx print &>/dev/null ; x4=$? ; partedx=1
+;;
+2)fdisk -l /dev/$sdx 2>&1|grep Start &>/dev/null ; x4=$? ; partedx=0
+;;
+3)sfdisk -G /dev/$sdx 2>&1|grep -v "unrecognized partition table" &>/dev/null ; x4=$? ; partedx=0
+;;
+*)echo "parted or fdisk(s) bulunamadi !! "
+;;
+esac
+
+
+
+if [ "$x4" -eq 0 ]; then
+
+### bu ciktilar simdilik kapali ###
+#(
+#echo "==============================="
+#echo "$sdx icin Partition Table Yapisi okunamiyor .. Tum disk space kullaniliyor olabilir !! "
+#echo "==============================="
+#) &>/dev/null
+
+#(
+#echo "==============================="
+#case $parted_fdisk in
+#1)parted -s /dev/$sdx unit s print
+#;;
+#2)fdisk -l /dev/$sdx
+#;;
+#3)sfdisk -l /dev/$sdx
+#;;
+#esac
+#echo "==============================="
+#) &>/dev/null
+
+
+## RAW disk olmasi yuksek ihtimal ## ( Partition table bilgisi olmayan diskler ( LVM olmayan ) )
+#printtable $sdx $parted_fdisk
+echo $sdx>>$nopartdisks
+
+else
+
+## Gene de kontrol edelim ?? ## ( Partion table bilgisine sahip tüm diskler ( LVM diski de olabilir ) )
+#printtable $sdx $parted_fdisk
+echo $sdx>>$partdisks
+fi
+
+done<$sadescsiler2
+
+
+for i in $nopartdisks $partdisks
+do
+while read sdx
+do
+printtable $sdx $parted_fdisk
+done<$i
+done
+
+
+}
+
+
+free_raw_chk
+
+
+
+
+header() {
+awk 'BEGIN{$50=OFS="-";print $0;}' ;
+echo $(hostname) $(hostname -i 2>/dev/null |awk '{print $1}')
+awk 'BEGIN{$50=OFS="-";print $0;}' ;
+
+}
+
+
+header;
+
+
+
+
+
+
+merge_lv_raw() {
+## sadece 1 GB dan buyuk alanlar degerlendirmeye alinir !!
+lvspacehead=$(awk '{x=$4;sub("GB","",$4);if($4>=1)print "ok"}' $freelv)
+if [ -s $freeraw ] || [ ! -z "$lvspacehead" ] ; then
+awk 'BEGIN{printf "\n%-30s%20s%23s%12s%20s%17s%14s%11s\n","LVM VG","Device","Physical_Size","Used","Available","Source","Usage%","Free%"}'
+awk 'BEGIN{$146=OFS="=";printf "%s\n", $0 }'
+fi
+
+
+if [ -s $freeraw ]; then
+
+## max size 999TB kabul edililiyor !! ##
+## ilgili değer 1000 üzerinde ise verinin GB cinsinde olduğu kabul edilir ##
+
+#freeraw size standartasyon
+
+awk '{d=$3;dd=$5;d+=0;dd+=0;x=dd*100/d;y=100-x;x+=0.5;y+=0.5;;if(d>=1000){f=d/1000;;fgb="TB"}else{f=$3;fgb="GB"};;if(dd>=1000){ff=dd/1000;ffgb="TB"}else{ff=$5;ffgb="GB"};printf "%-30s%20s%18.1f%s%19s%15.1f%s%18s%14d%12d\n",$1,$2 $6,f,fgb,"used",ff,ffgb,"RAW",y,x;}' $freeraw |awk '{sub("[.]0","",$3);sub("[.]0","",$5);if($3=="0GB")$3="0";if($5=="0GB")$5="0";printf "%-30s%20s%18s%18s%16s%18s%14d%12d\n",$1,$2,$3,$4,$5,$6,$7,$8;}' >${freeraw}.2
+
+awk '{if($5~"GB"){if(!($2 in dskg))dskg[$2]+=$5}else if(!($2 in dskt))dskt[$2]+=$5}END{for(i in dskg)print i,dskg[i]"GB";for(j in dskt)print j,dskt[j]"TB"}' ${freeraw}.2 |awk '{sub(/\[.*/,"",$1);if($2~"TB")$2=$2*1000;x[$1]+=$2}END{for(i in x){if(x[i]>=1000)x[i]=x[i]/1000"TB";else x[i]=x[i]"GB";print i,x[i]}}' >${freeraw}.3
+
+awk 'NR==FNR{a[$1]=$2;next}{x=$2;sub(/\[.*/,"",x);for(i in a)if(i==x){f=$3;if(f~"GB"){xx=f-a[i];if(xx)xx=xx"GB"}else{if(a[i]~"GB"){xx=f*1000-a[i];if(xx)xx=xx"GB"}else{xx=f-a[i];if(xx)xx=xx"TB"}};printf "%-30s%20s%18s%18s%16s%18s%14d%12d\n",$1,$2,$3,xx,$5,$6,$7,$8;}}' ${freeraw}.3 ${freeraw}.2 >${freeraw}.recal
+
+
+###
+###
+
+if [ ! -z "$lvspacehead" ]; then
+
+awk 'NR==FNR{vg[$1]=$2;free=$4;free+=0;;if(free>=1)lvx[x++]=$1 FS $2 FS $3 FS $4 FS "LVM";next}{rawdsk[$7]=$2;rawd[$2]=$7;rawprt[$7]=$6;rawdsksz[$2]=$3;rawdskfree[$7]=$5;}END{for(i in vg)for(j in rawdsk)if(vg[i]~rawdsk[j])print i,rawdsk[j],rawdsksz[rawdsk[j]],rawdskfree[j],rawprt[j],"RAW";for(k=0;k<x;k++)print lvx[k]}' $freelv $freeraw > $freeall
+
+#awk '{d=$3;dd=$4;;d+=0;dd+=0;;x=dd*100/d;y=100-x;x+=0.5;y+=0.5;u=(d-dd);if(u>1024){uu=u/1000;uu=substr(uu,1,4);uu=uu"TB";}else uu=u"GB";;if(d>1024){dsk=$3;sub(/.*B/,"",dsk);;f=d/1000;f=substr(f,1,4);f=f"TB"}else f=$3;;;if(dd>1024){ff=dd/1000;;ff=substr(ff,1,4);ff=ff"TB";}else ff=dd"GB";if(/RAW/)printf "%-30s%20s%18s%19s%15s%-6s%12s%14d%12d\n",$1,$2,f,uu,ff,$5,$6,y,x; else printf "%-30s%20s%18s%19s%15s%18s%14d%12d\n",$1,$2,f,uu,ff,$5,y,x;}' $freeall
+
+#awk '{u=$3;uu=$4;d=$3;dd=$4;d+=0;dd+=0;x=dd*100/d;y=100-x;x+=0.5;y+=0.5;;if(d>1000){f=d/1000;;fgb="TB"}else{f=$3;fgb="GB"};;if(dd>1000){ff=dd/1000;ffgb="TB"}else{ff=$5;ffgb="GB"};if(u~"GB"){xx=u-uu;if(xx)xx=xx"GB"}else{if(uu~"GB"){xx=u*1000-uu;if(xx)xx=xx"GB"}else{xx=u-uu;if(xx)xx=xx"TB"}};if(/RAW/)printf "%-30s%20s%18.1f%s%19s%15.1f%s%18s%14d%12d\n",$1,$2,f,fgb,xx,ff,ffgb,$5,y,x;else printf "%-30s%20s%18.1f%s%19s%15.1f%s%18s%14d%12d\n",$1,$2,f,fgb,xx,ff,ffgb,$5,y,x; }' $freeall
+
+awk '{u=$3;uu=$4;d=$3;dd=$4;d+=0;dd+=0;x=dd*100/d;y=100-x;x+=0.5;y+=0.5;;if(d>=1000){f=d/1000;;fgb="TB"}else{f=$3;fgb="GB"};;if(dd>=1000){ff=dd/1000;ffgb="TB"}else{ff=$4;ffgb="GB"};if(u~"GB"){xx=u-uu;if(xx)xxgb="GB"}else{if(uu~"GB"){xx=u*1000-uu;if(xx)xxgb="GB"}else{xx=u-uu;if(xx)xxgb="TB"}};if(xx>=1000){xx=xx/1000;xxgb="TB"};if(/RAW/){a=$2 $5;b=$6}else{a=$2;b=$5};;printf "%-30s%20s%18.1f%s%19.1f%s%15.1f%s%18s%14d%12d\n",$1,a,f,fgb,xx,xxgb,ff,ffgb,b,y,x}' $freeall|awk '{sub("[.]0","",$3);sub("[.]0","",$4);sub("[.]0","",$5);if($4=="0GB")$4="0";if($5=="0GB")$5="0";printf "%-30s%20s%18s%19s%15s%18s%14d%12d\n",$1,$2,$3,$4,$5,$6,$7,$8;}'
+
+ else
+cat ${freeraw}.recal
+
+### Sadece FreeRaw varsa
+#awk '{d=$3;dd=$5;d+=0;dd+=0;x=dd*100/d;y=100-x;x+=0.5;y+=0.5;u=(d-dd);if(u>1024){uu=u/1000;uu=substr(uu,1,4);uu=uu"TB";}else uu=u"GB";if(d>1024){dsk=$3;sub(/.*B/,"",dsk);;f=d/1000;f=substr(f,1,4);f=f"TB"}else f=$3;;;if(dd>1024){ff=dd/1000;;ff=substr(ff,1,4);ff=ff"TB";}else ff=dd"GB";printf "%-30s%20s%18s%19s%15s%18s%14d%12d\n",$1,$2 $6,f,uu,ff,"RAW",y,x;}' $freeraw
+
+
+#awk '{sub("GB.*","",$5);x=$5*100/$3;y=100-x;x+=0.5;y+=0.5;u=($3-$5);printf "%-30s%20s%18s%18s%22s%18s%12d%12d\n",$1,$2,$3,u"GB",$5"GB"$6,"RAW",y,x;}' $freeraw
+  fi
+
+else
+## her 2 dosyada bulunamadiysa ##
+if [ -z "$lvspacehead" ] ; then
+echo "No FREE Space " &>/dev/null
+else
+### Sadece FreeLv varsa
+#awk '{x=$4;sub("GB","",$4);if($4>=1)printf "%24s%12s%15s%16s%12s\n", $2,$1,$3,x,"LVM"}' $freelv
+awk '{dd=$4;dd+=0;if(dd>=1)printf "%18s%10s%15s%16s%12s\n", $1,$2,$3,$4,"LVM"}' $freelv > $freelvall
+if [ -s $freelvall ] ; then
+
+#awk '{d=$3;dd=$4;d+=0;dd+=0;x=$4*100/$3;y=100-x;x+=0.5;y+=0.5;u=(d-dd);if(u>1024){uu=u/1000;uu=substr(uu,1,4);uu=uu"TB";}else uu=u"GB";if(d>1024){dsk=$3;sub(/.*B/,"",dsk);;f=d/1000;f=substr(f,1,4);f=f"TB"dsk}else f=$3;if(dd>1024){ff=dd/1000;;ff=substr(ff,1,4);ff=ff"TB";}else ff=$4; printf "%-30s%20s%18s%18s%16s%18s%14d%12d\n",$1,$2,f,uu,ff,$5,y,x;}' $freelvall
+
+#awk '{u=$3;uu=$4;d=$3;dd=$4;d+=0;dd+=0;x=dd*100/d;y=100-x;x+=0.5;y+=0.5;;if(d>1000){f=d/1000;;fgb="TB"}else{f=$3;fgb="GB"};;if(dd>1000){ff=dd/1000;ffgb="TB"}else{ff=$5;ffgb="GB"};if(u~"GB"){xx=u-uu;if(xx)xx=xx"GB"}else{if(uu~"GB"){xx=u*1000-uu;if(xx)xx=xx"GB"}else{xx=u-uu;if(xx)xx=xx"TB"}};printf "%-30s%20s%18.1f%s%19s%15.1f%s%18s%14d%12d\n",$1,$2,f,fgb,xx,ff,ffgb,"LVM",y,x;}' $freelvall
+
+awk '{u=$3;uu=$4;d=$3;dd=$4;d+=0;dd+=0;x=dd*100/d;y=100-x;x+=0.5;y+=0.5;;if(d>=1000){f=d/1000;;fgb="TB"}else{f=$3;fgb="GB"};;if(dd>=1000){ff=dd/1000;ffgb="TB"}else{ff=$4;ffgb="GB"};if(u~"GB"){xx=u-uu;if(xx)xxgb="GB"}else{if(uu~"GB"){xx=u*1000-uu;if(xx)xxgb="GB"}else{xx=u-uu;if(xx)xxgb="TB"}};if(xx>=1000){xx=xx/1000;xxgb="TB"};a=$2;b=$5;printf "%-30s%20s%18.1f%s%19.1f%s%15.1f%s%18s%14d%12d\n",$1,a,f,fgb,xx,xxgb,ff,ffgb,b,y,x}' $freelvall|awk '{sub("[.]0","",$3);sub("[.]0","",$4);sub("[.]0","",$5);if($4=="0GB")$4="0";if($5=="0GB")$5="0";printf "%-30s%20s%18s%18s%16s%18s%14d%12d\n",$1,$2,$3,$4,$5,$6,$7,$8;}'
+
+#awk '{x=$4*100/$3;y=100-x;u=($3-$4); printf "%-30s%20s%18s%18s%16s%18s%14d%12d\n",$1,$2,$3,u"GB",$4,$5,y,x;}' $freelvall
+fi
+  fi
+  fi
+
+
+#awk '{if($4~/GiB|TiB|GB|MiB/){if($3~"GB")sub($3,"GB","");if($4~"G.*B"){sub($4,"G*B","");x=$4*100/$3;x+=0.5;y=100-x;y+=0.5;u=($3-$4);printf "%14s%16s%16s%16d%2s%17s%12s%14d%13d\n",$1,$2,$3,u,"GB",$4,$5,y,x;}if($4~"TiB"){sub($4,"TiB","");x=$4*100*1024/$3;x+=0.5;y=100-x;y+=0.5;u=($3-$4*1024);printf "%14s%16s%16s%16d%2s%17s%12s%14d%13d\n",$1,$2,$3,u,"GB",$4,$5,y,x}if($4~"MiB"){x=$4*100/1024/$3;y=100-x;u=$3;printf "%14s%16s%16s%16d%2s%17s%12s%14.3f%13.3f\n",$1,$2,$3,u,"GB",$4,$5,y,x}}else {u=$3;printf "%14s%16s%16s%16d%2s%fg17s%12s%14s%13s\n",$1,$2,$3,u,"GB",$4,$5,"NULL","NULL"}}' $freeall
+
+}
+
+
+
+
+merge_lv_raw
+
+
+
+logical_mounts() {
+### MOunts ### Logical View ###
+#mounts=( veeam oradata orabckp goldengate u0 dwhdata arch ARCH data )
+mounts=( $(echo $(df -h|egrep -v " /sys/| /run| /dev|/dev/loop"|awk 'NR!=1{print $NF}') ))
+#for i in ${mounts[@]}; do
+#xmnt=$(df -P|awk -v mntx="$i" '$NF~mntx&&$NF!~"/frs"&&$1!~"overlay"&&$1!~"shm"&&$1!~"tmpfs"&&$1!~"/dev/loop"{print $NF}' ) ;
+#if [ ! -z "$xmnt" ] ; then mountlist=( ${mountlist[@]} $xmnt) ; fi ;
+#done
+if [ ! -z "${mounts[0]}" ] ; then
+
+#awk 'BEGIN{printf "\n%-30s%20s%251s%13s%17s%18s%16s%13s\n","LVM VG/Device","Mount","Logical_Size","Used","Available","Source","Usage%","Free%"}'
+awk 'BEGIN{printf "\n%-30s%20s%22s%13s%20s%17s%14s%11s\n","LVM VG/Device","Mount","Logical_Size","Used","Available","Source","Usage%","Free%"}'
+awk 'BEGIN{$146=OFS="=";printf "%s\n", $0 }'
+for mnt in ${mounts[@]} ; do
+#df -hT $mnt 2>/dev/null|awk 'NR>1{sub("/dev/","",$1);sub("mapper/","",$1);split($1,b,"-*");sub("%","",$6);printf "%14s%18s%14s%18s%16s%13s%14s%13s\n",b[1],$NF,$3,$4,$5,$2,$6,100-$6}'
+#df -hT $mnt 2>/dev/null|awk 'NR>1{sub("/dev/","",$1);sub("mapper/","",$1);split($1,b,"-*");sub("%","",$6); printf "%-30s%20s%15s%19s%13s%17s%14s%13s\n",b[1],$NF,$3,$4,$5,$2,$6,100-$6}'
+#df -HT $mnt 2>/dev/null|awk 'NR>1{gsub("T","TB");gsub("G","GB");gsub("M","MB");sub("/dev/","",$1);sub("mapper/","",$1);sub("%","",$6); printf "%-30s%20s%18s%18s%16s%19s%13d%12d\n",$1,$NF,$3,$4,$5,$2,$6,100-$6}'
+#df -HTP $mnt 2>/dev/null|awk 'NR>1{gsub("T","TB");gsub("G","GB");gsub("M","MB");gsub("k","KB");sub("/dev/","",$1);sub("mapper/","",$1);sub("%","",$6); printf "%-30s%20s%18s%18s%16s%18s%14d%12d\n",$1,$NF,$3,$4,$5,$2,$6,100-$6}'
+
+#df -T $mnt 2>/dev/null|awk 'END{sub("/dev/","",$1);sub("mapper/","",$1);sub("%","",$6);printf "%-30s%20s%18.f%18.f%16.f%18s%14d%12d\n",$1,$NF,($3*1024/1000/1000/1000),($4*1024/1000/1000/1000),($5*1024/1000/1000/1000),$2,$6,100-$6}'
+df -T $mnt 2>/dev/null|awk 'END{sub("/dev/","",$1);sub("mapper/","",$1);sub("%","",$6);printf "%-30s%20s%18.2f%s%16.2f%s%14.2f%s%16s%14d%12d\n",$1,$NF,($3*1024/1000/1000/1000),"GB",($4*1024/1000/1000/1000),"GB",($5*1024/1000/1000/1000),"GB",$2,$6,100-$6}'
+
+#totalsizel[j++]=$(df -P $mnt 2>/dev/null|awk 'NR>1{x=$2*1024/1000/1000/1000;printf "%.f\n",x}')
+#totalsizel[j++]=$(df $mnt 2>/dev/null|awk 'NR>1{x=$2*1024/1000/1000/1000;printf "%.f\n",x}')
+totalsizel[j++]=$(df $mnt 2>/dev/null|awk 'NR>1{x=($2*1024/1000/1000/1000);printf "%.2f\n",x}')
+####Total psize####
+devx=$(df $mnt 2>/dev/null|awk 'NR>1{print $1}')
+
+case $parted_fdisk in
+1)totalsizep[l++]=$(parted -s $devx unit B print 2>/dev/null|awk '/Disk/{sub("B","",$NF);printf "%.2f",($NF/1000/1000/1000);exit}')
+;;
+2)totalsizep[l++]=$(fdisk -l $devx 2>/dev/null|awk '/Disk/{x=$5/1000/1000/1000;printf "%.f",x}')
+;;
+3)totalsizep[l++]=$(sfdisk -s $devx 2>/dev/null|awk '{x=$1*1024/1000/1000/1000;printf "%.f",x}')
+;;
+esac
+
+done
+
+####Total sizes####
+logictotalsize=$(for((k=0;k<${#totalsizel[@]};k++)) ; do echo "${totalsizel[k]}" ; done|awk '{x+=$1}END{print x"GB"}' )
+####Total psize####
+physctotalsize=$(for((k=0;k<${#totalsizep[@]};k++)) ; do echo "${totalsizep[k]}" ; done|awk '{x+=$1}END{print x"GB"}' )
+awk 'BEGIN{$55=OFS="-";printf "%s\n", $0 }'
+awk -v a=$physctotalsize -v b=$logictotalsize 'BEGIN{print "Physical/Logical Total => "a "/" b" = "a-b"GB"}'
+awk 'BEGIN{$55=OFS="-";printf "%s\n", $0 }'
+
+fi
+}
+
+logical_mounts
+
+
+
+
+
+
+### 3- UNMount durumda olan Diskler ###
+#--------------------------------------
+
+fs_detect() {
+#fsx=$(file -sL /dev/$1|awk -F'[:,;(]' '{print $2}')
+#echo "Sadece ext* ve XFS destegi bulunuyor !!"
+fsx=$(file -sL $1|sed -n '/XFS\|ext[234]/s/.* \(XFS\|ext[234]\) .*/\1/p')
+#blkid /dev/sdb2|sed 's/.*TYPE="\([^ ]*\)".*/\1/'
+}
+
+
+
+
+header_umounteds() {
+echo
+awk 'BEGIN{print RS "Mount edilmemis Diskler"}'
+awk 'BEGIN{$55=OFS="=";printf "%s\n", $0 }'
+
+awk 'BEGIN{printf "%-30s%21s%17s%17s%20s%17s%14s%11s\n","LVM VG","Device","P/L Size","Used","Available","Source","Usage%","Free%"}'
+awk 'BEGIN{$146=OFS="=";printf "%s\n", $0 }'
+}
+
+
+
+umounteds_list() {
+if [ -s "$umountedrawdfoutput" ] ; then
+((cc++))
+if [ $cc -eq 1 ] ; then header_umounteds ; fi
+#awk '{printf "%-30s%20s%14s%18s%16s%17s%14s%12s\n",$1,$2,$4,$5,$6,$7,$8,$9}' $umountedrawdfoutput
+#awk '{printf "%-30s%20s%18s%17s%15s%20s%14d%11d\n",$1,$2,$3"/"$4,$5,$6,$7,$8,$9}' $umountedrawdfoutput
+#awk '{printf "%-30s%20s%18s%17s%15s%20s%14d%11d\n",$1,$2,$4,$5,$6,$7,$8,$9}' $umountedrawdfoutput
+awk '{gsub("T","TB");gsub("G","GB");gsub("M","MB");gsub("k","KB");printf "%-30s%20s%18s%17s%16s%19s%14d%12d\n",$1,$2,$4,$5,$6,$7,$8,$9}' $umountedrawdfoutput
+fi
+}
+
+
+pdevchk() {
+devx=$1
+majminx=$(dmsetup ls --tree |awk -v a="$devx" '$0~a{getline;sub("[(]","",$NF);sub("[)]","",$NF);print $NF}')
+pdevx=$(lsblk --noheadings --raw -o NAME,MAJ:MIN|awk -v a="$majminx" '$2==a{print $1}')
+}
+
+
+
+df_check() {
+dev=$1;devnamex=$2;devtypex=$3
+
+
+case $devtypex in
+lvm)pdevchk $devnamex
+
+psize=$(lsblk /dev/$pdevx --raw -o NAME,SIZE,MAJ:MIN|awk '/ 8:/{print $2}')
+
+
+#lvsizegb=$(echo $lvsize|awk '{x=$1*1024*1024*1024/1000/1000/1000;;x+=0.5;printf "%d\n",x}' )
+#lsizegb=$(df $dev |awk 'NR>1{x=$2/1000/1000;x+=0.5;printf "%d\n",x}')
+#lvm_private_size=xx
+
+lvsize=$(lvdisplay $dev|awk '/LV Size/{sub("<","",$(NF-1));print $(NF-1)}')
+lvsizegb=$(echo $lvsize|awk '{x=$1*1024*1024;;printf "%d\n",x}' )
+lsizegb=$(df $dev |awk 'NR>1{x=$2;;printf "%d\n",x}')
+reserved_guested_size="1048576" #1GB = 1,048,576 KB
+#normalde df de gorulen logic alan ile LVM alanin hemen hemen AYNI olmasi gerekir..LVMi in kendisi disk uzerinde cok az yer kaplar..
+#eger lvlm alani 1 GB dan daha fazla bir yer kapliyorsa bu alan filesystem tarafina verilmemis olarak var sayilabilir.
+#bu bilginin elde edilebilmesi icin oncelikle pv diski +size verilmis ( or:vcenter da disk size artirimi ) ve bu alanin lvm tarafina extend edilmis olmasi gerekir.
+#eger bu islemler yapilmadiysa script bunu algilamaz..
+#yeni disk size bilgisinin algilanmasi icin pvresize ve lvextend islemlerini isletmek gerekir.
+
+nonfslvm=$(awk -v a="$lvsizegb" -v b="$lsizegb" -v c="$reserved_guested_size" 'BEGIN{if(a-b>c)print a-b*1024/1000/1000/1000 "GB" }')
+
+if [ ! -z "$nonfslvm" ] ; then
+awk -v a="$nonfslvm" -v b="$dev" 'BEGIN{sub("/dev/","",b);sub("mapper/","",b);print b,"x","x","x","x",a,"non_fs_lvm","x","x"}' >> $umountedrawdfoutput
+fi
+df -HTP $dev |awk -v a="$pdevx" -v b="$psize" 'NR>1{sub("/dev/","",$1);sub("mapper/","",$1);;sub("%","",$6);print $1,a,b,$3,$4,$5,$2,$6,100-$6}' >> $umountedrawdfoutput
+;;
+
+part|disk)#vgx=$(pvs|awk -v a="$dev" 'NR>1&&$1==a{print $2}')
+pdevx="NULL"
+df -HTP $dev |awk -v a="$pdevx" 'NR>1{sub("/dev/","",$1);sub("mapper/","",$1);;sub("%","",$6);print a,$1,$NF,$3,$4,$5,$2,$6,100-$6}' >> $umountedrawdfoutput
+;;
+
+*)echo "Hatali disk tipi !! " ; sleep 1 ; echo
+;;
+esac
+
+#[ -z "$vgx" ] && vgx="No_LVM"
+}
+
+
+
+disk_chk() {
+
+parted_fdisk=$1
+umountdevice=$2
+devsrc=$3
+vgxx=$4
+pdevx=$5
+
+
+case $parted_fdisk in
+1)
+# "no_partition_table" bilgisini kaldirmaya karar verdim.
+#parted -s $umountdevice unit GB print free 2>/dev/null|awk -v a="$devsrc" -v b="$vgxx" -v c="$pdevx" -v d="$wpartx" '$2~a{if(a==b)a=c;s=$3;printf "%14s%10s %s",b,a,$3}$0~"Partition Table"{if(($NF=="loopx")||(!d))printf "%20s","Free "s"[+]"}$0~"Free Space"{x=$3;sub("GB","",$3);if($3>1){if(l)l=1;printf "%14s %s%2s",$4,x,"["l"+]"}}$0~Start{l=$1}END{printf "%20s%s",d,"\n"}' >> $umountedraw
+
+#nopartx=$(parted -s $umountdevice unit GB print free 2>&1 |awk -F':' -v a="Partition Table" '$0~a{print $2}')
+#if [ $nopartx = "unknown" ] ; then
+#wpartx="No_Partion_Table"
+#fi
+
+parted -s $umountdevice unit GB print free 2>/dev/null|awk -v a="$devsrc" -v b="$vgxx" -v c="$pdevx" -v d="$wpartx" '$2~a{if(a==b)a=c;s=$3;printf "%-30s%20s%16s",b,a,$3}$0~"Partition Table"{if(($NF=="loop")||($NF!="unknown"))printf "%20s","Free "s"[+]"}$0~"Free Space"{x=$3;sub("GB","",$3);if($3>1){if(l)l=1;printf "%10s %7s",$4,x"["l"+]"}}$0~Start{l=$1}END{printf "%s","\n"}' >> $umountedraw
+
+#parted -s $umountdevice unit GB print free 2>/dev/null|awk -v a="$devsrc" -v b="$vgxx" -v c="$pdevx" -v d="$wpartx" '$2~a{if(a==b)a=c;printf "%14s%10s %s",b,a,$3}$0~"Free Space"{x=$3;sub("GB","",$3);if($3>1){if(l)l=1;printf "%14s %s%2s",$4,x,"["l"+]"}}{l=$1}END{printf "%20s%s",d,"\n"}' >> $umountedraw
+
+;;
+
+
+2)#nopartx=$(fdisk -l $umountdevice 2>&1|awk '/Start/{print "no_unkown"}')
+#if [ -z "$nopartx" ] ; then
+#wpartx="No_Partion_Table"
+#fi
+
+#fdisk -l $umountdevice 2>&1|awk -v a="$devsrc" -v b="$vgxx" -v gbs="1953125" '$2~a{f=$5/1000/1000/1000;yy="NULL" FS a FS f;t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{if($0~"Boot")xc=1;getline;if(xc==1)x=$4;else x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(y)y=1;x=($2-x)*s/1000/1000/1000;split(yy,d," ");printf "%14s%10s%12s%14s %d%2s%4s\n",d[1],d[2],d[3]"GB","Free",x,"GB","["y"+]"};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;split(yy,d," ");printf "%14s%10s%12s%14s %d%2s%4s\n",d[1],d[2],d[3]"GB","Free",x,"GB","["y"+]"}}'
+
+#fdisk -l $umountdevice 2>&1|awk -v a="$devsrc" -v b="$vgxx" -v gbs="1953125" '$2~a{sub(":","",$2);sub("/dev/","",$2);f=$5/1000/1000/1000;f+=0.5;printf "%10s%10s %d% 2s",b,$2,f,"GB";t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{getline;x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(y)y=1;x=($2-x)*s/1000/1000/1000;x+=0.5;printf "%10s %d%2s%4s","Free",x,"GB","["y"+]"};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;x+=0.5;printf "%10s %d%2s%4s\n","Free",x,"GB","["y"+]"}}' >> $umountedraw
+
+#disk size = 17/GB
+##fdisk -l $umountdevice 2>&1|awk -v a="$devsrc" -v b="$vgxx" -v gbs="1953125" '$2~a{sub(":","",$2);sub("/dev/","",$2);f=$5/1000/1000/1000;f+=0.5;printf "%10s%10s %d% 2s",b,$2,f,"GB";t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{getline;x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(y)y=1;x=($2-x)*s/1000/1000/1000;x+=0.5;printf "%10s %d%5s","Free",x,"GB["y"+]"};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;x+=0.5;printf "%10s %d%5s\n","Free",x,"GB["y"+]"}}' > $umountedraw
+
+
+#disk size = 17.2/GB
+#fdisk -l $umountdevice 2>&1|awk -v a="$devsrc" -v b="$vgxx" -v gbs="1953125" '$2~a{sub(":","",$2);sub("/dev/","",$2);f=$5/1000/1000/1000;;printf "%10s%10s %.4s %2s",b,$2,f,"GB";t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{getline;x=$3;y=$1;while(getline){if(($2-x)>=gbs){if(y)y=1;x=($2-x)*s/1000/1000/1000;;printf "%10s %.4s%5s","Free",x,"GB["y"+]"};y=$1;x=$3}}END{if(t-$3>=gbs){y=$1;x=(t-$3)*s/1000/1000/1000;;printf "%10s %.4s%5s\n","Free",x,"GB["y"+]"}}' > $umountedraw
+
+## "1953125s" = 1 GB
+#fdisk -l $umountdevice 2>&1|awk -v a="$devsrc" -v b="$vgxx" -v gbs="1953125" '$2~a{sub(":","",$2);sub("/dev/","",$2);f=$5/1000/1000/1000;;printf "%10s%10s %.4s %2s",b,$2,f,"GB";t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{getline;x=$3;y=$1;while(getline){if(($2-x)>=gbs){ll=1;if(y)y=1;x=($2-x)*s/1000/1000/1000;;printf "%10s %.4s%5s","Free",x,"GB["y"+]"};y=$1;x=$3}}END{if(t-$3>=gbs){ll=0;y=$1;x=(t-$3)*s/1000/1000/1000;;printf "%10s %.4s%5s\n","Free",x,"GB["y"+]"}if(ll)printf "%s","\n"}' >> $umountedraw
+
+
+
+fdisk -l $umountdevice 2>&1|awk -v a="$devsrc" -v b="$vgxx" -v gbs="1953125" '$2~a{sub(":","",$2);sub("/dev/","",$2);f=$5/1000/1000/1000;printf "%10s%10s %.f %2s",b,$2,f,"GB";t=$(NF-1)}/Units/{s=$(NF-3)}/Start/{st=1;if($0~"Boot")bo=1;getline;if(bo)x=$4;else x=$3;y=$1;if($1~a){partdev=1;sub("/dev/","",$1);sub(a,"",$1);y=$1};while(getline){if($0~"boundary")getline;if(($2-x)>=gbs){if(y)y=1;x=($2-x)*s/1000/1000/1000;;printf "%10s %.f%5s","Free",x,"GB["y"+]"};x=$3;if(partdev==1){sub("/dev/","",$1);sub(a,"",$1);y=$1}}}END{if(st){if(t-$3>=gbs){y=$1;if(partdev==1){sub("/dev/","",$1);sub(a,"",$1);y=$1};x=(t-$3)*s/1000/1000/1000;printf "%10s %.f%5s","Freeaaa",x,"GB["y"+]";}};printf "%s","\n"}' >> $umountedraw
+
+
+
+;;
+3)nopartx=$(sfdisk -d $umountdevice 2>/dev/null)
+if [ -z "$nopartx" ] ; then
+wpartx="No_Partion_Table"
+fi
+sfdisk -s $umountdevice 2>/dev/null|awk  -v a="$devsrc" -v b="$vgxx" -v d="$wpartx" 'NR==1{s=$1/1024/1024"GB"}{if(d)print b,a,s,"Free",s"[+]";else print b,a,s}' >> $umountedraw
+;;
+
+
+*)echo "NULL $umountdevice " >> $umountedraw
+;;
+esac
+}
+
+
+
+pvsdev() {
+pvsd=1
+pvs|grep "$1 " &>/dev/null
+if [ $? -eq 0 ] ; then
+vgc=$(pvs|awk '{print $2}' )
+lvc=$(lvs|awk -v a="$vgc" '$2==a{print $2"-"$1}')
+if [ ! -z "$lvc" ]; then
+df|grep $lvc &>/dev/null
+if [ $? -ne 0 ] ; then
+grep "$1" $umountdevices &>/dev/null
+if [ $? -ne 0 ] ; then
+echo "$1" >>$umountdevices
+fi
+fi
+fi
+else
+pvsd=0
+fi
+}
+
+
+umounted_check() {
+umountedrawdfoutput=tmpdfumountsspaceY.y.x
+>$umountedrawdfoutput
+umountdevices=tmpdfumountdevsx.Y.z
+>$umountdevices
+
+#sdx=$(lsblk -d --noheadings --raw -o NAME,MAJ:MIN|awk '/ 8:/{print $1}')
+#for sdxi in ${sdx[@]}
+
+while read sdxi mpathxi
+do
+
+lsblk /dev/${sdxi} --noheadings --raw -o NAME,TYPE,MOUNTPOINT |awk '$3==""'|while read devname devtype
+do
+grep $devname $sadempathler |grep mpath &>/dev/null && devtype="mpath"
+
+
+case $devtype in
+lvm|mpath)umountdevice="/dev/mapper/$devname"
+;;
+part|disk)umountdevice="/dev/$devname"
+;;
+*)echo "HATALI DISK BILGISI [$devname ($devtype) ??] !!"
+;;
+esac
+
+
+##################
+#pvsdev $umountdevice
+#if [ $pvsd -eq 0 ] ; then
+
+df -P|grep "$umountdevice " &>/dev/null
+if [ $? -ne 0 ] ; then
+grep "$umountdevice" $umountdevices &>/dev/null
+if [ $? -ne 0 ] ; then
+echo $umountdevice >>$umountdevices
+
+
+case $devtype in
+part|disk)vgxx=$(pvs 2>/dev/null|awk -v a="$umountdevice" 'NR>1&&$1==a{if(NF==6)print $2;else print "No_Name_VG"}') ;
+if [ -z "$vgxx" ] ; then vgxx="No_LVM_disk" ; vgcheckxx="no_PV_disk" ; else vgcheckxx="snapshot" ; fi
+pdevx=$sdxi
+;;
+lvm)vgxx=$devname
+pdevchk $vgxx
+vgcheckxx="no_PV_disk"
+;;
+esac
+
+devsrc=$devname
+
+
+
+#### LVM
+if [ "$vgcheckxx" = "no_PV_disk" ] ; then
+
+
+#------------------------------------
+#### UMOUNT durumda olan diskler ####
+#------------------------------------
+
+
+##hatali diskler ve LVM/ASM volume ler yok sayiliyor.
+file -sL $umountdevice|egrep "no read permis|cannot read|Input/output error|Oracle ASM|Logical Volume Manager" &>/dev/null
+if [ $? -ne 0 ] ; then
+
+###partitionu yok demek ?? 2- partition bilgisi varsa boot sector e sahiptir. "boot sector" string kontrolune gerek kalmiyor ??
+onepart=$(lsblk $umountdevice --noheadings --raw -o NAME|awk -v a="$devname" '$1!=a')
+if [ -z "$onepart" ] ; then
+
+file -sL $umountdevice|grep ": data" &>/dev/null
+if [ $? -ne 0 ] ; then
+
+
+######
+fs_detect $umountdevice;
+
+
+if [ ! -z "$fsx" ] ; then
+### xfs/ext filesysteme sahip diskler icin Mount testi ###
+##########################################################
+
+#echo 11xxxx filesystemi olan diskler
+
+
+case $fsx in
+XFS) mount -t xfs $umountdevice $mntxy && ( df_check $umountdevice $devname $devtype ; sleep 1 ; umount -f $umountdevice ) || echo "Mount PROBLEMI !! "
+;;
+ext*)mount -t $fsx $umountdevice $mntxy && ( df_check $umountdevice $devname $devtype ; sleep 1 ; umount -f $umountdevice ) || echo "Mount PROBLEMI !! "
+;;
+*)echo "[$umountdevice]->> Filesystem tespit edilemedi !! ";
+esac
+
+####
+
+#awk 'BEGIN{$55=OFS="*";printf "%s%20s%s\n", $0 , " ",$0}'
+
+
+###################################
+### filesystem sahip disklerin RAW gorunumu icin ENABLE edilebilir. simdilik kapali tutuyorum.
+#disk_chk $parted_fdisk "$umountdevice"
+###################################
+
+else
+#echo xxxx33xxxx filesystemi olmayanlar sadece (boot-sector) tipinde diskler ( partitionu olmayan yada LVM yapisina sahip olmayan diskler )
+disk_chk $parted_fdisk "$umountdevice" "$devsrc" "$vgxx" "$pdevx"
+
+fi
+
+else
+#echo xxxx filesystem olmayanlar RAW diskler
+vgxx="RAW_data_disk"
+disk_chk $parted_fdisk "$umountdevice" "$devsrc" "$vgxx" "$pdevx"
+
+
+###XFS ve ext* disinda kalan filesystemler icin kisitli bilgi var ( simdilik FARKLI FS ler icinde gerekirse eklerim )
+### RAW_disk       sdc   17283GB    Free   1.991GB[4]    Free   12.00GB[5] ### umountedraw
+
+fi
+
+
+#else
+# boot-sector yada LVM tipinde olup partitionlara sahip diskler dikkate alinmaz
+#disk_chk $parted_fdisk ""$umountdevice" $devsrc" "$vgxx" "$pdevx"
+fi
+
+
+
+fi
+fi
+fi
+fi
+
+done
+done<$sadescsiler2
+
+
+if [ -s $umountedraw ] ; then
+((ccc++))
+if [ $ccc -eq 1 ] ; then header_umounteds ; fi
+awk '$0~"Free"{for(i=1;i<=NF;i++)if($i=="Free")printf "%-24s%26s%18s%38s%14s\n",$1,$2,$3,$(i+1),"RAW";next}{printf "%-24s%26s%18s\n",$1,$2,$3}' $umountedraw
+#awk '$0~"Free"{for(i=1;i<=NF;i++)if($i=="Free")printf "%s%37s%18s%34s%12s\n",$1,$2,$3,$(i+1),"RAW";next}{printf "%s%37s%18s\n",$1,$2,$3}' $umountedraw
+#awk -v a="$psize" '{printf "%14s%16s%14s%20s%14s%15s%14s%13s\n",$1,$2,$3,$4,$5,$6,$7,$8}' $umountedraw
+fi
+
+
+
+
+}
+
+umounted_check ; umounteds_list
+
+
+
+
+### 4- Filesystem Reserved alan ###
+#----------------------------------------
+
+reserved_blocks() {
+if [[ -z "$1" ]] || [[ -z "$2" ]] ; then
+echo "[$3] icin reserved block bilgisi bulunamadi !!"
+else
+awk -v a=$1 -v b=$2 -v c=$3 'BEGIN{printf "%54s%30s%4s\n", c, a*b/1024/1024, "Mib"}'
+fi
+}
+
+
+fs_reserverd_echo() {
+df -HTP |awk -v a=$1 '$2==a'| while read device
+do
+case $1 in
+xfs)
+lvmount=$(echo "$device"|awk '{print $NF}')
+lvdevice=$(echo "$device"|awk '{print $1}')
+#resblks=$(xfs_io -x -c "resblks" "$lvmount" |awk -F"=" '/^reserved blocks/{print $NF}')
+resblks=$(xfs_io -x -c "resblks" "$lvmount" 2>/dev/null|sed -n '/^reserved blocks/{s/.*=\([^ ]*\) /\1/;p;q}')
+bsize=$(xfs_info "$lvdevice" 2>/dev/null|sed -n '/bsize/{s/.*bsize=\([^ ]*\) .*/\1/;p;q}')
+reserved_blocks "$resblks" "$bsize" "$lvmount"
+;;
+ext[2-4]*)
+sddevice=$(echo "$device"|awk '{print $1}')
+resblks=$(tune2fs -l "$sddevice" 2>/dev/null|sed -n '/Reserved block count/{s/.*:\([^ ]*\) */\1/;p;q}')
+bsize=$(tune2fs -l "$sddevice" 2>/dev/null|sed -n '/Block size/{s/.*:\([^ ]*\) */\1/;p;q}')
+reserved_blocks "$resblks" "$bsize" "$sddevice"
+;;
+*)echo "Tanimsiz filesystem !! "
+;;
+esac
+done
+echo
+}
+
+
+fs_reserved_get() {
+df -HTP|awk '{a[$2]}END{for(i in a)if((i~"xfs")||(i~"ext"))print i}'|while read fsreserved
+do
+awk -v a="$fsreserved" 'BEGIN{printf "%34s%59s%4s\n", "Disk_LV","Reserved Size for ", a}'
+awk 'BEGIN{$55=OFS="=";printf "%s%20s%s\n", $0 , " ",$0}'
+fs_reserverd_echo $fsreserved
+done
+}
+
+
+### reserved alanlari simdilik gosterime kapadim ###
+#fs_reserved_get
+
