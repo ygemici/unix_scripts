@@ -9,6 +9,15 @@
 ## ./passwd_expire_check.sh user root@localhost 60
 ## ./passwd_expire_check.sh user 60
 
+###
+#[root@redhat8_yucel ~]# bash passwd_expire_check.sh test_user 100
+#Please give a valid e-mail address for report !!
+#Local mail account is used this time -> 'root@redhat8_yucel.xxxxxx.local'
+
+#Password expires in 34 days for user test_user
+#An e-mail (Password Expiration WARNING!!) sent to ( root@redhat8_yucel.xxxxxx.local )..
+
+
 
 user_check() {
 id $1 &>/dev/null
