@@ -11,7 +11,147 @@
 ## $2 parametresi 0 veya 1 olacak *(0 > rapor alinabilecek aralik gun sayisini gosterme -  1 > goster )
 ## $3 parametresi ip/user/nologins
 
-## Ornek Log dosyasi :
+###exs
+#[root@Redhat-64 ~]# bash vsftp_log_analysis 7 1 1
+#61 gunluk sorgulama yapilabilir.
+
+
+#                 Firma                                    IP Listesi        Sayi
+#----------------------------------------------------------------------------------------
+
+#               [xxxxxxxxx]                                                ( x 180 )
+#========================================================================================
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#...........
+#..................
+#
+#
+#
+#               [xxxxxxxxx]                                                ( x 143 )
+#========================================================================================
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#                                                     "xxx.xxx.xxx.xxx"
+#...........
+#..................
+
+
+
+#[root@Redhat-64 ~]# bash ftplog.sh 7 0 2
+#
+#                    IP                                 Firma Listesi        Sayi
+#----------------------------------------------------------------------------------------
+#
+#           "10.100.xx.xxx"                                                ( x 107 )
+#========================================================================================
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#...........
+#..................
+
+#
+#
+#
+#             "10.170.x.xx"                                                ( x 58 )
+#========================================================================================
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#                                                      [xxxxx]
+#...........
+#..................
+
+
+
+#[root@Redhat-64 ~]# bash ftplog.sh 7 0 3
+#
+#Firma Ismi Bulunamayan IP Listesi               ( Sadece CONNECT )
+#----------------------------------------------------------------------------------------
+"xxx.xxx.xxx.xxx"
+"xxx.xxx.xxx.xxx"
+"xxx.xxx.xxx.xxx"
+"xxx.xxx.xxx.xxx"
+"xxx.xxx.xxx.xxx"
+"xxx.xxx.xxx.xxx"
+"xxx.xxx.xxx.xxx"
+"xxx.xxx.xxx.xxx"
+#...........
+#..................
+
+
+
+[root@Redhat-64 ~]# bash ftplog.sh 7 0 4
+
+                No_Login_IP              Connection Sayilari               Firma
+----------------------------------------------------------------------------------------
+             "xxx.xxx.xxx.xxx"                     3
+                                                                          [xxxxx]
+========================================================================================
+             "xxx.xxx.xxx.xxx"                     1
+                                                                          [xxxxx]
+                                                                          [xxxxx]
+                                                                          [xxxxx]
+========================================================================================
+             "xxx.xxx.xxx.xxx"                     1
+                                                                          [xxxxx]
+========================================================================================
+             "xxx.xxx.xxx.xxx"                     2
+                                                                          [xxxxx]
+                                                                          [xxxxx]
+========================================================================================
+#...........
+#..................
+
+
+
+
+## Ornek Log dosyasi : ( /var/log/ftp.log )
 #Feb 23 00:00:00 ftpserver vsftpd: Mon Feb 23 00:00:00 2015 [pid 12073] CONNECT: Client "88.248.252.xxx"
 #Feb 23 00:00:00 ftpserver vsftpd: Mon Feb 23 00:00:00 2015 [pid 12072] [user1] OK LOGIN: Client "88.248.252.xxx"
 #Feb 23 00:00:01 ftpserver vsftpd: Mon Feb 23 00:00:01 2015 [pid 12076] CONNECT: Client "95.0.40.xxx"
@@ -29,6 +169,9 @@
 #Feb 23 00:00:08 ftpserver vsftpd: Mon Feb 23 00:00:08 2015 [pid 12107] [user2] OK LOGIN: Client "212.156.45.xx"
 #Feb 23 00:00:08 ftpserver vsftpd: Mon Feb 23 00:00:08 2015 [pid 12109] [user2] OK LOGIN: Client "95.0.40.xxx"
 #Feb 23 00:00:08 ftpserver vsftpd: Mon Feb 23 00:00:08 2015 [pid 12114] CONNECT: Client "31.145.40.xxx"
+#...........
+#..................
+
 
 
 msg() {
