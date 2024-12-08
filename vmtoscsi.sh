@@ -32,7 +32,7 @@
 ### sde  [4:0:0:0]       ATA           <=====>        VM-ata(0:0)              Hard Disk 5 - [1G]
 ### sdf  [5:0:0:0]       ATA           <=====>        VM-ata(1:0)              Hard Disk 6 - [1G]
 ### sdg  [33:0:0:0]      ATA           <=====>        VM-ata(2:0)              Hard Disk 7 - [1G]
-### sdh  [34:0:0:0]      ATA           <=====>        VM-ata(3:1)              Hard Disk 8 - [1G]
+### sdh  [34:0:0:0]      ATA           <=====>        VM-ata(3:0)              Hard Disk 8 - [1G]
 
 
 
@@ -186,7 +186,7 @@ awk 'FNR==NR{a[$1]=$2;next}{if($1 in a)print $1 FS a[$1]}' ${sds}_sorted_tmp1 ${
 ## centos 5.6 da vendor bilgileri getirilemiyordu..kod genellestirildi. 05-12-2022
 for i in $(find /sys/devices/ -name block ) ; do
 sdx=$(ls -d "$i"/s[d]* 2>/dev/null|awk -F'/' '{print $NF}')
-[ ! -z "$sdx" ] && echo "$sdx" "$(cat ${i/block/vendor})"
+[ ! -z "$sdx" ] && echo "$sdx" "$(cat ${i/block/vendor}|sed 's/,//g')"
 done >$sdvendors
 
 
