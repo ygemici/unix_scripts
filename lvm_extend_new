@@ -199,8 +199,13 @@ fi
 "new") vgcc=$1
 isanothervg=$(pvs|awk -v a=$vgcc '$2==a{print $1}'|grep -v $disk)
 if [ ! -z "$isanothervg" ] ; then
-echo "[$vgcc] isimli [VG] zaten [$isanothervg] diski uzerinde tanimli gorunuyor !! "
-errormsg
+isanothervgc=$(echo "$isanothervg"|awk 'END{print NR}')
+[[ $isanothervgc -gt 1 ]] && mess1="diskler" || mess1="disk"
+echo "[$vgcc] isimli [VG] zaten asagidaki $mess1 uzerinde tanimli gorunuyor !! "
+echo "---------------"
+echo "$isanothervg"
+echo "---------------"
+sleep 3
 fi
 ;;
 esac
@@ -1630,9 +1635,9 @@ sleep 3
 ispvsok=$(pvs $vgextenddsk 2>/dev/null|awk -v a="$vgx" '$2==a{print "OK"}')
 if [ -z "$ispvsok" ] ; then
 echo "-> [vgextend] islemi baslatiliyor ... "
-vgextendok=1
 sleep 3
 vgextend "$1" "$2" ; errchk $? "vgextend"
+vgextendok=1
 else
 pvsdiskn=$(pvs 2>/dev/null|awk -v a="$vgx" '$2==a{sub("/dev/","");printf "%s ",$1}')
 pvscx=$(echo "$pvsdiskn"|awk 'BEGIN{if(NF>1)print "ok"}')
@@ -1641,8 +1646,10 @@ if [ ! -z "$pvsdiskn" ] ; then
 echo "->> [$vgx] VG bilgisi [ $pvsdiskn] $ekler uzerinde zaten mevcut durumda gorunuyor ..."
 sleep 2
 fi
-echo "->> [$disk] uzerinde [$vgx] ismindeki [VG] zaten tanimli gorunuyor !! "
+echo
+echo "->> [$disk] diski uzerinde [$vgx] ismindeki [VG] zaten tanimli gorunuyor !! "
 vgextendok=0
+sleep 2
 fi
 
 printit 70
@@ -1991,6 +1998,7 @@ vgxpostchk() {
 # vg/lv bilgisi dogru diske mi ait. Son Kontrol...
 vglvchck "$devdisk" "$vgx"
 
+
 #lvmmapperdev in bir LVM device olmasi zorunludur..
 devmapperchk;
 
@@ -2010,7 +2018,7 @@ fschk "$lvmmapperdev" "ext" && [ "$fst" != "NULL" ] && resizepck "$fst" && resiz
 
 "new")
 ##Var olan VG-LV device a YENI BIR DISK EKLEMEK
-if [ ! -z "$vgextendok" ] && [ "$vgextendok" -eq 1 ] ; then
+if [ ! -z "$vgextendok" ] && [ "$vgextendok" -eq 1 ] && [ "$lvextendok" -eq 1 ] ; then
 lvextendx "ext"
 
 ###islem sonrasi filesystem islemleri
@@ -2492,7 +2500,13 @@ echo
 "new")echo "->> [$vgx] [VG] icin [$lvx] isminde bir [LV] device zaten mevcut durumda !! "
 sleep 3
 #new ile sadece yeni VG/LV ler olusturulabilir. extend islemleri icin ext kullanilmasi zorunlu !!
-#echo "[$vgx] [VG] icin [$lvx] ismindeki [LV] device extend edilecek (new) .. !! "
+if [ $vgextendok -eq 1 ] ; then
+echo "[$vgx] [VG] icin [$lvx] ismindeki [LV] device extend edilecek (new) .. !! "
+lvextendok=1
+else
+lvextendok=0
+echo "->> [$vgx] [VG] extend islemi yapil(a)madigi icin [$lvx] ismindeki [LV] device extend edilemiyor (new) .. !!! "
+fi
 #islem sonuc herhangi bir degisiklik olmadiginin gorulmesi icin HAA verdirilmiyor ??
 #errormsg
 ;;
@@ -2725,11 +2739,11 @@ else
 diskvgx=$(pvs|awk -v a="$vgx" -v b="$disk" '$2==a&&$1!="/dev/"b{sub("/dev/","",$1);print $1}' ORS=" " )
 diskvgx2=$(pvs|awk -v a="$vgx" -v b="$disk" '$2==a&&$1=="/dev/"b{sub("/dev/","",$1);print $1}' ORS=" " )
 if [ ! -z "$diskvgx" ] && [ -z "$diskvgx2" ] ; then
-echo "[$vgx] [VG] bilgisi ile FARKLI bir disk [ -> $diskvgx] uzerinde bir [VG] tespit edildi !!! "
+echo "[$vgx] [VG] bilgisi ile FARKLI $mess1 [ -> $diskvgx] uzerinde bir [VG] tespit edildi !!! "
 echo
 printit 30
 echo "-> [vgextend] islemleri baslatilacak ... "
-sleep 1
+sleep 5
 vgextendx "$vgx" "$devdisk"
 vgextendxx=1
 fi
@@ -3050,4 +3064,3 @@ fi
 ###yucel gemici 2023
 firstcheck "$1"
 justdoit $@;
-
