@@ -597,7 +597,8 @@ for f in /sys/class/$subsys/*; do
     ### target ###
     ((c++))
     [ $c -eq 1 ] && printf "%14s %65s %19s \n" "Scsi_Host" "Target" "Driver" && awk 'BEGIN{$104=OFS="-";print $0 RS}'
-    driver=$(basename $(readlink -e $(readlink -e "$f"|sed 's/\/host.*//')/driver))
+    driver=$(basename $(readlink -e $(readlink -e "$f"|sed 's;\(.*\)/ata.*;\1/;'|sed 's;\(.*\)/host.*/.*;\1;')/driver))
+    #driver=$(basename $(readlink -e $(readlink -e "$f"|sed 's/\/host.*//')/driver))
 
 
     for td in $(ls -d $f/device/target* 2>/dev/null ); do
@@ -618,7 +619,7 @@ for f in /sys/class/$subsys/*; do
     modeld_model=$(cat $(readlink -e "$devpath"/model))
     ((cc++))
     [ -z "$driverd" ] && driverd="$(echo $modeld_vendor $modeld_model)"
-    [ $cc -eq 1 ] && printf "%10s(%s)\n%70s \n%81s %14s" "$scsihost" "$driver" "$devicedir" "$scsitarget" "$driverd" || printf "\n%81s %14s" "$scsitarget" "$driverd"
+    [ $cc -eq 1 ] && printf "%10s %91s\n%70s \n%81s %14s" "$scsihost" "$driver" "$devicedir" "$scsitarget" "$driverd" || printf "\n%81s %14s" "$scsitarget" "$driverd"
     done
     fi
     done
@@ -645,13 +646,14 @@ for f in /sys/class/$subsys/*; do
 
 
     ((ccc++))
-    #### non-target ( eg : fc ) ####
+    #### non-scsi-target ( eg : fc ) ####
     #echo $f non-target
     ls $f/device/target* >/dev/null 2>&1
     if [ $? -ne 0 ] ; then
     if [ $otherhosts -eq 0 ] ; then
     scsi_other_host=$(basename "$f")
-    printf "%17s %83s\n" "$scsi_other_host([fc?])" "$driver"
+    [[ -z "$driver" ]] && driver="[non-target]"
+    printf "%25s %76s\n" "$scsi_other_host [->Non_Target]" "$driver"
     fi
 
     devicedir=$(readlink -e "$f/device" )
