@@ -2195,7 +2195,8 @@ if  [ $lvcount -eq 1 ] ; then
 lvx=$(lvs|awk -v a="$vgtolx" '$2==a{print $1}')
 echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
 elif [ $lvcount -gt 1 ] ; then
-echo "[$vgtolx] [VG] uzerinde birden fazla [LV] device oldugu icin [LV] bilgisinin parametre olarak girilmesi gerekiyor .. !! "
+echo "[$vgtolx] [VG] uzerinde birden fazla [-> $(echo $(lvs|awk -v a="$vgtolx" '$2==a{print $1}'))] [LV] device tespit edildi !! "
+echo "[LV] bilgisinin parametre olarak girilmesi gerekiyor .. !! "
 errormsg
 fi
 else
