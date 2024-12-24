@@ -483,9 +483,7 @@ for scsisorts in $scsisatavendors $scsisatavendors2 ; do
 
 #[ $c -gt 0 ] && vmstmp=${vms}.$c || vmstmp=${vms}.$c
 ## ATA destegi
-awk 'BEGIN{vmscsi=0;vmata=0}NR==FNR{a[++i]=$3;b[i]=$1;c[i]=$2":"$3":"$4":"$5;d[i]=$NF;next}{if($NF~"ATA")$2=vmata++;if($2~"X")e[$1]=$2+vmscsi"+-X:"$3;else e[$1]=$2+vmscsi":"$3;f[$1]=$4" "$5" "$6;g[$1]=$NF;x++}END{for(j=1;j<=i;j++){y=0;for(k in e){vmscsix=" VM-scsi";if(g[k]~"ATA")vmscsix=" VM-ata";if(b[j]==k){printf "%-5s%-16s%-14s%-10s%12s%-18s%-11s\n", b[j], "[" c[j] "]", d[j], "<=====>", vmscsix"(", e[k] ") ", f[k];break} else {y++;}if(y==x)printf "%-5s%-16s%-14s\n", b[j], "[" c[j] "]", d[j] }}}' $scsisorts ${vms}.$c >${out}.$c
-
-
+awk 'BEGIN{vmscsi=0;vmata=0}NR==FNR{a[++i]=$3;b[i]=$1;c[i]=$2":"$3":"$4":"$5;d[i]=$NF;next}{if($NF~"ATA")$2=vmata++;if($2~"X")e[$1]=$2+vmscsi"+-X:"$3;else e[$1]=$2+vmscsi":"$3;f[$1]=$4" "$5" "$6;g[$1]=$NF;x++}END{for(j=1;j<=i;j++){y=0;for(k in e){vmscsix=" VM-scsi";if(g[k]~"ATA")vmscsix=" VM-ata";if(b[j]==k){printf "%-5s%-16s%-14s%-10s%12s%-18s%-11s\n", b[j], "[" c[j] "]", d[j], "<=====>", vmscsix"(", e[k] ") ", f[k];break} else {y++;}if(y==x)printf "%-5s%-16s%-14s\n", b[j], "[" c[j] "]", d[j] }}}' $scsisorts ${vms}.$c |awk '{if($NF!=++c){print $0 "<->" c} else print}'|sed 's/[0-9]\+<->//' >${out}.$c
 
 if [ $lsblkod -eq 1 ] ; then
 ## disk size bilgilerini ekleyelim..
