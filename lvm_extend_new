@@ -1337,6 +1337,13 @@ fi
 pvcreatex() {
 pvcreatex_pre
 printit 70
+pvdisk=$(pvs 2>/dev/null |grep "$devdisk" |awk '{print $1}')
+if [ ! -z "$pvdisk" ] ; then
+pvdiskl=$(echo "$pvdisk"|awk 'END{print NR}')
+[ $pvdiskl -gt 1 ] && msg2="lar" || msg2=""
+echo "[ $devdisk ] e ait farkli partition${msg2} uzerinde" [ $pvdisk ] "zaten bir PV yapisi bulunuyor.. !! "
+errormsg
+fi
 #pvc=$(pvs|grep "/$disk "|awk '{print $2}')
 #if [ -z "$pvc" ] ; then
 pvcreate "$devdisk" ; errchk $? "pvcreate"
