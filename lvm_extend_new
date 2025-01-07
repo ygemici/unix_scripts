@@ -1805,9 +1805,9 @@ vgxnamechk "$vgx" ; lvxnamechk "$lvx"
 #lvmmapperdev="$mapperpath/$vgc-$lvc"
 lvmmapperdev="$mapperpath/$vgxtmp-$lvxtmp"
 if [ ! -b "$lvmmapperdev" ] ; then
-echo "( $lvmmapperdev ) [LV] device i bulunamadi !! "
+echo "[$lvmmapperdev] LVM device i bulunamadi !! "
 echo
-echo "-> [LV] device bilgisini elle girmeniz gerekiyor .. !! "
+echo "-> [LV] bilgisini elle girmeniz gerekiyor !!! "
 sleep 1
 errormsg
 fi
@@ -3181,14 +3181,14 @@ fi
 
 pv_other_layout() {
 case "$pvlayout" in
-"mirror")echo "VG [ mirror ] yapida olusturulmus gorunuyor !!! "
+"mirror")echo "[$vgx] *[VG-mirror ] yapida olusturulmus gorunuyor !!! "
 sleep 2
 ;;
-raid*)echo "VG [ $pvlayout ] yapida olusturulmus gorunuyor !!! "
+raid*)echo "[$vgx] *[VG-$pvlayout ] yapida olusturulmus gorunuyor !!! "
 sleep 2
 errormsg
 ;;
-*)echo "VG layout bilgisi tespit edilemedi !!! "
+*)echo "**[VG] layout bilgisi tespit edilemedi !!! "
 errormsg
 ;;
 esac
@@ -3207,7 +3207,7 @@ lvx=$(echo ${*: -1:1})
 fi
 
 case "$pvlayout" in
-"striped")echo "VG [ striped ] yapida ( x $pvsc stripes ) olusturulmus gorunuyor !! "
+"striped")echo "[$vgx] *[VG-striped ] yapida ( x $pvsc stripes ) olusturulmus gorunuyor !! "
 sleep 2
 stripe_ext;
 ;;
@@ -3222,15 +3222,14 @@ lv_layout_check() {
 if [ ! -z "$2" ] ; then
 vgx="$2"
 pv_layout;
-case "$pvlayout" in
-"linear")echo "[$vgx] VG [ linear ] yapida olusturulmus gorunuyor .. [OK] .. "
+if [[ "$pvlayout" == "linear" ]] ; then
+echo "[$vgx] *[VG-linear ] yapida olusturulmus gorunuyor .. [OK] .. "
 sleep 2
-;;
-*)echo "[$vgx] VG [ linear ] yapida gorunmuyor !!! "
+else
+echo "[$vgx] * [VG-linear ] yapida gorunmuyor !!! "
 sleep 2
 stripe_layout_check $@
-;;
-esac
+fi
 echo
 fi
 }
