@@ -1805,11 +1805,11 @@ vgxnamechk "$vgx" ; lvxnamechk "$lvx"
 #lvmmapperdev="$mapperpath/$vgc-$lvc"
 lvmmapperdev="$mapperpath/$vgxtmp-$lvxtmp"
 if [ ! -b "$lvmmapperdev" ] ; then
-echo "( $lvmmapperdev ) LVM device i bulunamadi !! "
+echo "( $lvmmapperdev ) [LV] device i bulunamadi !! "
 echo
-echo "-> [LV] bilgisini elle girmeniz gerekiyor !!! "
+echo "-> [LV] device bilgisini elle girmeniz gerekiyor .. !! "
 sleep 1
-#errormsg
+errormsg
 fi
 }
 
