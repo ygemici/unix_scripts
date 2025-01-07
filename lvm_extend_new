@@ -171,9 +171,8 @@ fi
 
 
 "ext")
-pvfscheck
 if [ -z "$pvc" ] ; then
-echo "[$devdisk] bir [PV] diski olarak gorunmuyor !! "
+pvfscheck
 printit 30
 [ $ispvalready -ne 1 ] && echo "[./$0 $disk VG (LV) new] komutu ile yeni bir [PV] olusturabilirsiniz.. "
 errormsg
