@@ -3222,6 +3222,7 @@ pv_layout;
 case "$pvlayout" in
 linear)echo "[$vgx] *[VG-linear ] yapida olusturulmus gorunuyor ... "
 echo ... [OK]
+echo
 sleep 2
 ##1. parametre disk bilgisi olmali !!
 firstcheck "$1"
