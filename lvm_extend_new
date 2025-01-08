@@ -2130,9 +2130,9 @@ fi
 vgc=$(pvs "$diskchk"|awk 'NR>1{print $2}')
 if [ ! -z "$vgc" ] ; then
 #lvcl=$(lvs -o +devices|grep "$vgchk"|grep "$diskchk"\(|awk '{a[$1]=x++}END{print x}')
-lvcl=$(lvs -o +devices|awk -v a="$vgchk" -v b="$diskchk" '{sub(/\(.*\)/,"",$NF);if(($NF==b)&&($2!=a))c[$1 $2]}END{for(i in c)print i}'|awk 'END{print NR}')
+lvcl=$(lvs -o +devices|awk -v a="$vgchk" -v b="$diskchk" '{sub(/\(.*\)/,"",$NF);if(($NF==b)&&($2==a))c[$1 $2]}END{for(i in c)print i}'|awk 'END{print NR}')
+#lvcl=$(lvs -o +devices|awk -v a="$vgchk" -v b="$diskchk" '{sub(/\(.*\)/,"",$NF);if(($NF==b)&&($2!=a))c[$1 $2]}END{for(i in c)print i}'|awk 'END{print NR}')
 [ -z "$lvcl" ] && lvcl=0
-
 if [ $lvcl -gt 1 ] ; then
 echo "[$disk] disk uzerinde birden fazla ( x $lvcl ) [LV] device tespit edildi !! "
 ##[ext] isleminde birden fazla LV varsa LV tahmini yapilamaz !!!
@@ -2263,6 +2263,7 @@ fi
 else
 [ -z "$lvx" ] && lvguess $diskchk $vgx
 fi
+
 }
 
 
@@ -3163,7 +3164,6 @@ errormsg
 ;;
 "")echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
 echo "[new] parametresi kullanilarak yeni bir [LV] device olusturulabilir .. "
-echo
 sleep 1
 firstcheck "$1"
 ;;
@@ -3171,6 +3171,7 @@ firstcheck "$1"
 errormsg
 ;;
 esac
+echo
 }
 
 
@@ -3211,6 +3212,7 @@ sleep 2
 stripe_ext $@;
 ;;
 esac
+echo
 }
 
 lv_layout_check() {
@@ -3218,13 +3220,15 @@ if [ ! -z "$2" ] ; then
 vgx="$2"
 pv_layout;
 case "$pvlayout" in
-linear)echo "[$vgx] *[VG-linear ] yapida olusturulmus gorunuyor .. [OK] .. "
+linear)echo "[$vgx] *[VG-linear ] yapida olusturulmus gorunuyor ... "
+echo ... [OK]
 sleep 2
 ##1. parametre disk bilgisi olmali !!
 firstcheck "$1"
 ;;
 striped)sleep 2
 stripe_layout_check $@
+echo
 ;;
 *)#Disk bilgisi kontrolu
 pv_other_layout "$1";
@@ -3237,4 +3241,3 @@ fi
 ###yucel gemici 2023
 lv_layout_check $@;
 justdoit $@;
-
