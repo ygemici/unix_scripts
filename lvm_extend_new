@@ -2500,16 +2500,17 @@ echo
 ;;
 
 "new")echo "->> [$vgx] [VG] icin [$lvx] isminde bir [LV] device zaten mevcut durumda !! "
+echo
 sleep 3
 #new ile sadece yeni VG/LV ler olusturulabilir. extend islemleri icin ext kullanilmasi zorunlu !!
-if [ $vgextendok -eq 1 ] ; then
-echo "[$vgx] [VG] icin [$lvx] ismindeki [LV] device extend edilecek (new) .. !! "
+if [ ! -z $vgextendok ] && [ $vgextendok -eq 1 ] ; then
+echo "-> [$vgx] [VG] icin [$lvx] ismindeki [LV] device extend edilecek (new) .. !! "
 lvextendok=1
 else
 lvextendok=0
-echo "->> [$vgx] [VG] extend islemi yapil(a)madigi icin [$lvx] ismindeki [LV] device extend edilemiyor (new) .. !!! "
+echo "-> [$vgx] [VG] extend islemi yapil(a)madigi icin [$lvx] ismindeki [LV] device extend edilemiyor (new) .. !!! "
 fi
-#islem sonuc herhangi bir degisiklik olmadiginin gorulmesi icin HAA verdirilmiyor ??
+#islem sonuc herhangi bir degisiklik olmadiginin gorulmesi icin HATA verdirilmiyor ??
 #errormsg
 ;;
 esac
