@@ -576,6 +576,7 @@ freeszchkgb=$(awk -v a="$freeszgb" 'BEGIN{if(a>=1024)printf "%0.2f",a/1024}')
 if [ ! -z "$freeszgib" ] ; then
 [ ! -z "$freeszchkgib" ] && echo "[$diskdev] diski ile [$disk] arasinda [ $freeszchkgib Tib ( $freeszchkgb TB ) ] buyuklugunde bir FARK tespit edildi .. " || echo "[$diskdev] diski ile [$disk] arasinda [ $freeszgib Gib ( $freeszgb GB ) ] buyuklugunde bir FARK tespit edildi .. "
 echo "->> Bu alanin [$disk] icin kullanilabilir olup olmadigini kontrol edin ... "
+growpartmsg;
 sleep 1
 free_othersgib=$(lsblk -b $diskdevx|grep "$diskdev"|grep -v "$diskdev "|grep -v "$disk "|awk '{x+=$4}END{printf "%.2f",x/1073741824}')
 free_remaingib=$(awk -v a="$free_othersgib" -v b="$freeszgib" 'BEGIN{if(b>a)print b-a}' )
