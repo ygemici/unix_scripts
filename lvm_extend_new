@@ -81,7 +81,6 @@ echo
 
 
 pvfscheck() {
-
 echo
 printit 30
 echo "[$disk] diski bir [PV] diski olarak gorunmuyor.. !!"
@@ -107,7 +106,6 @@ echo
 ;;
 esac
 }
-
 
 
 pvscheck() {
@@ -190,7 +188,6 @@ fi
 
 esac
 }
-
 
 
 
@@ -472,7 +469,6 @@ fi
 }
 
 
-
 lsblk_parted_free() {
 diskf=$1
 #freesz=$(lsblk "$diskf"|awk 'NR==1{sub("G","",$4);x=$4}NR>1{sub("G","",$4);px+=$4}END{if((x-px)>1)print x-px}' )
@@ -499,7 +495,6 @@ echo "RAW size bilgileri elde edilirken bir sorun olustu !! "
 echo
 errormsg
 fi
-
 
 
 ################
@@ -553,8 +548,6 @@ sleep 2
 echo
 
 fi
-
-
 
 
 
@@ -647,7 +640,6 @@ fi
 
 
 
-
 #### PV disk - RAW disk farki ####
 pvsize_cal
 partsizechk_pre $devdisk
@@ -678,8 +670,6 @@ sleep 1
 fi
 
 fi
-
-
 }
 
 
@@ -966,11 +956,9 @@ sizeusermibshow=$(awk -v a="$sizeusermib" 'BEGIN{printf "%0.2f",a}')
 
 
 
-
 disktopvresizechk() {
 printit 50
 #echo -e "\n$disk ->(dev) ile $disk ->(PV) arasinda Size kontrolu yapilacaktir .. "
-
 
 
 ###PVRESIZE(growpart?) ONCESI###
@@ -1001,7 +989,6 @@ printit 70
 ### PVRESIZE SONRASI disk ve VG alani kontrolu
 ##Free Alanin PV diskinden VG alanina aktarilmis olmasi gerekir..
 pvsizex
-
 }
 
 
@@ -1036,7 +1023,6 @@ diskpartchk
 ##freeraw_old=1 ise Free alan diske aktarilmis fakat growpart yapilmadigi icin part diske aktarim yapilmamis demektir ..
 ### pvresize durumu , hem sda icin hem sda3 icin gecerli bir durum olabilir..
 ### onceden bu disklere atanmis fakat LVM tarafina aktarilamamis Free RAW alan olabilir...
-
 
 
 #### YENI FREE RAW alan varsa
@@ -1086,11 +1072,6 @@ disktopvresizechk
 fi
 
 fi
-
-
-
-
-
 
 
 
@@ -1157,9 +1138,6 @@ fi
 
 
 
-
-
-
 #### usersize ####
 if [ ! -z "$size" ] ; then
 usersizegib $sizec
@@ -1209,7 +1187,6 @@ lvsizeunit=Gib
 newlvsize=$(awk -v a="$lvsize" -v b="$usersize" 'BEGIN{xb=b/1024;x=a+xb;printf "%0.9f",x}')
 fi
 fi
-
 
 
 #newlvsize2=$(awk -v a="$newlvsize" 'BEGIN{if(a~".00$")printf "%.2f",a;else print a}')
@@ -1463,8 +1440,6 @@ fi
 
 fi
 }
-
-
 
 
 freelvchk() {
@@ -1798,19 +1773,25 @@ fi
 }
 
 
+lvmdevcheck() {
+lvmdev="$1"
+if [ ! -b "$lvmdev" ] ; then
+echo "[$lvmdev] [LV] device bulunamadi !! "
+echo
+echo "-> [LV] device bilgisini elle girmeniz gerekiyor !!! "
+sleep 1
+errormsg
+fi
+}
+
+
 devmapperchk() {
 mapperpath="/dev/mapper"
 
 vgxnamechk "$vgx" ; lvxnamechk "$lvx"
 #lvmmapperdev="$mapperpath/$vgc-$lvc"
 lvmmapperdev="$mapperpath/$vgxtmp-$lvxtmp"
-if [ ! -b "$lvmmapperdev" ] ; then
-echo "[$lvmmapperdev] LVM device i bulunamadi !! "
-echo
-echo "-> [LV] bilgisini elle girmeniz gerekiyor !!! "
-sleep 1
-errormsg
-fi
+lvmdevcheck "$lvmmapperdev"
 }
 
 
@@ -2771,7 +2752,6 @@ fi
 esac
 
 fi
-
 }
 
 
@@ -2919,8 +2899,7 @@ errormsg
 }
 
 
-##############parametre kontroleri##############
-##############parametre kontroleri##############
+
 ##############parametre kontroleri##############
 paramcheck() {
 ####parametre sayisi max : 5 / min : 2
@@ -3105,7 +3084,6 @@ fi
 
 
 
-
 #### STRIPE SET ###
 stripe_ext() {
 echo "LVM Disk Layout [striped] olarak tespit edildi !!! "
@@ -3149,6 +3127,13 @@ echo "[Stripe] Disk Extend islemlerine geciliyor .... "
 sleep 5
 echo "[Stripe] Disk Extend islemlerine geciliyor .... "
 sleep 2
+
+###Disk kontrolu###
+for dskdev in ${stripedisks[@]}; do
+firstcheck $dskdev
+pvscheck "ext"
+done
+
 ##LV striped new segment create and extend
 for dskdev in "${stripedisks[@]}"; do
 echo -e "\n-> [pvcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! "
@@ -3166,27 +3151,21 @@ fschk "$lvmmapperdev" "ext" && [ "$fst" != "NULL" ] && resizepck "$fst" && resiz
 }
 
 
-pv_layout() {
-###"vgs gecerli mi ?"
-vgsfchk=$(vgs "$vgx" 2>/dev/null|awk -v a="$vgx" 'NR>1{if(a==$1)print "OK"}')
-if [ ! -z "$vgsfchk" ] ; then
-pvsc=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $NF;exit}')
-pvlayout=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $(NF-1);exit}')
-else
-echo "-> [$vgx] isminde gecerli bir VG bulunamadi !!! "
-errormsg;
-fi
-}
-
-
 pv_other_layout() {
 case "$pvlayout" in
 "mirror")echo "[$vgx] *[VG-mirror ] yapida olusturulmus gorunuyor !!! "
 sleep 2
+errormsg
 ;;
 raid*)echo "[$vgx] *[VG-$pvlayout ] yapida olusturulmus gorunuyor !!! "
 sleep 2
 errormsg
+;;
+"")echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
+echo "[new] parametresi kullanilarak yeni bir [LV] device olusturulabilir .. "
+echo
+sleep 1
+firstcheck "$1"
 ;;
 *)echo "**[VG] layout bilgisi tespit edilemedi !!! "
 errormsg
@@ -3195,10 +3174,20 @@ esac
 }
 
 
+pv_layout() {
+###"vgs gecerli mi ?"
+vgsfchk=$(vgs "$vgx" 2>/dev/null|awk -v a="$vgx" 'NR>1{if(a==$1)print "OK"}')
+if [ ! -z "$vgsfchk" ] ; then
+pvsc=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $NF;exit}')
+pvlayout=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $(NF-1);exit}')
+fi
+}
+
 stripe_layout_check() {
 vgx=$(echo ${*: -2:1})
 vgsfchk=$(vgs "$vgx" 2>/dev/null|awk -v a="$vgx" 'NR>1{if(a==$1)print "OK"}')
 if [ -z "$vgsfchk" ] ; then
+echo "-> [$vgx] isminde gecerli bir VG bulunamadi !!! "
 vgx=$(echo ${*: -1:1})
 pv_layout;
 else
@@ -3206,36 +3195,46 @@ pv_layout;
 lvx=$(echo ${*: -1:1})
 fi
 
+if [ -z "$vgsfchk" ] ; then
+echo "-> [$vgx] isminde gecerli bir VG bulunamadi !!! "
+echo "[striped] yapida bir [VG] icin sadece extend islemleri yapilmaktadir. !!! "
+echo
+sleep 1
+echo "Aktif bir [VG] bilgisi girilmelidir !!! "
+sleep 1
+errormsg;
+fi
+
 case "$pvlayout" in
 "striped")echo "[$vgx] *[VG-striped ] yapida ( x $pvsc stripes ) olusturulmus gorunuyor !! "
 sleep 2
-stripe_ext;
-;;
-*)pv_other_layout;
+stripe_ext $@;
 ;;
 esac
 }
-
-
 
 lv_layout_check() {
 if [ ! -z "$2" ] ; then
 vgx="$2"
 pv_layout;
-if [[ "$pvlayout" == "linear" ]] ; then
-echo "[$vgx] *[VG-linear ] yapida olusturulmus gorunuyor .. [OK] .. "
+case "$pvlayout" in
+linear)echo "[$vgx] *[VG-linear ] yapida olusturulmus gorunuyor .. [OK] .. "
 sleep 2
-else
-echo "[$vgx] * [VG-linear ] yapida gorunmuyor !!! "
-sleep 2
+##1. parametre disk bilgisi olmali !!
+firstcheck "$1"
+;;
+striped)sleep 2
 stripe_layout_check $@
-fi
-echo
+;;
+*)#Disk bilgisi kontrolu
+pv_other_layout "$1";
+;;
+esac
 fi
 }
 
 
 ###yucel gemici 2023
 lv_layout_check $@;
-firstcheck "$1"
 justdoit $@;
+
