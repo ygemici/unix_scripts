@@ -2838,6 +2838,7 @@ sleep 3
 printit 30
 sleep 2
 else
+echo
 echo "[LVM] islemlerinde kullanilacak DISK bilgisi ... "
 printit 30
 lsblk "$devdisk"
