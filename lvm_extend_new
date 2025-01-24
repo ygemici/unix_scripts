@@ -801,7 +801,9 @@ pvs "$devdisk"
 printit 30
 [ ! -z "$vgx" ] && vgs "$vgx"
 printit 30
-[ ! -z "$lvx" ] && [ ! -z "$lvx" ] && lvs "$vgx/$lvx" 2>/dev/null | sed 's/\(.*\)Pool.*/\1/' && printit 30
+[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs "$vgx/$lvx" 2>/dev/null | sed 's/\(.*\)Pool.*/\1/' && printit 30
+echo
+[ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a'
 }
 
 
@@ -3267,7 +3269,7 @@ if [ -z "$vgsfchk" ] ; then
 printit 30
 echo "-> [linear] layout kontrolu icin 2. parametre bilgisi olan [$vgx] isminde gecerli bir [VG] bulunamadi !!! "
 echo
-echo "-> [striped] layout yapida [VG] lar icin sadece [extend] islemleri yapilmaktadir... "
+echo "-> [striped] layout yapida [VG] lar icin sadece [extend] islemleri yapilmaktadir !!! "
 sleep 1
 printit 30
 echo
@@ -3309,7 +3311,7 @@ break
 fi
 done
 if [ -z "$pvlayout" ] ; then
-echo "Parametreler arasinda gecerli bir [VG-striped ] bilgisi bulunamadi !!! "
+echo "Parametreler arasinda gecerli bir [VG] (*striped layout) bilgisi bulunamadi !!! "
 errormsg;
 fi
 }
@@ -3368,4 +3370,5 @@ fi
 ###yucel gemici 2023
 lv_layout_check $@;
 justdoit $@;
+
 
