@@ -797,13 +797,17 @@ fi
 
 process_check() {
 printit 30
+[[ $lsblkok -eq 1 ]] && lsblk $devdisk
+printit 30
 pvs "$devdisk"
 printit 30
 [ ! -z "$vgx" ] && vgs "$vgx"
 printit 30
 [ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs "$vgx/$lvx" 2>/dev/null | sed 's/\(.*\)Pool.*/\1/' && printit 30
 echo
-[ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a'
+[ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a' && printit 30
+[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" 'NR==1||$2==a&&$9==b' && printit 30
+echo
 }
 
 
