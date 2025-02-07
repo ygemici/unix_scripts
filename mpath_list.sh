@@ -16,6 +16,39 @@
 # http://people.redhat.com/bubrown/iopseudo/mapdevs.tar
 ##############################################
 
+###exs
+#[root@xxxx ~]# bash mpath_list.sh dev=sda
+#usinggg [ Fri Feb  7 14:03:03 +03 2025 ] mpath infos..
+#==================================================================================
+
+#==================================================================================
+#STORAGE DRIVER DEVICES
+#==================================================================================
+#sda is not a multipath device!!
+#[root@xxxx ~]
+
+#[root@xxxx ~]# bash mpath_list.sh dev=sdg yes
+#mpaths names not found !! probably alias names used [OK]
+#creaing mpath results file...
+#usinggg [ Fri Feb  7 14:07:01 +03 2025 ] mpath infos..
+#==================================================================================
+
+#==================================================================================
+#STORAGE DRIVER DEVICES
+#==================================================================================
+#backup (3624a937024c4139093df4e3c0003bc72) dm-3 PURE,FlashArray
+#[backup 253,3 dm-3]   [PARTITIONS] \__ [backup1 253,6 dm-6]
+#size=500G features='0' hwhandler='1 alua' wp=rw
+#[CONTROLLER 1] `-+- policy='service-time 0' prio=50 status=active
+#host1 0x100yyyyyyyyyyyyy[wwn]-> 0x200azzzzzzzzzzzz[swport] |- 1:0:0 0x524axxxxxxxxxxxx[twwn] sdc 8:32 active ready running
+#host1 0x100yyyyyyyyyyyyy[wwn]-> 0x200azzzzzzzzzzzz[swport] |- 1:0:1 0x524axxxxxxxxxxxx[twwn] sdg 8:96 active ready running
+#host3 0x100yyyyyyyyyyyyy[wwn]-> 0x2014zzzzzzzzzzzz[swport] |- 3:0:1 0x524axxxxxxxxxxxx[twwn] sdo 8:224 active ready running
+#host3 0x100yyyyyyyyyyyyy[wwn]-> 0x2014zzzzzzzzzzzz[swport] `- 3:0:0 0x524axxxxxxxxxxxx[twwn] sdk 8:160 active ready running
+#                ====host1 de:00.0 Fibre Channel: QLogic Corp. ISP2722-based 16/32Gb Fibre Channel to PCIe Adapter (rev 01)
+#                ====host3 de:00.1 Fibre Channel: QLogic Corp. ISP2722-based 16/32Gb Fibre Channel to PCIe Adapter (rev 01)
+#[root@xxxx ~]#
+
+
 trap 'kill -9 $!' 2
 
 direct_results()
