@@ -1,6 +1,6 @@
 ### unix.com @ygemici MULTIPATH DETAILS SCRIPT
 ## use bash || ksh
-/* 2016_01_01 */
+#/* 2016_01_01 */
 ##############################################
 
 # for understandable outputs , 
