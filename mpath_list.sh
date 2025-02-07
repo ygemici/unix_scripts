@@ -279,7 +279,7 @@ fi
 echo "${arr[@]}" | grep "mpath" 2>&1 >/dev/null
 if [ $? -eq 0 ] ; then
 pathc="1"
-checkpaths;
+>checkpaths;
 fi
 
 if [ "$devc" = "1" ] || [ "$pathc" = "1" ] ; then
