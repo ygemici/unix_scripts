@@ -43,7 +43,7 @@ fi
 
 multipath -l |awk '/mpath/{print $1}' > mpaths
 if [ ! -s mpaths ] ; then
-echo "mpaths not found!!"
+echo "mpaths names not found!! probably alias names used [OK] "
 sleep 1
 multipath -l|awk '/dm-/{print $1}' > mpaths
 if [ ! -s mpaths ] ; then
@@ -253,7 +253,7 @@ esac
 echo "${arr[@]}" | grep "dev=" 2>&1 >/dev/null
 if [ $? -eq 0 ] ; then
 devc="1"
-newsds;>oksds;
+>newsds;>oksds;
 fi
 echo "${arr[@]}" | grep "mpath" 2>&1 >/dev/null
 if [ $? -eq 0 ] ; then
