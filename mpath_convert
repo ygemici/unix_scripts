@@ -59,14 +59,14 @@ ls -ltr /dev/disk/by-path/ 2>/dev/null|awk 'NR>1&&/fc/{split($(NF-2),disks,"-");
 # fc host try
 >fullports ; 
 for host in $(ls -1d /sys/class/fc_host/host* 2>/dev/null|awk -F '/' '{print $NF}'); do 
-pci=$(find /sys/ -name "host[0-9]*"|sed -n '/'$host'/s/.*\/.*:\(.*:.*\)\/'$host'/\1/p');
+pci=$(find /sys/ -name "host[0-9]*"|sed -n '/.*pci.*'$host'/{s/.*\/.*:\(.*:.*\)\/'$host'/\1/p;q}');
 fabric=$(cat /sys/class/fc_host/$host/fabric_name 2>/dev/null);
 hostwwn=$(cat /sys/class/fc_host/$host/port_name  2>/dev/null)
 awk -vhost=$host -vpci="$(lspci -s $pci)" 'BEGIN{print host FS pci }' >> fullports
 
 for rport in $(ls -1d /sys/class/fc_host/$host/device/rport-*|awk -F'/' '{print $NF}'); do 
 grep -H "FCP" /sys/class/fc_remote_ports/$rport/roles 2>/dev/null|
-awk -F '/' -vhost="$host" -vhostwwn="$hostwwn" -vfabric="$fabric" '{print host,hostwwn"[host_wwn]->",fabric"[switch_port_wwn]->",$(NF-1)}'
+awk -F '/' -v host="$host" -v hostwwn="$hostwwn" -v fabric="$fabric" '{print host,hostwwn"[host_wwn]->",fabric"[switch_port_wwn]->",$(NF-1)}'
 done
 done >> fullports
 ;;
