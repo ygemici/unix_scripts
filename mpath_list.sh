@@ -17,6 +17,8 @@
 ##############################################
 
 ###exs
+
+#ex-1
 #[root@xxxx ~]# bash mpath_list.sh dev=sda
 #usinggg [ Fri Feb  7 14:03:03 +03 2025 ] mpath infos..
 #==================================================================================
@@ -27,9 +29,32 @@
 #sda is not a multipath device!!
 #[root@xxxx ~]
 
+
+#ex-2
 #[root@xxxx ~]# bash mpath_list.sh dev=sdg yes
 #mpaths names not found !! probably alias names used [OK]
 #creaing mpath results file...
+#usinggg [ Fri Feb  7 14:07:01 +03 2025 ] mpath infos..
+#==================================================================================
+
+#==================================================================================
+#STORAGE DRIVER DEVICES
+#==================================================================================
+#backup (3624a937024c4139093df4e3c0003bc72) dm-3 PURE,FlashArray
+#[backup 253,3 dm-3]   [PARTITIONS] \__ [backup1 253,6 dm-6]
+#size=500G features='0' hwhandler='1 alua' wp=rw
+#[CONTROLLER 1] `-+- policy='service-time 0' prio=50 status=active
+#host1 0x100yyyyyyyyyyyyy[wwn]-> 0x200azzzzzzzzzzzz[swport] |- 1:0:0 0x524axxxxxxxxxxxx[twwn] sdc 8:32 active ready running
+#host1 0x100yyyyyyyyyyyyy[wwn]-> 0x200azzzzzzzzzzzz[swport] |- 1:0:1 0x524axxxxxxxxxxxx[twwn] sdg 8:96 active ready running
+#host3 0x100yyyyyyyyyyyyy[wwn]-> 0x2014zzzzzzzzzzzz[swport] |- 3:0:1 0x524axxxxxxxxxxxx[twwn] sdo 8:224 active ready running
+#host3 0x100yyyyyyyyyyyyy[wwn]-> 0x2014zzzzzzzzzzzz[swport] `- 3:0:0 0x524axxxxxxxxxxxx[twwn] sdk 8:160 active ready running
+#                ====host1 de:00.0 Fibre Channel: QLogic Corp. ISP2722-based 16/32Gb Fibre Channel to PCIe Adapter (rev 01)
+#                ====host3 de:00.1 Fibre Channel: QLogic Corp. ISP2722-based 16/32Gb Fibre Channel to PCIe Adapter (rev 01)
+#[root@xxxx ~]#
+
+
+#ex-3
+#[root@xxxx ~]# bash mpath_list.sh mpath=backup
 #usinggg [ Fri Feb  7 14:07:01 +03 2025 ] mpath infos..
 #==================================================================================
 
@@ -205,20 +230,47 @@ exitsds="1";
 fi
 }
 
+sddev() {
+#awk -v dev="$1" '{b=$1;while(getline&&NF)a[b]=a[b] RS $0}END{for(i in a){if((a[i]~dev FS)||(a[i]~dev"\\["))print RS i,dev RS"============",a[i];else c++}if(length(a)==c)print "\n" dev " is not a multipath device!!\n" }' mpath_results
+devx=$1
+awk -v dev="$devx" '{if(($0~dev " ")||($0~dev"\\[")){c="ok";print $0 "\n"}}END{if(!c)print dev " is not a multipath device!!\n"}' RS= mpath_results
+}
+
+getdevs() {
+dev=$(echo "$1"|sed 's/dev.*=\(.*\)/\1/')
+sds=$(echo "$dev"|awk -F',' 'BEGIN{OFS=" "}{for(i=1;i<=NF;i++)print $i >> "newsds" }')
+}
+
 check_sds() {
 sed -n '/[0-9]$/!p' diskparts > sddevs
 awk 'NR==FNR{a[$1];next}{if($1 in a)print $1 >> "oksds";else print $1 " device cannot be found in the system!!" }' sddevs newsds
 }
 
-sddev() {
-#awk -v dev="$1" '{b=$1;while(getline&&NF)a[b]=a[b] RS $0}END{for(i in a){if((a[i]~dev FS)||(a[i]~dev"\\["))print RS i,dev RS"============",a[i];else c++}if(length(a)==c)print "\n" dev " is not a multipath device!!\n" }' mpath_results
+
+mpthdev() {
 devx=$1
-awk -v dev="$devx" '{if(($0~dev " ")||($0~dev"\\[")){c="ok";print}}END{if(!c)print dev " is not a multipath device!!\n"}' RS= mpath_results
+awk -v dev="$devx" '{if($0~dev " "){c="ok";print $0 "\n"}}END{if(!c)print dev " is not a multipath device!!\n"}' RS= mpath_results
 }
 
-getdevs() {
-dev=$(echo "$1"|sed 's/dev.*=\(.*\)/\1/')
-sds=$(echo $dev|awk -F',' 'BEGIN{OFS=" "}{for(i=1;i<=NF;i++)print $i >> "newsds" }')
+getmpths() {
+dev=$(echo "$1"|sed 's/mpath.*=\(.*\)/\1/')
+mpths=$(echo "$dev"|awk -F',' 'BEGIN{OFS=" "}{for(i=1;i<=NF;i++)print $i >> "newmpths" }')
+}
+
+check_mpths() {
+if [ ! -s "newmpths" ] ; then
+echo "mpaths file cannot be found !! "
+exit
+fi
+mpthsc=$(awk 'END{print NR}' newmpths)
+while read mpathx ; do
+grep $mpathx mpaths &>/dev/null
+[[ $? -ne 0 ]] && ((c++))
+done < newmpths
+if [[ $c = $mpthsc ]] ; then
+echo "Mpath names cannot be found !! "
+exit 2
+fi
 }
 
 printter() {
@@ -274,7 +326,7 @@ esac
 echo "${arr[@]}" | grep "dev=" 2>&1 >/dev/null
 if [ $? -eq 0 ] ; then
 devc="1"
->newsds;>oksds;
+>newsds;>oksds;>newmpths;
 fi
 echo "${arr[@]}" | grep "mpath" 2>&1 >/dev/null
 if [ $? -eq 0 ] ; then
@@ -339,6 +391,14 @@ else
 exit 1
 fi
 ;;
+mpath=*)>newmpths;
+getmpths $1
+check_mpths
+for mpthdv in $(cat newmpths)
+do
+mpthdev $mpthdv
+done
+;;
 mpath*) echo $1 > checkpaths;
 awk '{a[$1]}END{for(i in a)print i}' checkpaths > paths
 check_mpaths;
@@ -371,4 +431,3 @@ params="$@"
 oldpwd=$PWD
 check_params ${@: -1} "$params"
 #check_params ${@: -1} "$params"
-
