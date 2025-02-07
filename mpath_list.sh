@@ -18,7 +18,6 @@
 
 trap 'kill -9 $!' 2
 
-
 direct_results()
 {
 if [[ ! -z $1 ]] ; then
@@ -32,7 +31,6 @@ awkman() {
 awk 'BEGIN{$'$1'=OFS="=";print}'
 }
 
-
 results()
 {
 multipath -l 2>&1 >/dev/null
@@ -43,7 +41,8 @@ fi
 
 multipath -l |awk '/mpath/{print $1}' > mpaths
 if [ ! -s mpaths ] ; then
-echo "mpaths names not found!! probably alias names used [OK] "
+echo "mpaths names not found !! probably alias names used [OK] "
+echo
 sleep 1
 multipath -l|awk '/dm-/{print $1}' > mpaths
 if [ ! -s mpaths ] ; then
@@ -57,7 +56,6 @@ do
 printf "%c" "."
 sleep 1
 done &
-
 
 >mpathsds ; while read -r mpath ; do
 ( multipath -ll $mpath ; echo "" ) >> mpathsds
@@ -81,7 +79,6 @@ awk 'NR==FNR{a[$1]=$2;next}{if($1 in a)print $1,$2,a[$1]}' mpaths2 dms > full4
 awk 'NR==FNR{a[$NF]=$3 FS $2 FS $1;next}{if($1 in a){printf "%30s\n%15s%15s",$0,"["a[$1]"]","[PARTITIONS]";for(i=0;i<=9;i++){if(a[$1 i])printf "%20s"," \\__ ["a[$1 i]"]"}
 printf "%s","\n"} else print }' full4 full3 > full5
 
-
 >fullports ;
 for host in $(ls -1d /sys/class/fc_host/host*|awk -F '/' '{print $NF}'); do
 pci=$(find /sys/ -name "host[0-9]*"|sed -n '/.*pci.*'$host'/{s/.*\/.*:\(.*:.*\)\/'$host'/\1/p;q}')
@@ -95,7 +92,6 @@ grep -H "FCP" /sys/class/fc_remote_ports/$rport/roles 2>/dev/null|
 awk -F '/' -vhost="$host" -vhostwwn="$hostwwn" -vswport="$swport" '{print host,hostwwn"[wwn]->",swport"[swport]",$(NF-1)}'; done;
 done >> fullports
 
- 
 awk 'NR==FNR{sub("rport-","",$NF);sub("-",":",$NF);;fullrec[$NF]=$1 FS $2 FS $3;;if($0~"Fibre")hbaports[$1]=$0;next}
 {
 if($1~/dm-/||/size/||/prio/)print $0;
@@ -108,12 +104,10 @@ if(fullrec[$2])print fullrec[$2] FS $0 ;else print}
 date +'%s' > mpath_results_last_created
 }
 
-
 echoes() {
 echo "usinggg [ $(date -d @"$1" ) ] mpath infos.."
 awkman 82;
 }
-
 
 check_mpaths() {
 multipath -ll|awk '$1~"mpath"{mps[$1]++}END{for(i in mps)print i}' > multipaths
@@ -129,7 +123,6 @@ print "\nmpaths not found!! \n=== Avaliable mpath(s): ==="
 for(i in a)print i;exit 1}
 }' multipaths paths
 
- 
 case $? in
 0) awkman 82 ;;
 1) awkman 82; exit 1 ;;
@@ -163,7 +156,6 @@ echo "usage -> $0 'mpath1 mpath2 no' --> write mpath1 and mpath2 and no calculat
 awkman 82;
 }
  
-
 indirect_results(){
 for i in $@ ; do direct_results $i ; done
 }
@@ -185,20 +177,16 @@ sed -n '/[0-9]$/!p' diskparts > sddevs
 awk 'NR==FNR{a[$1];next}{if($1 in a)print $1 >> "oksds";else print $1 " device cannot be found in the system!!" }' sddevs newsds
 }
 
-
 sddev() {
 #awk -v dev="$1" '{b=$1;while(getline&&NF)a[b]=a[b] RS $0}END{for(i in a){if((a[i]~dev FS)||(a[i]~dev"\\["))print RS i,dev RS"============",a[i];else c++}if(length(a)==c)print "\n" dev " is not a multipath device!!\n" }' mpath_results
-
 devx=$1
 awk -v dev="$devx" '{if(($0~dev " ")||($0~dev"\\[")){c="ok";print}}END{if(!c)print dev " is not a multipath device!!\n"}' RS= mpath_results
 }
-
 
 getdevs() {
 dev=$(echo "$1"|sed 's/dev.*=\(.*\)/\1/')
 sds=$(echo $dev|awk -F',' 'BEGIN{OFS=" "}{for(i=1;i<=NF;i++)print $i >> "newsds" }')
 }
-
 
 printter() {
 echo;
@@ -346,8 +334,8 @@ fi
 awk 'BEGIN{printf "%s","\b\b\n"}'
 }
 
- 
 params="$@"
 oldpwd=$PWD
 check_params ${@: -1} "$params"
 #check_params ${@: -1} "$params"
+
