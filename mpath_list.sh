@@ -59,7 +59,7 @@ sleep 1
 done &
 
 
-mpathsds ; while read -r mpath ; do
+>mpathsds ; while read -r mpath ; do
 ( multipath -ll $mpath ; echo "" ) >> mpathsds
 done < mpaths
 
@@ -68,13 +68,11 @@ done < mpaths
 
 grep "" /sys/class/fc_transport/*/port_name|sed 's/.*\(target\)\(.*\)\/port.*:\(.*\)/\1 \2 \3/' > host_ch_id_lun
 
-awk 'NR==FNR{a[$2];b[$2]=$3;next}{for(rport in a)if($2":"~rport":"){$2=$2"[hcil]" FS b[rport] "[twwn]";$1=FS $1};if($0~"prio")$0="[CONTROLLER " ++c "]"FS $0;if($1~"mpath"
-)c=0;print $0}' host_ch_id_lun mpathsds > full2
+awk 'NR==FNR{a[$2];b[$2]=$3;next}{for(rport in a)if($2":"~rport":"){$2=$2"[hcil]" FS b[rport] "[twwn]";$1=FS $1};if($0~"prio")$0="[CONTROLLER " ++c "]"FS $0;if($1~"mpath")c=0;print $0}' host_ch_id_lun mpathsds > full2
 
 ls -ltr /dev/sd*|sed 's/.*\/\(.*\)/\1/' > diskparts
 
-awk 'NR==FNR{a[$1];next}{if($4 in a){c=0;for(i=1;i<=9;i++){if(!($4 i in a))c++};if(c==9){$4=$4"[no partition]";b[x++]=$0}else b[x++]=$0}else b[x++]=$0}END{for(j=0;j<x;j++
-)print b[j]}' diskparts full2 > full3
+awk 'NR==FNR{a[$1];next}{if($4 in a){c=0;for(i=1;i<=9;i++){if(!($4 i in a))c++};if(c==9){$4=$4"[no partition]";b[x++]=$0}else b[x++]=$0}else b[x++]=$0}END{for(j=0;j<x;j++)print b[j]}' diskparts full2 > full3
 
  
 ls -ltr /dev/mapper/* |awk '{sub("../","",$NF);sub("/dev/mapper/","",$(NF-2));print $NF,$(NF-2)}' > mpaths2
@@ -84,9 +82,8 @@ awk 'NR==FNR{a[$NF]=$3 FS $2 FS $1;next}{if($1 in a){printf "%30s\n%15s%15s",$0,
 printf "%s","\n"} else print }' full4 full3 > full5
 
 
-fullports ;
+>fullports ;
 for host in $(ls -1d /sys/class/fc_host/host*|awk -F '/' '{print $NF}'); do
-#4. degisiklik
 pci=$(find /sys/ -name "host[0-9]*"|sed -n '/.*pci.*'$host'/{s/.*\/.*:\(.*:.*\)\/'$host'/\1/p;q}')
 #pci=$(find /sys/ -name "host[0-9]*"|sed -n '/'$host'/s/.*\/.*:\(.*:.*\)\/'$host'/\1/p');
 swport=$(cat /sys/class/fc_host/$host/fabric_name 2>/dev/null);
