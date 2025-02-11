@@ -299,7 +299,7 @@ sleep 1
 errormsg
 esac
 printit 30
-####free_size ile girilen size bilgisi karsilastirmak icin gerekli.
+####free_size ile girilen size bilgisi karsiirmak icin gerekli.
 sizesaved=$sizec
 #else
 #echo "Size bilgisi islemlerinde bir sorun olustu !! "
@@ -1515,13 +1515,9 @@ op=$1 #( ext/new)
 
 [ "$pvlayout" == "linear" ] && pvresizex "$op"
 
-#son parametre
-#for last; do true; done
-
 
 #free lv alan gib->gb cevrimi
 freelvchk
-
 
 #guncelleme 1m bile olsa uygulaniyor artik..
 freelvok=$(awk -v a="$freelvgib2" 'BEGIN{if(a>0)print "OK"}')
@@ -1554,7 +1550,6 @@ echo "->> [$vgx] [VG] icinde yeterli (Free LV) alan bulunamadi !! -> [ $freelvgi
 printit 50
 errormsg
 fi
-
 
 
 #################
@@ -2078,9 +2073,7 @@ fi
 fi
 
 printit 30
-
 fi
-
 
 
 #pvresizex ;
@@ -2117,16 +2110,12 @@ echo
 ## cunku kullanici fs girisi gerekecek ve uygulamanin degistirilmesi gerekiyor...
 #fschk "$lvmmapperdev" "new" && [ "$fst" != "NULL" ] && resizepck "$fst" "new" && resizefsx
 ;;
-
 esac
 }
-
-
 
 lvgcount() {
 vgcl=$(echo "$1"|awk 'END{print NR}')
 }
-
 
 lvguess() {
 
@@ -2157,7 +2146,6 @@ else
 echo "[$disk] diski uzerinde FARKLI bir [-> $vgdiskchk ] bilgisi tespit edildi !!! "
 #errormsg
 fi
-
 
 
 #LV device TAHMIN etme..
@@ -2202,7 +2190,6 @@ printit 70
 echo "[$diskchk] diski uzerinde herhangi bir [VG] bilgisi bulunamadi !! "
 fi
 }
-
 
 vgtolv() {
 vgtolx=$1
@@ -2256,7 +2243,6 @@ fi
 }
 
 
-
 vguess() {
 diskchk=$1
 pvs $diskchk &>/dev/null
@@ -2302,7 +2288,6 @@ fi
 else
 [ -z "$lvx" ] && lvguess $diskchk $vgx
 fi
-
 }
 
 
@@ -2345,7 +2330,6 @@ freelvchk
 
 echo "->> [$lvx] isminde YENI bir [LV] device olusturulacaktir ... "
 sleep 3
-
 
 pesizechk
 
@@ -2399,7 +2383,6 @@ echo "Lutfen uygulamayi ayni degerlerle TEKRAR calistirin .. "
 exit 0
 #errormsg
 fi
-
 }
 
 
@@ -2513,7 +2496,6 @@ lvcreatex #"$lvx" "$vgx" "new"
 ;;
 esac
 
-
 else
 
 ###lvm device varsa birden fazla disk icin kullaniliyor olabilir mi ( pvcreate --physicalsize ? )
@@ -2570,7 +2552,6 @@ fi
 }
 
 
-
 ######LV check
 lvcheck() {
 ##Bu asamaya kadar "vgx" bilgisinin bulunmus olmasi gerekli !!
@@ -2604,12 +2585,10 @@ sleep 2
 
 fi
 
-
 else
 ##LV ismi belli ise
 lvrecheck $lvxx $vgx "$2"
 fi
-
 }
 
 
@@ -2644,7 +2623,6 @@ echo -e "\n[VG] bilgisi olarak [$vgx] ismi kullanilacak !! "
 
 
 
-
 ######VG check
 vgcheck() {
 
@@ -2664,15 +2642,13 @@ errormsg
 pvscheck "ext"
 ;;
 
-
 "new")echo "[$disk] diski uzerinde [$vgtmpx] isminde bir [VG] bilgisi bulunamadi !! "
 vgnamechk "$vgtmpx"
 echo "['$vgx'] isminde YENI bir [VG] olusturulacaktir !!! -> ['$2'] "
 echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
-#echo "[VG] bilgisi ismi icinde "[lv]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
 sleep 3
-echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
-#echo "[VG] bilgisi ismi icinde "[lv]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
+#echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
+echo
 echo -e "-> [vgcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
 sleep 5
 printit 50
@@ -2811,7 +2787,6 @@ esac
 
 fi
 }
-
 
 
 extnewmsg() {
@@ -3012,7 +2987,6 @@ vgxpostchk "ext"
 
 esac
 
-
 else
 vgx="$2";lvx="$3"
 
@@ -3128,7 +3102,6 @@ sizechk $last $@
 }
 
 
-
 # justdoit() @unix.com ygemici
 firstcheck() {
 # islem sirasinda tekrar disk device kontrol edilmesinde fayda var
@@ -3150,7 +3123,6 @@ echo "1. parametre olarak 'Disk' bilgisi girildiginden emin olun !! "
 errormsg
 fi
 }
-
 
 
 #### STRIPE SET ###
@@ -3284,7 +3256,6 @@ lvx_striped=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $1;exit}')
 fi
 }
 
-
 stripe_layout_check() {
 if [ -z "$pvlayout" ] ; then
 echo "[VG] layout bilgisi tespit edilemedi !!! "
@@ -3350,6 +3321,11 @@ esac
 echo
 }
 
+last_param_check() {
+#for last; do true; done
+#echo "$last"
+echo "${@: -1}"
+}
 
 lv_layout_check() {
 if [ ! -z "$2" ] ; then
@@ -3362,6 +3338,16 @@ echo
 sleep 2
 ##1. parametre disk bilgisi olmali !!
 firstcheck "$1"
+;;
+"")
+lastp=$(last_param_check $@)
+if [[ "$lastp" = "new" ]] ; then
+echo "[$vgx] *[VG-linear ] yapida olusturulacaktir ... "
+echo ... [OK] [new]
+echo
+sleep 2
+firstcheck "$1"
+fi
 ;;
 *)#Disk bilgisi kontrolu
 pv_other_layout $@;
