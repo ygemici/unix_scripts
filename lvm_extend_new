@@ -1296,6 +1296,15 @@ echo
 if [ "$pvlayout" == "linear" ] ; then
 if [ "$1" = "ext" ] ; then
 echo "EXTEND(ext) islemleri yapilamiyor... !! "
+if [[ "$growpartprint" -eq 1 ]] ; then
+echo
+echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
+sleep 2
+echo *
+echo "[growpart] uygulamasi kullanilamiyor ise [fdisk] komutu ile [$disk] partitionu silip tekrardan olusturmaniz gerekiyor olabilir .... "
+echo
+sleep 2
+fi
 errormsg
 fi
 
@@ -2807,7 +2816,8 @@ pvdiskl=$(echo "$pvdisk"|awk 'END{print NR}')
 if [ $pvdiskl -eq 1 ] ; then
 if [[ "$pvdisk" != "$devdisk" ]] ; then
 ispvalready=1
-echo "[$devdisk] e ait farkli bir partition uzerinde" [$pvdisk] "zaten bir PV yapisi bulunuyor.. !! "
+pvdisknodev=$(echo "$pvdisk"|sed 's;/dev/;;')
+echo "[$disk] e ait farkli bir partition [$pvdisknodev] uzerinde zaten bir PV yapisi bulunuyor.. !! "
 errormsg
 fi
 fi
@@ -3346,8 +3356,8 @@ echo "[$vgx] *[VG-linear ] yapida olusturulacaktir ... "
 echo ... [OK] [new]
 echo
 sleep 2
-firstcheck "$1"
 fi
+firstcheck "$1"
 ;;
 *)#Disk bilgisi kontrolu
 pv_other_layout $@;
