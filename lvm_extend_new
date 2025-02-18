@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#yucel justdoit @unix.com
+#yucel ygemici justdoit @unix.com
 ######################## yucel gemici @ygemici unix.com ########################
 ######## Var olan bir LVM e yeni disk ekleme yada LVM icindeki disk e tanimlanan yeni size bilgisini LVM device a ekleme scripti ############
 #### Yani VMWARE uzerinden verilen yeni diskin veya extend edilen disk alaninin LVM tarafina aktarilmasini saglar ####
@@ -8,10 +8,12 @@
 ##25-07-2023 # centos5 icin pvs ciktisi duzenlendi.
 ############ # pvs ciktisi default "G"(gigabyte) formatinda geliyor !!
 
-#22-08-2023 # new parametresi gelistirildi..
-#24-08-2023 # bazı düzeltmeler ve gelistirmeler yapıldı.. ( 1 GB (0.1 GB e kadar) altındaki alan extend özelligi vs .. )
+#22-08-2023 # [new] parametresi gelistirildi..
+#24-08-2023 # bazı düzeltmeler ve gelistirmeler yapıldı.. ( 1 GB (0.1 GB e kadar) altındaki alan extend ozelligi vs .. )
 
-#04-12-2023 # new parametresi gelistirildi.. xfs/ext4 mkfs desteği..
+#04-12-2023 # [new] parametresi gelistirildi.. xfs/ext4 mkfs destegi..
+
+#01-24-2025 # striped VG ler icin [ext] parametresi destegi eklendi..
 
 
 printit() {
@@ -43,6 +45,7 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # not : Sisteme yeni eklenilen bir diskin var olan bir VG icine eklenmesi asamasi 2 adimda yapilabilir : 
 # ./$0 [sdxx] [VG] [LV] [new] && ./$0 [sdxx] [VG] [LV] [ext]
 
+
 ### STRIPE new ###
 # Stripe yapida bir [VG] olusturulmasi desteklenmez !! 
 # Cunku Stripe bir [VG] olusturulmasi asamasinda birden fazla parametre kullanilabilir.
@@ -53,6 +56,7 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # -> [vgcreate vgdata /dev/sda1 /dev/sdb1 /dev/sdc1]
 # -> [lvcreate -l 100%FREE -i4 -I128 -n lvdata vgdata]
 # -> [mkfs.xfs /dev/mapper/vgdata-lvdata] "
+# https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/stripe_create_ex#stripe_create_ex
 
 ### STRIPE ext ###
 # Var olan "lv_layout -> Stripe" set ise bu [VG] icin sadece extend islemleri yapilabilir .. 
