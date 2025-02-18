@@ -43,6 +43,21 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # not : Sisteme yeni eklenilen bir diskin var olan bir VG icine eklenmesi asamasi 2 adimda yapilabilir : 
 # ./$0 [sdxx] [VG] [LV] [new] && ./$0 [sdxx] [VG] [LV] [ext]
 
+### STRIPE new ###
+# Stripe yapida bir [VG] olusturulmasi desteklenmez !! 
+# Cunku Stripe bir [VG] olusturulmasi asamasinda birden fazla parametre kullanilabilir.
+# [ stripe disk count , stripe size ... ]
+
+### exs ( 4 x stripes and a stripe size 128 KB )
+# -> [pvcreate /dev/sda1 /dev/sdb1 /dev/sdc1 ]
+# -> [vgcreate vgdata /dev/sda1 /dev/sdb1 /dev/sdc1]
+# -> [lvcreate -l 100%FREE -i4 -I128 -n lvdata vgdata]
+# -> [mkfs.xfs /dev/mapper/vgdata-lvdata] "
+
+### STRIPE ext ###
+# Var olan "lv_layout -> Stripe" set ise bu [VG] icin sadece extend islemleri yapilabilir .. 
+# ./$0 [sdb] [sdc] [sdd] [sde] [VG_striped] [ext]
+
 printit 40
 }
 
@@ -218,7 +233,7 @@ esac
 
 
 sizetogib() {
-sizecx=$1 ##kaynak : [kmgt]ib
+sizecx=$1 ##kaynak : [kmgt]b
 sizex=$2 ##hedef : [KMGT]B
 
 case "$sizecx" in
