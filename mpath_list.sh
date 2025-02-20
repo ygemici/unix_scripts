@@ -73,6 +73,17 @@
 #                ====host3 de:00.1 Fibre Channel: QLogic Corp. ISP2722-based 16/32Gb Fibre Channel to PCIe Adapter (rev 01)
 #[root@xxxx ~]#
 
+helpman() {
+awkman 82;
+echo "usage -> $0 'mpath1 mpath2 .. mpathxx' 'recalculate_mpaths[yes|no]'"
+echo "usage -> $0 'dev=sda,sdb .. sdxx' 'recalculate_mpaths[yes|no]'"
+echo "usage -> $0 'mpath=data01,data02 .. dataxx ' 'recalculate_mpaths[yes|no]'"
+awkman 82;
+echo "usage -> $0 --> write all paths and calculate all paths infos , if last calculation time is more than 1 day [ default ]"
+echo "usage -> $0 'mpath1 yes' --> write only mpath1 and calculate all paths [ force ]"
+echo "usage -> $0 'mpath1 mpath2 no' --> write mpath1 and mpath2 and no calculate all paths infos [ force ]"
+awkman 82;
+}
 
 trap 'kill -9 $!' 2
 
@@ -103,9 +114,10 @@ echo "mpaths names not found !! probably alias names used [OK] "
 echo
 sleep 1
 multipath -l|awk '/dm-/{print $1}' > mpaths
-if [ ! -s mpaths ] ; then
-exit 1
 fi
+if [ ! -s mpaths ] ; then
+echo "mpaths names not found too !! [FAIL] "
+exit 1
 fi
 
 printf "%s\n" "creating mpath results file..."
@@ -130,12 +142,12 @@ ls -ltr /dev/sd*|sed 's/.*\/\(.*\)/\1/' > diskparts
 
 awk 'NR==FNR{a[$1];next}{if($4 in a){c=0;for(i=1;i<=9;i++){if(!($4 i in a))c++};if(c==9){$4=$4"[no partition]";b[x++]=$0}else b[x++]=$0}else b[x++]=$0}END{for(j=0;j<x;j++)print b[j]}' diskparts full2 > full3
 
- 
+
 ls -ltr /dev/mapper/* |awk '{sub("../","",$NF);sub("/dev/mapper/","",$(NF-2));print $NF,$(NF-2)}' > mpaths2
 ls -ltr /dev/dm*|sed 's/[^ ]* *[^ ]* *[^ ]* *[^ ]* *[^ ]* \([^ ]*,\) *\([^ ]*\).*\/\(.*\)$/\3 \1\2/' >dms
 awk 'NR==FNR{a[$1]=$2;next}{if($1 in a)print $1,$2,a[$1]}' mpaths2 dms > full4
-awk 'NR==FNR{a[$NF]=$3 FS $2 FS $1;next}{if($1 in a){printf "%30s\n%15s%15s",$0,"["a[$1]"]","[PARTITIONS]";for(i=0;i<=9;i++){if(a[$1 i])printf "%20s"," \\__ ["a[$1 i]"]"}
-printf "%s","\n"} else print }' full4 full3 > full5
+#awk 'NR==FNR{a[$NF]=$3 FS $2 FS $1;next}{if($1 in a){printf "%30s\n%15s%15s",$0,"["a[$1]"]","[PARTITIONS]";for(i=0;i<=9;i++){if(a[$1 i])printf "%20s","\\__ ["a[$1 i]"]"}printf "%s","\n"} else print }' full4 full3 > full5
+awk 'NR==FNR{a[$NF]=$3 FS $2 FS $1;next}{if($1 in a){printf "%30s\n%15s%15s",$0,"["a[$1]"]","[PARTITIONS]";for(i=0;i<=9;i++){if(a[$1 i])printf "%20s","\\__ ["a[$1 i]"]";if(a[$1 "p" i])printf "%20s","\\__ ["a[$1  "p" i]"]"}printf "%s","\n"} else print }' full4 full3 > full5
 
 >fullports ;
 for host in $(ls -1d /sys/class/fc_host/host*|awk -F '/' '{print $NF}'); do
@@ -168,10 +180,16 @@ awkman 82;
 }
 
 check_mpaths() {
+>newmpths
 multipath -ll|awk '$1~"mpath"{mps[$1]++}END{for(i in mps)print i}' > multipaths
+if [ ! -s "multipaths" ] ; then
+echo "mpaths names not found !! probably alias names used [WARN] "
+awkman 82
+grep alias /etc/multipath.conf |grep -v '#'
+else
 awk 'NR==FNR{a[$1];next}{paths[$1]++
 if(!($1 in a))c++
-else print $1 > "newpaths"
+else print $1
 }
 END{
 if(c==0)exit 2
@@ -179,7 +197,14 @@ if(c==length(paths)){
 for(i=0;i<82;i++)printf "%c","="
 print "\nmpaths not found!! \n=== Avaliable mpath(s): ==="
 for(i in a)print i;exit 1}
-}' multipaths paths
+}' multipaths paths > newpaths
+fi
+
+if [ ! -s "newpaths" ] ; then
+echo "mpaths not detected !! [FAIL] "
+exit 1
+fi
+
 
 case $? in
 0) awkman 82 ;;
@@ -203,17 +228,7 @@ fi
 fi
 }
 
-helpman() {
-awkman 82;
-echo "usage -> $0 'mpath1 mpath2 .. mpathxx' 'recalculate_mpaths[yes|no]'"
-echo "usage -> $0 'dev=sda,sdb .. sdxx' 'recalculate_mpaths[yes|no]'"
-awkman 82;
-echo "usage -> $0 --> write all paths and calculate all paths infos , if last calculation time is more than 1 day [ default ]"
-echo "usage -> $0 'mpath1 yes' --> write only mpath1 and calculate all paths [ force ]"
-echo "usage -> $0 'mpath1 mpath2 no' --> write mpath1 and mpath2 and no calculate all paths infos [ force ]"
-awkman 82;
-}
- 
+
 indirect_results(){
 for i in $@ ; do direct_results $i ; done
 }
@@ -254,7 +269,7 @@ awk -v dev="$devx" '{if($0~dev " "){c="ok";print $0 "\n"}}END{if(!c)print dev " 
 
 getmpths() {
 dev=$(echo "$1"|sed 's/mpath.*=\(.*\)/\1/')
-mpths=$(echo "$dev"|awk -F',' 'BEGIN{OFS=" "}{for(i=1;i<=NF;i++)print $i >> "newmpths" }')
+echo "$dev"|awk -F',' 'BEGIN{OFS=" "}{for(i=1;i<=NF;i++)print $i >> "newmpths" }'
 }
 
 check_mpths() {
@@ -290,9 +305,26 @@ awkman 82;
 fi
 }
 
+
+results_sds() {
+for sddevs in $(awk '{a[$1]}END{for(i in a)print i}' oksds)
+do
+sddev $sddevs
+done
+}
+
+results_mpths() {
+for mpthdv in $(cat newmpths)
+do
+mpthdev $mpthdv
+done
+}
+
+
 check_params() {
 # working directory -> /tmp
 cd /tmp ; [[ ! $? -eq 0 ]] && "/tmp directory access problem" && exit 1
+
 
 echo "$1"|grep "nohelp" 2>&1 >/dev/null
 if [ ! $? -eq 0 ] ; then
@@ -301,11 +333,16 @@ unset arr[${#arr[@]}-1];
 fi
 
 echo "$1"|grep "yes" 2>&1 >/dev/null
-if [ ! $? -eq 0 ] ; then
+if [ $? -ne 0 ] ; then
 check_results_date
 fi
- 
+
+
+###params
 arr=( $2 )
+arrtwo=( $2 )
+###
+
 
 if [ ${#arr[@]} -gt 1 ] ; then
 case "$1" in
@@ -323,11 +360,14 @@ echoes "$(cat mpath_results_last_created)"
 ;;
 esac
 
+
+###param checks
 echo "${arr[@]}" | grep "dev=" 2>&1 >/dev/null
 if [ $? -eq 0 ] ; then
 devc="1"
 >newsds;>oksds;>newmpths;
 fi
+
 echo "${arr[@]}" | grep "mpath" 2>&1 >/dev/null
 if [ $? -eq 0 ] ; then
 pathc="1"
@@ -338,68 +378,73 @@ if [ "$devc" = "1" ] || [ "$pathc" = "1" ] ; then
 for params in ${arr[@]}
 do
 case "$params" in
-dev=*) newsds="1";exitsds="0";getdevs $params ;;
-mpath*) newpath="1";exitpaths="0";echo $params >>checkpaths ;;
+dev=*) newsds="1";exitsds="0";getdevs $params
+;;
+mpath*) newpath="1";exitpaths="0";echo $params >>checkpaths
+;;
 esac
 done
 fi
 
+###sds
 if [ "$newsds" = "1" ] ; then
 check_sds;
 isnew_sds;
 if [ "$exitsds" = "0" ] ; then
 printter "STORAGE DRIVER";
-for sddevs in $(awk '{a[$1]}END{for(i in a)print i}' oksds)
-do
-sddev $sddevs
-done
 fi
+results_sds
 fi
 
-if [ "$newpath" = 1 ] ; then
+###mpaths
+if [ "$newpath" = "1" ] ; then
 awk '{a[$1]}END{for(i in a)print i}' checkpaths > paths
-check_mpaths
+check_mpaths;
 isnew_paths;
 if [ "$exitpaths" = "0" ] ; then
 printter MULTIPATH;
 indirect_results $(cat newpaths)
 fi
+results_mpths
 fi
 
-else
-if [ ${#arr[@]} -eq 1 ] ; then
+fi
+
+
+
+###
+if [ ${#arrtwo[@]} -eq 1 ] ; then
 check_dates;
 case $1 in
-y|ye|yes) printter MULTIPATH;
-results;direct_results
-;;
-n|no) printter MULTIPATH;
+y|ye|yes)
+results;printter MULTIPATH;
 direct_results
 ;;
-dev=*) >newsds;>oksds
+n|no)
+printter MULTIPATH;
+direct_results
+;;
+dev=*)
+>newsds;>oksds
 getdevs $1
 check_sds;
 exitsds="0";
 isnew_sds;
 if [ "$exitsds" = "0" ] ; then
 printter "STORAGE DRIVER";
-for sdds in $(cat oksds)
-do
-sddev $sdds
-done
+results_sds
 else
 exit 1
 fi
 ;;
-mpath=*)>newmpths;
+mpath=*)
+>newmpths;
 getmpths $1
 check_mpths
-for mpthdv in $(cat newmpths)
-do
-mpthdev $mpthdv
-done
+results_mpths
 ;;
-mpath*) echo $1 > checkpaths;
+mpath*)
+echo $1 > checkpaths;
 awk '{a[$1]}END{for(i in a)print i}' checkpaths > paths
 check_mpaths;
 exitpaths="0";
@@ -417,11 +462,10 @@ exit 1
 esac
 
 else
-if [ ${#arr[@]} -eq 0 ] ; then
+if [ ${#arrtwo[@]} -eq 0 ] ; then
 printter MULTIPATH;
 check_dates
 direct_results;
-fi
 fi
 fi
 awk 'BEGIN{printf "%s","\b\b\n"}'
@@ -430,4 +474,3 @@ awk 'BEGIN{printf "%s","\b\b\n"}'
 params="$@"
 oldpwd=$PWD
 check_params ${@: -1} "$params"
-#check_params ${@: -1} "$params"
