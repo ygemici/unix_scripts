@@ -2158,9 +2158,10 @@ mpathx=$(ls -ltr /dev/mapper/|grep $disk|sed 's/.*\(mpath.*\) ->.*/\1/')
 diskchk="/dev/mapper/$mpathx"
 fi
 
-vgdiskchk=$(pvs|awk -v a="$diskchk" '$1==a{print $2}')
+#vgdiskchk=$(pvs|awk -v a="$diskchk" '$1==a{print $2}')
+vgnamex=$(pvdisplay "$devdisk" 2>/dev/null|awk '/VG Name/{print $3}')
 
-if [ "$vgdiskchk" != "$vgchk" ] ; then
+if [ -z "$vgnamex" ] ; then
 echo "[$disk] diski uzerinde [$vgchk] isminde bir [VG] bilgisi bulunamadi !!! "
 printit 40
 pvcreatex
@@ -2171,8 +2172,13 @@ sleep 2
 vgextend $vgchk $diskchk ; errchk $? "vgextend"
 
 else
-echo "[$disk] diski uzerinde FARKLI bir [-> $vgdiskchk ] bilgisi tespit edildi !!! "
-#errormsg
+if [[ "$vgchk" != "$vgnamex" ]] ; then
+echo "[$disk] diski uzerinde FARKLI [-> $vgnamex ] bir [VG] bilgisi tespit edildi !!! "
+sleep 1
+errormsg
+else
+echo "[$disk] diski uzerinde [-> $vgchk ] bir [VG] bilgisi tespit edildi ... "
+fi
 fi
 
 
@@ -2245,7 +2251,7 @@ if  [ $lvcount -eq 1 ] ; then
 lvx=$(lvs|awk -v a="$vgtolx" '$2==a{print $1}')
 echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
 elif [ $lvcount -gt 1 ] ; then
-echo "[$vgtolx] [VG] uzerinde birden fazla [-> $(echo $(lvs|awk -v a="$vgtolx" '$2==a{print $1}'))] [LV] device tespit edildi !! "
+echo "[$vgtolx] [VG] uzerinde birden fazla [ $(echo $(lvs|awk -v a="$vgtolx" '$2==a{print $1}')) ] [LV] device tespit edildi !! "
 echo "[LV] bilgisinin parametre olarak girilmesi gerekiyor .. !! "
 errormsg
 fi
@@ -2705,6 +2711,15 @@ esac
 
 else
 ##VG bilgisi varsa
+
+##ayni VG birden fazla disk uzerinde bilgilendirmesi
+vgdsks=$(pvs 2>/dev/null|grep "$vgx"|awk 'END{print NR}')
+if [[ "$vgdsks" -gt 1 ]] ; then
+pvsdsks=$(pvs 2>/dev/null|grep rhel|awk '{sub("/dev/","",$1);print $1}')
+echo "[$vgx] ismindeki [VG] bilgisi birden fazla disk " [ $pvsdsks ] "uzerinde tanimli gorunuyor .. "
+sleep 1
+fi
+
 
 case "$2" in
 "ext")
