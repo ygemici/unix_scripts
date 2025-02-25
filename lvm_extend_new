@@ -2145,6 +2145,7 @@ lvgcount() {
 vgcl=$(echo "$1"|awk 'END{print NR}')
 }
 
+
 lvguess() {
 
 #VG bilgisi girilmisse LV tahmin edilebilir..
@@ -2158,7 +2159,6 @@ mpathx=$(ls -ltr /dev/mapper/|grep $disk|sed 's/.*\(mpath.*\) ->.*/\1/')
 diskchk="/dev/mapper/$mpathx"
 fi
 
-#vgdiskchk=$(pvs|awk -v a="$diskchk" '$1==a{print $2}')
 vgnamex=$(pvdisplay "$devdisk" 2>/dev/null|awk '/VG Name/{print $3}')
 
 if [ -z "$vgnamex" ] ; then
@@ -2173,11 +2173,11 @@ vgextend $vgchk $diskchk ; errchk $? "vgextend"
 
 else
 if [[ "$vgchk" != "$vgnamex" ]] ; then
-echo "[$disk] diski uzerinde FARKLI [-> $vgnamex ] bir [VG] bilgisi tespit edildi !!! "
+echo "[$disk] diski uzerinde FARKLI [-> $vgnamex ] bir isime sahip [VG] tespit edildi !!! "
 sleep 1
 errormsg
 else
-echo "[$disk] diski uzerinde [-> $vgchk ] bir [VG] bilgisi tespit edildi ... "
+echo "[$disk] diski uzerinde [-> $vgchk ] ismindeki [VG] tespit edildi ... "
 fi
 fi
 
