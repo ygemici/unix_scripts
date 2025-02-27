@@ -1319,7 +1319,7 @@ if [[ "$growpartprint" -eq 1 ]] ; then
 echo
 echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
 sleep 2
-echo *
+echo
 echo "[growpart] uygulamasi kullanilamiyor ise [fdisk] komutu ile [$disk] partitionu silip tekrardan olusturmaniz gerekiyor olabilir .... "
 echo
 sleep 2
