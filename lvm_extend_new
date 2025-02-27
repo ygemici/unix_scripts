@@ -2438,7 +2438,8 @@ case "$isvgx" in
 *[-/]*)echo "[LV] isimlendirmesi icinde '[-/]' gibi karakterlerin kullanilmasi tavsiye edilmez !! "
 for i in - / ; do
 echo "$isvgx"| grep -o .|grep "^${i}$" &>/dev/null
-echo "$i degeri '_' olarak duzeltiliyor !! "
+echo "'$i' degeri '_' olarak duzeltiliyor !! "
+sleep 1
 if [ $? -eq 0 ] ; then
 lvx=$(echo "$isvgx"|sed 's/vg[-_]*\|VG[-_]*/-\*, -\*, -\*,/'|sed 's/-\*, -\*, -\*,/lv_/'|sed "s/^[$i]//g"|sed 's/^[/-]//g')
 fi
