@@ -42,12 +42,12 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 
 # not : sdb -> sdb2 gibi partition bilgileri duzenlemek icin "cloud-utils-growpart" cinde yer alan growpart uygulamasi kullanilmalidir"
 
-# not : Sisteme yeni eklenilen bir diskin var olan bir VG icine eklenmesi asamasi 2 adimda yapilabilir : 
+# not : Sisteme yeni eklenilen bir diskin var olan bir VG icine eklenmesi asamasi 2 adimda yapilabilir :
 # ./$0 [sdxx] [VG] [LV] [new] && ./$0 [sdxx] [VG] [LV] [ext]
 
 
 ### STRIPE new ###
-# Stripe yapida bir [VG] olusturulmasi desteklenmez !! 
+# Stripe yapida bir [VG] olusturulmasi desteklenmez !!
 # Cunku Stripe bir [VG] olusturulmasi asamasinda birden fazla parametre kullanilabilir.
 # [ stripe disk count , stripe size ... ]
 
@@ -59,7 +59,8 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/stripe_create_ex#stripe_create_ex
 
 ### STRIPE ext ###
-# Var olan "lv_layout -> Stripe" set ise bu [VG] icin sadece extend islemleri yapilabilir .. 
+# Var olan "lv_layout -> Stripe" set ise bu [VG] icin sadece extend islemleri yapilabilir ..
+# Daha onceden Stripe [VG] e dahil edilmis diskelr extend edilemez ...
 # ./$0 [sdb] [sdc] [sdd] [sde] [VG_striped] [ext]
 
 printit 40
@@ -3156,6 +3157,10 @@ firstcheck() {
 disk=$(echo "$1"|sed 's/.*\///')
 dskchk "$disk"
 devdisk="/dev/$disk"
+if [ ! -b "$devdisk" ] ; then
+echo "[$devdisk] gecerli bir disk device olarak gorunmuyor !!! "
+errormsg
+fi
 lsblkchk;
 #diskchck "$disk" "$devdisk"
 diskchck #"$disk" "$devdisk"
@@ -3172,6 +3177,17 @@ errormsg
 fi
 }
 
+stripecheck() {
+stripedsk="$1"
+isstriped=$(lvs -o+lv_layout,stripes,devices|awk -v a="vgnfsdata" '$2==a'|grep -w "$stripedsk")
+if [ ! -z "$isstriped" ] ; then
+echo "[$stripedsk] diski zaten [VG] icinde yer aliyor !!! "
+echo "[VG-striped] yapidaki diskler extend edilemez !!! "
+sleep 1
+errormsg
+fi
+}
+
 
 #### STRIPE SET ###
 stripe_ext() {
@@ -3182,15 +3198,15 @@ sleep 2
 echo "Uygulama icinde sadece Disk Extend islemleri desteklenmektedir !!! "
 sleep 1
 printit 30
-echo "Stripe yapida LVM disk olusturmak icin ornek komut :
-
--> [pvcreate /dev/sda1 /dev/sdb1 /dev/sdc1 ]
+echo "Stripe yapida LVM disk olusturmak icin ornek komut : "
+printit 30
+echo "-> [pvcreate /dev/sda1 /dev/sdb1 /dev/sdc1 ]
 -> [vgcreate vgdata /dev/sda1 /dev/sdb1 /dev/sdc1]
 -> [lvcreate -l 100%FREE -i4 -I128 -n lvdata vgdata]
 -> [mkfs.xfs /dev/mapper/vgdata-lvdata] "
 printit 30
 echo
-sleep 3
+sleep 1
 
 ##########
 disks=1
@@ -3200,10 +3216,18 @@ diskc=$pvsc
 
 until [ $diskc -lt 1 ] ; do
 eval v=\${$disks}
-[ -z "${stripedisks[@]}" ] && stripedisks="$v" || stripedisks=("${stripedisks[@]} $v")
+[[ -z "${stripedisks[@]}" ]] && stripedisks="$v" || stripedisks=(${stripedisks[@]} $v)
 ((diskc--))
 ((disks++))
 done
+
+
+
+if [[ $pvsc -ne ${#stripedisks[@]} ]] ; then
+echo
+echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !! [FAIL] "
+errormsg
+fi
 
 #eval v=\${$lvstripe}
 #lvx="$v"
@@ -3215,21 +3239,22 @@ echo "[striped] Disk Extend islemlerine geciliyor .... "
 sleep 3
 printit 30
 
-if [ -z "${stripedisks[@]}" ] ; then
+if [[ -z "${stripedisks[@]}" ]] ; then
 echo "Disk bilgisi olusturulmasi isleminde HATA alindi !! "
 errormsg
 else
 echo "[$vgx] [VG-striped ] device extend islemleri uygulanacaktir .. "
 echo
-echo "[striped] [VG] device extend islemleri icin [ ${stripedisks[@]} ] diskleri kullanilacaktir ... "
+echo "[striped] [VG] device extend islemleri icin [ ${stripedisks[@]} ] bilgileri bir disk bilgisi olarak kullanilacaktir ... "
 sleep 2
 fi
 
 
 ##LV striped new segment extend
 echo
-echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir... !! "
+echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir... !! [OK] "
 sleep 2
+
 
 for pvdskdev in ${stripedisks[@]}; do
 echo
@@ -3237,6 +3262,7 @@ printit 40
 echo "[$pvdskdev] diski kontrol ediliyor ... "
 printit 40
 firstcheck "$pvdskdev"
+stripecheck "$pvdskdev"
 printit 40
 done
 
@@ -3255,7 +3281,7 @@ pvcreatex
 else
 
 vgxstripeval=$(pvdisplay "$devdisk"|awk '/VG Name/{print $3}')
-if [ -z "$vgxstripeval" ] ; then 
+if [ -z "$vgxstripeval" ] ; then
 echo "[$disk] zaten bir [PV] diski olarak gorunuyor !!! "
 echo "[$disk] icin henuz bir [VG] bilgisi bulunmuyor ... "
 
@@ -3304,6 +3330,7 @@ lvx_striped=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $1;exit}')
 fi
 }
 
+
 stripe_layout_check() {
 if [ -z "$pvlayout" ] ; then
 echo "[VG] layout bilgisi tespit edilemedi !!! "
@@ -3311,7 +3338,7 @@ sleep 1
 errormsg
 fi
 case "$pvlayout" in
-"striped")echo "[$vgx] *[VG-striped ] yapida [ x$pvsc ] stripes olusturulmus gorunuyor ... "
+"striped")echo "[$vgx] *[VG-striped ] yapida [ x$pvsc ] stripes setinde olusturulmus gorunuyor ... "
 sleep 2
 stripe_ext $@;
 ;;
@@ -3387,18 +3414,18 @@ sleep 2
 ##1. parametre disk bilgisi olmali !!
 firstcheck "$1"
 ;;
-"")
+*)
 lastp=$(last_param_check $@)
 if [[ "$lastp" = "new" ]] ; then
 echo "[$vgx] *[VG-linear ] yapida olusturulacaktir ... "
 echo ... [OK] [new]
 echo
 sleep 2
+else
+#Disk bilgisi kontrolu
+pv_other_layout $@;
 fi
 firstcheck "$1"
-;;
-*)#Disk bilgisi kontrolu
-pv_other_layout $@;
 ;;
 esac
 fi
@@ -3408,5 +3435,3 @@ fi
 ###yucel gemici 2023
 lv_layout_check $@;
 justdoit $@;
-
-
