@@ -60,8 +60,11 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 
 ### STRIPE ext ###
 # Var olan "lv_layout -> Stripe" set ise bu [VG] icin sadece extend islemleri yapilabilir ..
-# Daha onceden Stripe [VG] e dahil edilmis diskelr extend edilemez ...
+# Daha onceden Stripe [VG-striped] e dahil edilmis diskler extend edilemez ...
 # ./$0 [sdb] [sdc] [sdd] [sde] [VG_striped] [ext]
+
+# Stripe disk extend islemlerinde ayni sayida x disk bilgisi ( ör: "4" ) ve aktif bir [VG-striped] bilgisi zorunludur. !!
+echo "Ornek kullanim : ./$0 [sdxx1] [sdxx2] [sdxx3] [sdxx4] [ext] "
 
 printit 40
 }
@@ -1702,7 +1705,7 @@ fi
 
 
 resizepck() {
-case $1 in
+case "$1" in
 xfs|XFS) app=xfs_growfs;fpath=$(which $app); resizemsg "$fpath" $app
 ;;
 ext[3-4]|EXT[3-4]) app=resize2fs;fpath=$(which $app); resizemsg "$fpath" $app
@@ -1733,7 +1736,7 @@ fschk() {
 #mountp=$(lsblk|grep "$1 "|awk 'END{print $NF}' )
 #printit 50
 
-case $2 in
+case "$2" in
 
 "ext")
 fst=$(df -hTP|grep "$1 "|awk '{print $2}')
@@ -3179,9 +3182,9 @@ fi
 
 stripecheck() {
 stripedsk="$1"
-isstriped=$(lvs -o+lv_layout,stripes,devices|awk -v a="vgnfsdata" '$2==a'|grep -w "$stripedsk")
+isstriped=$(lvs -o+lv_layout,stripes,devices|awk -v a="$vgx" '$2==a'|grep -w "$stripedsk")
 if [ ! -z "$isstriped" ] ; then
-echo "[$stripedsk] diski zaten [VG] icinde yer aliyor !!! "
+echo "[$stripedsk] diski zaten [$vgx] icinde yer aliyor !!! "
 echo "[VG-striped] yapidaki diskler extend edilemez !!! "
 sleep 1
 errormsg
@@ -3222,7 +3225,6 @@ eval v=\${$disks}
 done
 
 
-
 if [[ $pvsc -ne ${#stripedisks[@]} ]] ; then
 echo
 echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !! [FAIL] "
@@ -3252,8 +3254,8 @@ fi
 
 ##LV striped new segment extend
 echo
-echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir... !! [OK] "
-sleep 2
+echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !!! "
+sleep 1
 
 
 for pvdskdev in ${stripedisks[@]}; do
@@ -3273,16 +3275,15 @@ disk=$(echo "$pvdskdev"|sed 's/.*\///')
 dskchk "$disk"
 devdisk="/dev/$disk"
 
-pvresizex "ext"
 
 pvccheck
 if [ -z "$pvc" ] ; then
 pvcreatex
 else
+echo "[$disk] zaten bir [PV] diski olarak gorunuyor !!! "
 
 vgxstripeval=$(pvdisplay "$devdisk"|awk '/VG Name/{print $3}')
 if [ -z "$vgxstripeval" ] ; then
-echo "[$disk] zaten bir [PV] diski olarak gorunuyor !!! "
 echo "[$disk] icin henuz bir [VG] bilgisi bulunmuyor ... "
 
 else
@@ -3338,7 +3339,7 @@ sleep 1
 errormsg
 fi
 case "$pvlayout" in
-"striped")echo "[$vgx] *[VG-striped ] yapida [ x$pvsc ] stripes setinde olusturulmus gorunuyor ... "
+"striped")echo "[$vgx] *[VG-striped ] yapida [ x$pvsc ] stripes konfigurasyonda olusturulmus gorunuyor ... "
 sleep 2
 stripe_ext $@;
 ;;
@@ -3353,10 +3354,10 @@ for vgxstripe in ${vgxstripesrch[@]} ; do
 vgx="$vgxstripe"
 pv_layout;
 if [ ! -z "$pvlayout" ] ; then
-echo "[$vgx] [VG] layout bilgisi [$pvlayout] olarak bulunmustur.. [OK] "
+echo "[$vgx] [VG] layout bilgisi [$pvlayout] olarak bulunmustur .. [OK] "
 sleep 1
 lvx="$lvx_striped"
-[[ -z "$lvx" ]] && echo "[$vgx] [striped] diske ait [LV] bilgisi bulunamiyor.. !! " && errormsg
+[[ -z "$lvx" ]] && echo "[$vgx] [striped] diske ait [LV] bilgisi bulunamiyor .. !! " && errormsg
 break
 fi
 done
@@ -3381,8 +3382,13 @@ errormsg
 ;;
 striped)echo "[$vgx] *[VG-striped ] yapida olusturulmus gorunuyor .. "
 sleep 2
-stripe_layout_check $@;
+if [[ "$lastp" = "ext" ]] ; then
+stripe_layout_check $@
+else
 echo
+echo "[VG-striped] yapida yeni bir [VG] olusturulma islemi desteklenmiyor !!! "
+errormsg
+fi
 ;;
 "")echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
 echo "[new] parametresi kullanilarak yeni bir [LV] device olusturulabilir .. "
@@ -3414,18 +3420,19 @@ sleep 2
 ##1. parametre disk bilgisi olmali !!
 firstcheck "$1"
 ;;
-*)
+striped)
 lastp=$(last_param_check $@)
 if [[ "$lastp" = "new" ]] ; then
-echo "[$vgx] *[VG-linear ] yapida olusturulacaktir ... "
-echo ... [OK] [new]
-echo
-sleep 2
-else
-#Disk bilgisi kontrolu
-pv_other_layout $@;
+echo "striped yapida [VG] lar icin [new] parametresi desteklenmemektedir !! "
+sleep 1
+errormsg
+#echo "[$vgx] *[VG-linear ] yapida olusturulacaktir ... "
 fi
-firstcheck "$1"
+;;
+*)
+#Disk bilgisi kontrolu
+lastp=$(last_param_check $@)
+pv_other_layout $@;
 ;;
 esac
 fi
@@ -3435,3 +3442,5 @@ fi
 ###yucel gemici 2023
 lv_layout_check $@;
 justdoit $@;
+
+
