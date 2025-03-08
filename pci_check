@@ -69,12 +69,14 @@
 #    ens1f1 [48:df:37:a7:7b:68]
 #========================
 #     bond0 [48:df:37:9d:99:68] :        bonding       (up)
+
 #Bonding devices [Permanent Mac]
 #-------
 #      eno5 [48:df:37:9d:99:60]
 #    ens1f0 [48:df:37:a7:7b:60]
 #========================
 #     bond1 [48:df:37:9d:99:60] :        bonding       (up)
+
 #      eno1 [94:40:c9:18:dc:10] :            tg3     (down)
 #      eno2 [94:40:c9:18:dc:11] :            tg3     (down)
 #      eno3 [94:40:c9:18:dc:12] :            tg3     (down)
@@ -467,13 +469,14 @@ for f in /sys/class/$subsys/*; do
     #[ -z "$addr" ] && addr="N/A"
     [ -z "$operstate" ] && operstate="N/A"
     case "$dev" in
-    bond*)driver="bonding"
+    *[Bb][oO][nN][dD]*)driver="bonding"
     bonddevs=$(awk '{for(i=1;i<NF;i++)if($i~"Permanent HW addr"){sub(" *","",$1);split($i,a,": ");printf "%10s [%10s]\n",$1,a[2]}}' FS="\n" RS="Slave Interface:" /proc/net/bonding/$dev 2>/dev/null )
-    [ ! -z "$bonddevs" ] && echo -e "Bonding devices [Permanent Mac] \n-------\n$bonddevs" && echo "========================"
+    [ ! -z "$bonddevs" ] && echo -e "\nBonding devices [Permanent Mac] \n-------\n$bonddevs\n========================" || echo
     esac
     #[ "$dev" != "lo" ] && module_or_builtin "CONFIG_$driver=" "$driver" && [ ! -z "$modul2" ] && [ ! -z "$driver" ] && driver="$modul2"
     [ ! -z "$addr" ] && printf "%10s [%s] : %14s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
     ;;
+
 
 
     graphics)
