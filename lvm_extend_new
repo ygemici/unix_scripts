@@ -2149,6 +2149,56 @@ lvgcount() {
 vgcl=$(echo "$1"|awk 'END{print NR}')
 }
 
+vgtolv() {
+vgtolx=$1
+#lvx=$(echo "$vgtolx"|sed 's/vg[-_]*\|VG[-_]*/-\*, -\*, -\*,/'|sed 's/-\*, -\*, -\*,/lv_/')
+lvx=$(echo "$vgtolx"|sed 's/vg\|VG\([-_]*\)\(.*\)/lv\1\2/')
+if [ -z "$lvx" ] ; then
+echo "[$vgtolx] [VG] bilgisinden YENI [LV] device ismi olusturulamadi !! "
+errormsg
+else
+echo "[$vgtolx] [VG] bilgisinden otomatik olarak [$lvx] [LV] ismi olusturuldu .. "
+printit 50
+islvsok=$(lvs|awk -v a="$lvx" -v b="$vgtolx" 'NR>1&&$1==a&&$2==b{print $1}')
+
+
+case $2 in
+"ext") if [ ! -z "$islvsok" ] ; then
+echo "-> [LV] ismi olarak [$islvsok] [LV] bilgisi kullanilacak.. [OK] "
+sleep 2
+
+else
+
+lvcount=$(lvs|awk -v a="$vgtolx" '$2==a{x++}END{print x}')
+if [ ! -z "$lvcount" ] ; then
+if  [ $lvcount -eq 1 ] ; then
+lvx=$(lvs|awk -v a="$vgtolx" '$2==a{print $1}')
+echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
+elif [ $lvcount -gt 1 ] ; then
+echo "[$vgtolx] [VG] uzerinde birden fazla [ $(echo $(lvs|awk -v a="$vgtolx" '$2==a{print $1}')) ] [LV] device tespit edildi !! "
+echo "[LV] bilgisinin parametre olarak girilmesi gerekiyor .. !! "
+errormsg
+fi
+else
+echo "[$vgtolx] [VG] uzerinde [LV] bilgisi alinamiyor .. !!! "
+errormsg
+fi
+
+fi
+;;
+
+"new") if [ ! -z "$islvsok" ] ; then
+echo "[LV] bilgisi olarak kullanilan [$islvsok] [LV] device zaten mevcut !! "
+errormsg
+else
+echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
+sleep 2
+fi
+;;
+esac
+
+fi
+}
 
 lvguess() {
 
@@ -2226,57 +2276,6 @@ fi
 else
 printit 70
 echo "[$diskchk] diski uzerinde herhangi bir [VG] bilgisi bulunamadi !! "
-fi
-}
-
-vgtolv() {
-vgtolx=$1
-#lvx=$(echo "$vgtolx"|sed 's/vg[-_]*\|VG[-_]*/-\*, -\*, -\*,/'|sed 's/-\*, -\*, -\*,/lv_/')
-lvx=$(echo "$vgtolx"|sed 's/vg\|VG\([-_]*\)\(.*\)/lv\1\2/')
-if [ -z "$lvx" ] ; then
-echo "[$vgtolx] [VG] bilgisinden YENI [LV] device ismi olusturulamadi !! "
-errormsg
-else
-echo "[$vgtolx] [VG] bilgisinden otomatik olarak [$lvx] [LV] ismi olusturuldu .. "
-printit 50
-islvsok=$(lvs|awk -v a="$lvx" -v b="$vgtolx" 'NR>1&&$1==a&&$2==b{print $1}')
-
-
-case $2 in
-"ext") if [ ! -z "$islvsok" ] ; then
-echo "-> [LV] ismi olarak [$islvsok] [LV] bilgisi kullanilacak.. [OK] "
-sleep 2
-
-else
-
-lvcount=$(lvs|awk -v a="$vgtolx" '$2==a{x++}END{print x}')
-if [ ! -z "$lvcount" ] ; then
-if  [ $lvcount -eq 1 ] ; then
-lvx=$(lvs|awk -v a="$vgtolx" '$2==a{print $1}')
-echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
-elif [ $lvcount -gt 1 ] ; then
-echo "[$vgtolx] [VG] uzerinde birden fazla [ $(echo $(lvs|awk -v a="$vgtolx" '$2==a{print $1}')) ] [LV] device tespit edildi !! "
-echo "[LV] bilgisinin parametre olarak girilmesi gerekiyor .. !! "
-errormsg
-fi
-else
-echo "[$vgtolx] [VG] uzerinde [LV] bilgisi alinamiyor .. !!! "
-errormsg
-fi
-
-fi
-;;
-
-"new") if [ ! -z "$islvsok" ] ; then
-echo "[LV] bilgisi olarak kullanilan [$islvsok] [LV] device zaten mevcut !! "
-errormsg
-else
-echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
-sleep 2
-fi
-;;
-esac
-
 fi
 }
 
