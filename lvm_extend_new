@@ -3431,7 +3431,15 @@ fi
 *)
 #Disk bilgisi kontrolu
 lastp=$(last_param_check $@)
+if [[ "$lastp" = "new" ]] ; then
+echo "Yeni bir [VG] olusturulacaktir ... "
+sleep 1
+##1. parametre disk bilgisi olmali !!
+firstcheck "$1"
+#firstcheck "$1"
+else
 pv_other_layout $@;
+fi
 ;;
 esac
 fi
