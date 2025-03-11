@@ -64,7 +64,7 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # ./$0 [sdb] [sdc] [sdd] [sde] [VG_striped] [ext]
 
 # Stripe disk extend islemlerinde ayni sayida x disk bilgisi ( ör: "4" ) ve aktif bir [VG-striped] bilgisi zorunludur. !!
-echo "Ornek kullanim : ./$0 [sdxx1] [sdxx2] [sdxx3] [sdxx4] [ext] "
+echo "Ornek kullanim : ./$0 [sdxx1] [sdxx2] [sdxx3] [sdxx4] [VG_striped] [ext] "
 
 printit 40
 }
