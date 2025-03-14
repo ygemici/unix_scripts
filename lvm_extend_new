@@ -1316,7 +1316,7 @@ echo "->> [$vgx] [VG] icinde (Free LV) alan bulunamadi !! "
 printit 30
 echo
 
-if [ "$pvlayout" == "linear" ] ; then
+#if [ "$pvlayout" == "linear" ] ; then
 if [ "$1" = "ext" ] ; then
 echo "EXTEND(ext) islemleri yapilamiyor... !! "
 if [[ "$growpartprint" -eq 1 ]] ; then
@@ -1335,7 +1335,7 @@ echo "CREATE(new) islemlerine devam ediliyor ... "
 fi
 printit 70
 
-fi
+#fi
 
 sleep 1
 #lsblk $devdisk
@@ -2291,7 +2291,7 @@ echo
 echo "[$disk] diskin bir PV diski oldugundan eminseniz.. "
 echo "(PFree) alanindan [LV] icin size(LSize) atamasi yapildigini kontrol edip tekrar calistirin .."
 printit 70
-errormsg
+[ ! -z "$ext" ] && errormsg
 fi
 
 
@@ -2520,7 +2520,8 @@ lvc=$(lvs |grep "$lvx "|awk '{print $1}')
 if [ -z "$lvc" ] ; then
 
 case $3 in
-"ext")vguess "$devdisk" "$vgx"
+"ext")ext="1"
+vguess "$devdisk" "$vgx"
 lvx=$(echo "$lvx"|sed 's/[-]\+/-/g')
 lvc=$(lvs |grep "$lvx "|awk '{print $1}')
 if [ -z "$lvc" ] ; then
@@ -3060,7 +3061,8 @@ fi
 ###VG icinde 1 tane LV varsa "ext" icin calisir
 ###bash lvme sdd ext s=10g
 case "$2" in
-"ext") pvscheck "ext"
+"ext")ext="1"
+pvscheck "ext"
 vguess "$devdisk"
 ;;
 "new")
@@ -3105,6 +3107,7 @@ fi
 
 #####2
 2) if [ "$2" == "ext" ] ; then
+ext="1"
 pvscheck "ext"
 vguess "$devdisk" "$vgx"
 vgxpostchk "ext"
@@ -3432,16 +3435,19 @@ fi
 ;;
 "")
 firstcheck "$1"
+lastp=$(last_param_check $@)
+if [[ "$lastp" = "ext" ]] ; then
 vguess "$devdisk"
+fi
 ;;
 *)
 #Disk bilgisi kontrolu
+firstcheck "$1"
 lastp=$(last_param_check $@)
 if [[ "$lastp" = "new" ]] ; then
 echo "Yeni bir [VG] olusturulacaktir ... "
 sleep 1
 ##1. parametre disk bilgisi olmali !!
-firstcheck "$1"
 else
 pv_other_layout $@;
 fi
