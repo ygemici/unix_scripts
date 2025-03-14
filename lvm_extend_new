@@ -1545,8 +1545,8 @@ freelvgb=$(awk -v a="$freelvgib" 'BEGIN{s=a*(1073741824)/1000000000;printf "%.2f
 lvextendx() {
 op=$1 #( ext/new)
 
-[ "$pvlayout" == "linear" ] && pvresizex "$op"
-
+#[ "$pvlayout" == "linear" ] && pvresizex "$op"
+pvresizex "$op"
 
 #free lv alan gib->gb cevrimi
 freelvchk
@@ -3364,7 +3364,7 @@ fi
 done
 if [ -z "$pvlayout" ] ; then
 echo "Parametreler arasinda gecerli bir [VG] (*striped layout) bilgisi bulunamadi !!! "
-errormsg;
+#errormsg;
 fi
 }
 
@@ -3430,6 +3430,10 @@ errormsg
 #echo "[$vgx] *[VG-linear ] yapida olusturulacaktir ... "
 fi
 ;;
+"")
+firstcheck "$1"
+vguess "$devdisk"
+;;
 *)
 #Disk bilgisi kontrolu
 lastp=$(last_param_check $@)
@@ -3438,7 +3442,6 @@ echo "Yeni bir [VG] olusturulacaktir ... "
 sleep 1
 ##1. parametre disk bilgisi olmali !!
 firstcheck "$1"
-#firstcheck "$1"
 else
 pv_other_layout $@;
 fi
@@ -3451,5 +3454,4 @@ fi
 ###yucel gemici 2023
 lv_layout_check $@;
 justdoit $@;
-
 
