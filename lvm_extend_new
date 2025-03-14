@@ -1971,8 +1971,10 @@ fi
 echo
 echo "---------- CHOWN (new) ----------"
 #chown -R oracle:dba /$mp ; errchk $? "chown"
-chown -R oracle:oinstall /$mp ; errchk $? "chown"
-echo "Yetkilendirme tamamlandi .. [OK] "
+#chown -R oracle:oinstall /$mp ; errchk $? "chown"
+echo "Mount_Point dizin yetkilendirmesi kullaniciya birakilmistir .. "
+#echo "Yetkilendirme tamamlandi .. [OK] "
+sleep 1
 printit 12
 echo
 }
