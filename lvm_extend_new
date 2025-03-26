@@ -2254,8 +2254,10 @@ echo "[$disk] disk uzerinde birden fazla (x$lvcl) sayida [LV] device tespit edil
 echo "->>" [ $lvcp ]
 echo
 ##[ext] isleminde birden fazla LV varsa LV tahmini yapilamaz !!!
+if [ -z "$lvx" ] ; then
 echo "[LV] bilgisi girilmesi gerekli !! "
 errormsg
+fi
 
 elif [ $lvcl -eq 1 ] ; then
 # 1 tane LV device olmasi lazım ve bu extend edilecek..
