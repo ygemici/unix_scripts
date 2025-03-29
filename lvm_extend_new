@@ -3462,8 +3462,8 @@ lastp=$(last_param_check $@)
 if [[ "$lastp" == "new" ]] ; then
 echo "[striped] yapida yeni bir [VG] olusturulma islemi desteklenmemektedir !! "
 sleep 1
-echo "[linear] yapida yeni bir [VG] olusturulacaktir ... "
-sleep 1
+echo "[linear] yapida yeni bir [VG] -> [$1] disk bilgisi kabul edilerek olusturulacaktir ... "
+echo
 ##1. parametre disk bilgisi olmali !!
 firstcheck "$1"
 else
