@@ -3465,6 +3465,7 @@ sleep 1
 echo "[linear] yapida yeni bir [VG] olusturulacaktir ... "
 sleep 1
 ##1. parametre disk bilgisi olmali !!
+firstcheck "$1"
 else
 pv_other_layout $@;
 fi
