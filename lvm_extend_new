@@ -123,7 +123,7 @@ echo "[$disk] diski uzerindeki TUM VERILER KAYBOLACAK !!! "
 sleep 3
 echo -e "\n-> [pvcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! "
 printit 30
-sleep 2
+sleep 3
 [ $pvcreteis -eq 1 ] && pvcreatex "$devdisk" || echo "[pvcreate] islemleri [ext] mode da yapilamiyor !! "
 echo
 ;;
@@ -2697,7 +2697,7 @@ sleep 3
 #echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
 echo
 echo -e "-> [vgcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
-sleep 5
+sleep 3
 printit 50
 ####
 
@@ -2707,7 +2707,7 @@ pvscheck "new"
 ###VG create
 echo -e "-> [vgcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
 printit 30
-sleep 2
+sleep 3
 [ ! -z "$size" ] && echo "->> [VG] olusturulurken [->size] bilgisi kullanilmasi desteklenmiyor !! " && echo && sleep 2
 vgcreate "$vgx" "$devdisk" ; errchk $? "vgcreate"
 if [ $? -eq 0 ] ; then
@@ -2780,7 +2780,7 @@ if [ ! -z "$lvx" ] ; then
 echo "[$vgtmp] [VG] uzerinde [$lvx] isminde YENI bir [LV] device olusturulacaktir !! "
 echo
 echo -e "-> [lvcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
-sleep 2
+sleep 3
 else
 echo "[$vgtmp] [VG] bilgisi kuilanilarak uygun bir [LV] ismi bulunamadi !! "
 errormsg
