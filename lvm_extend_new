@@ -2504,10 +2504,11 @@ echo "->> [$isvgx] uzerinde [$lvx] isminde zaten bir [LV] device bulunuyor !! "
 printit 30
 sleep 2
 echo
-echo "-> [vgextend] islemleri baslatilacak .. "
-sleep 2
-vgextendx "$vgx" "$devdisk"
-vgextendxx=1
+### new parametresi ile disk extend islemleri desteklenmiyor !!!
+#echo "-> [vgextend] islemleri baslatilacak .. "
+#sleep 2
+#vgextendx "$vgx" "$devdisk"
+#vgextendxx=1
 #errormsg
 fi
 fi
@@ -2830,11 +2831,11 @@ echo "[$vgx] [VG] bilgisi ile FARKLI $mess1 [ -> $diskvgx] uzerinde bir [VG] tes
 echo
 printit 30
 
-### new parametresi ile disk extend islemleri desteklenmiyor !!!
-#echo "-> [vgextend] islemleri baslatilacak ... "
+
+echo "-> [vgextend] islemleri baslatilacak ... "
 sleep 2
-#vgextendx "$vgx" "$devdisk"
-#vgextendxx=1
+vgextendx "$vgx" "$devdisk"
+vgextendxx=1
 fi
 
 #errormsg
