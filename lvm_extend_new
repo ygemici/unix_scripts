@@ -2829,10 +2829,12 @@ if [ ! -z "$diskvgx" ] && [ -z "$diskvgx2" ] ; then
 echo "[$vgx] [VG] bilgisi ile FARKLI $mess1 [ -> $diskvgx] uzerinde bir [VG] tespit edildi !!! "
 echo
 printit 30
-echo "-> [vgextend] islemleri baslatilacak ... "
-sleep 5
-vgextendx "$vgx" "$devdisk"
-vgextendxx=1
+
+### new parametresi ile disk extend islemleri desteklenmiyor !!!
+#echo "-> [vgextend] islemleri baslatilacak ... "
+sleep 2
+#vgextendx "$vgx" "$devdisk"
+#vgextendxx=1
 fi
 
 #errormsg
