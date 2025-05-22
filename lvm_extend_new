@@ -3398,6 +3398,9 @@ pv_other_layout() {
 stripe_vg_search $@;
 
 case "$pvlayout" in
+"linear")echo "-> Parametreleri dogru sirada girdiginizden emin olun !! "
+errormsg;
+;;
 "mirror")echo "[$vgx] *[VG-mirror ] yapida olusturulmus gorunuyor .. "
 sleep 2
 errormsg
