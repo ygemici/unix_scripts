@@ -207,6 +207,11 @@ if [ "$vgdskn" != "$vgx" ] ; then
 echo
 echo "[$disk] diski uzerinde [$vgx] isminde bir [VG] bilgisi bulunamadi !!! "
 sleep 1
+vguess "$devdisk"
+fi
+if [ "$vgdskn" != "$vgx" ] ; then
+echo
+echo "[$disk] diski uzerinde [$vgx] isminde bir [VG] bilgisi bulunamadi !!!! "
 errormsg
 fi
 ;;
@@ -3112,7 +3117,7 @@ fi
 
 
 #####2
-2) if [ "$2" == "ext" ] ; then
+2)if [ "$2" == "ext" ] ; then
 ext="1"
 pvscheck "ext"
 vguess "$devdisk" "$vgx"
@@ -3427,13 +3432,15 @@ errormsg
 fi
 ;;
 "")echo
-echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadigi icin islemlere devam edilemiyor .. !! "
+echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
 echo
+if [[ "$lastp" = "new" ]] ; then
 echo "-> [new] parametresi kullanilarak yeni bir [VG] olusturulabilir .. ?? "
+fi
 echo
 sleep 1
-errormsg
-#firstcheck "$1"
+#errormsg
+firstcheck "$1"
 ;;
 *)echo "**[VG] layout bilgisi tespit edilemedi !!! "
 errormsg
