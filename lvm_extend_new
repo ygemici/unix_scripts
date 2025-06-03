@@ -3127,6 +3127,12 @@ else
 vgx="$2"
 pvscheck "ext"
 echo "Girilen parametreler eksik veya HATALI !! [ parametre sayisi : $paramc ] "
+if [[ "${@: -1}" != "ext" ]] || [[ "${@: -1}" != "new" ]] ; then
+echo
+echo "->> Son parametre olarak 'ext' yada 'new' degerleri girilmeli !! "
+echo
+sleep 1
+fi
 vgstmp=$(pvs|awk -v a="$devdisk" '$1==a{print $2}')
 if [ ! -z "$vgstmp" ] ; then
 [ "$vgstmp" == "lvm2" ] && echo "[$disk] diski uzerinde tanimli bir [VG] bulunamadi !! " && echo "[./$0 $disk vg_VGxxx new] komutu ile yeni bir [VG] olusturabilirsiniz.. " && errormsg
