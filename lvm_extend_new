@@ -3221,7 +3221,7 @@ sleep 1
 echo "$disk"|grep 'mpath' >/dev/null
 if [ $? -eq 0 ] ; then
 echo "[mpath] disk isimleri kullanilamaz !!! "
-diskmpath=$(ls -ltr /dev/mapper/|grep mpathb|awk '{print $NF}'|awk -F'/' '{print $NF}')
+diskmpath=$(ls -ltr /dev/mapper/|grep "$disk"|awk '{print $NF}'|awk -F'/' '{print $NF}')
 [[ ! -z "$diskmpath" ]] && echo "-> $diskmpath device bilgisini kullanabilirsiniz .. "
 sleep 2
 fi
