@@ -725,7 +725,6 @@ echo
 fi
 }
 
-
 partsizechk() {
 partedchk;
 partdisk="$1"
@@ -738,6 +737,38 @@ echo
 fi
 }
 
+diskpartscan() {
+diskd="$1"
+
+##scsi
+echo "$diskd"|grep '^sd' >/dev/null
+if [ $? -eq 0 ] ; then
+diskchk=$(echo "$diskd"|grep 'sd'|sed 's/[0-9]*$//')
+fi
+
+##mpath
+echo "$diskd"|grep 'dm-' >/dev/null
+if [ $? -eq 0 ] ; then
+mpathx=$(ls -ltr /dev/mapper/|grep $disk|sed 's/.*\(mpath.*\) ->.*/\1/')
+diskchk="$mpathx"
+fi
+
+[[ "$diskother" = "ok" ]] && diskchk="$diskdx"
+
+[ -z "$diskchk" ] && diskdd="$diskd" || diskdd="$diskchk"
+echo "[$diskchk] icin KERNEL seviyesinde YENI (Free RAW) alanlari icin tarama yapiliyor ... "
+echo "...."
+sleep 1
+echo "....."
+sleep 1
+echo "......"
+}
+
+partscan() {
+diskscan="$1"
+partsizechk_pre $diskscan
+rawsizef=$rawsize_f
+}
 
 diskpartchk() {
 [[ "$diskother" = "ok" ]] && diskpartscan $diskdx || diskpartscan "$disk"
