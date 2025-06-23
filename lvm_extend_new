@@ -235,7 +235,7 @@ isanothervgc=$(echo "$isanothervg"|awk 'END{print NR}')
 [[ $isanothervgc -gt 1 ]] && mess1="diskler" || mess1="disk"
 echo "[$vgcc] isimli [VG] zaten asagidaki $mess1 uzerinde tanimli gorunuyor !! "
 printit 40
-echo "$isanothervg"
+echo "->> $isanothervg"
 printit 40
 sleep 3
 fi
