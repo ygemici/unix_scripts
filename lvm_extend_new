@@ -793,8 +793,8 @@ isdisk=disk
 systemctl reload multipathd
 #echo 1 > /sys/block/$disk/device/rescan
 partsizechk $devdisk
-fi
 
+else
 
 ##disk
 echo "$disk"|grep '[0-9]$' &>/dev/null
@@ -825,7 +825,7 @@ partsizechk "/dev/$diskdev"
 #partprobe $devdisk
 ##eger disk yerine partition bilgisi kullaniliyorsa free space in daha onceden bu partitiona aktarildigina EMIN olunmasi gerekiyor..
 fi
-
+fi
 fi
 }
 
