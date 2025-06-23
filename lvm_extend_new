@@ -1179,6 +1179,8 @@ islvxok=$(lvs|awk -v a="$lvx" -v b="$vgx" 'NR>1&&$1==a&&$2==b{print $1}')
 
 if [ $lvxisok -ne 1 ] ; then
 echo "[LV] device bilgilerine erisilemedi !! "
+sleep 3
+echo
 #[new] ile YENI DISK olusturulabilir !!
 echo "[LV] device olusturma islemlerine devam ediliyor ... "
 sleep 2
