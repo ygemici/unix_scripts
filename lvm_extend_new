@@ -2345,8 +2345,14 @@ vgdiskchk=$(pvs|awk -v a="$diskchk" '$1==a{print $2}')
 vgx=$vgdiskchk
 echo "->>[$disk] uzerinde [VG] bilgisi [$vgdiskchk] olarak tahmin edildi [OK] "
 echo
+sleep 3
+echo "[VG] bilgisi [$vgdiskchk] ile devam ediliyor ... "
+sleep 3
+echo -e "-> [$vgdiskchk] icin yapilacak islemi kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
+sleep 2
+echo -e "-> [$vgdiskchk] icin yapilacak islemi kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !!! \n"
 sleep 1
-
+echo
 
 #LV tahmin
 lvguess $diskchk $vgx
