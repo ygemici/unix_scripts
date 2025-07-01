@@ -1605,12 +1605,23 @@ freelvgb=$(awk -v a="$freelvgib" 'BEGIN{s=a*(1073741824)/1000000000;printf "%.2f
 }
 
 
-
 lvextendx() {
 op=$1 #( ext/new)
 
-#[ "$pvlayout" == "linear" ] && pvresizex "$op"
+if [ ! -z "$2" ] ; then
+case "$2" in
+striped)for pvdskdev in ${stripedisks[@]}; do
 pvresizex "$op"
+done
+;;
+*)echo "Eksik disk bilgisi !!"
+errormsg
+;;
+esac
+else
+pvresizex "$op"
+fi
+
 
 #free lv alan gib->gb cevrimi
 freelvchk
@@ -1634,7 +1645,6 @@ errormsg
 
 
 else
-
 
 #istenilen alan icin free LV alani yeterli mi ?
 
@@ -3429,7 +3439,7 @@ done
 
 
 #### striped LV extend ####
-lvextendx "ext"
+lvextendx "ext" "striped"
 #lvextend --extents +100%FREE "$lvmmapperdev" && errchk $? "lvextend-striped"
 sleep 2
 
