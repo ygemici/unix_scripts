@@ -14,6 +14,7 @@
 #04-12-2023 # [new] parametresi gelistirildi.. xfs/ext4 mkfs destegi..
 
 #01-24-2025 # striped VG ler icin [ext] parametresi destegi eklendi..
+#29-06-2025 nvme desteği eklendi..
 
 
 printit() {
@@ -741,21 +742,36 @@ diskpartscan() {
 diskd="$1"
 
 ##scsi
-echo "$diskd"|grep '^sd' >/dev/null
+echo "$diskd"|grep '^sd' &>/dev/null
 if [ $? -eq 0 ] ; then
 diskchk=$(echo "$diskd"|grep 'sd'|sed 's/[0-9]*$//')
 fi
 
-##mpath
-echo "$diskd"|grep 'dm-' >/dev/null
+
+#mapper
+echo "$devdisk"|grep 'mapper' &>/dev/null
 if [ $? -eq 0 ] ; then
-mpathx=$(ls -ltr /dev/mapper/|grep $disk|sed 's/.*\(mpath.*\) ->.*/\1/')
+diskchk=$(ls -ltr "$devdisk"|sed 's/.*mapper.* .*\/\(.*\)/\1/')
+disk=$diskchk
+fi
+
+##mpath
+echo "$diskd"|egrep '^dm-|^mpath*' &>/dev/null
+if [ $? -eq 0 ] ; then
+case "$diskd" in
+"^dm-")
+mpathx=$(ls -ltr /dev/mapper/|grep "$diskd"|sed 's/.*\(mpath.*\) ->.*/\1/')
+;;
+"^mpath*")
+mpathx=$(ls -ltr /dev/mapper/|grep "$diskd"|sed 's/.*mpath.* .*\/\(.*\)/\1/')
+;;
+esac
 diskchk="$mpathx"
 fi
 
 [[ "$diskother" = "ok" ]] && diskchk="$diskdx"
 
-[ -z "$diskchk" ] && diskdd="$diskd" || diskdd="$diskchk"
+[ -z "$diskchk" ] && diskchk="$diskd"
 echo "[$diskchk] icin KERNEL seviyesinde YENI (Free RAW) alanlari icin tarama yapiliyor ... "
 echo "...."
 sleep 1
@@ -763,6 +779,7 @@ echo "....."
 sleep 1
 echo "......"
 }
+
 
 partscan() {
 diskscan="$1"
@@ -782,33 +799,32 @@ partsizechk $devdisk
 
 else
 
-## mpath
-echo "$disk"|grep '^dm-' >/dev/null
+
+#dm
+echo "$disk"|grep '^dm-' &>/dev/null
 if [ $? -eq 0 ] ; then
 partscan "$devdisk"
 isdisk=disk
 
-##
 #dmsetup reload map
 systemctl reload multipathd
 #echo 1 > /sys/block/$disk/device/rescan
 partsizechk $devdisk
+fi
 
-else
 
-##disk
+#mpath
+echo "$disk"|grep '^mpath*' &>/dev/null
+if [ $? -eq 0 ] ; then
 echo "$disk"|grep '[0-9]$' &>/dev/null
 if [ $? -ne 0 ] ; then
-
-### disk size before scsi scan
 partscan "$devdisk"
 isdisk=disk
 
-
-###############
-echo 1 > /sys/block/$disk/device/rescan
+#dmsetup reload map
+systemctl reload multipathd
+#echo 1 > /sys/block/$disk/device/rescan
 partsizechk $devdisk
-###############
 
 else
 
@@ -821,11 +837,43 @@ isdisk=part
 echo 1 > /sys/block/$diskdev/device/rescan
 partsizechk "/dev/$diskdev"
 ###############
+fi
+fi
 
 #partprobe $devdisk
 ##eger disk yerine partition bilgisi kullaniliyorsa free space in daha onceden bu partitiona aktarildigina EMIN olunmasi gerekiyor..
+
+
+##scsi disk
+echo "$disk"|egrep '^dm-|^mpath*' &>/dev/null
+if [ $? -ne 0 ] ; then
+echo "$disk"|grep '[0-9]$' &>/dev/null
+if [ $? -ne 0 ] ; then
+
+### disk size before scsi scan
+partscan "$devdisk"
+isdisk=disk
+
+###############
+echo 1 > /sys/block/$disk/device/rescan
+partsizechk $devdisk
+###############
+
+else
+
+##partition
+diskdev=$(echo $disk|sed 's/[0-9]\+//g')
+partscan "$devdisk"
+isdisk=part
+
+###############
+echo 1 > /sys/block/$diskdev/device/rescan
+partsizechk "/dev/$diskdev"
+###############
+
 fi
 fi
+
 fi
 }
 
@@ -2918,17 +2966,24 @@ diskchck() {
 #fi
 
 ## mpath
-echo "$disk"|grep 'mpath' >/dev/null
-if [ $? -eq 0 ] ; then
-echo "Sistemde gecerli bir disk device ismi belirtmeniz gerekiyor.. !! "
-echo "[mpath] disk isimleri kullanilamaz !!! "
-errormsg
-fi
+#echo "$disk"|grep 'mpath' >/dev/null
+#if [ $? -eq 0 ] ; then
+#echo "Sistemde gecerli bir disk device ismi belirtmeniz gerekiyor.. !! "
+#echo "[mpath] disk isimleri kullanilamaz !!! "
+#errormsg
+#fi
+
+## scsi
+diskother="nok"
 
 ## non-scsi
-diskother="nok"
-echo "$disk"|egrep '^sd|^dm-' >/dev/null
-if [ $? -ne 0 ] ; then
+## nvme
+#echo "$disk"|egrep '^sd|^dm-|mpath*' >/dev/null
+echo "$disk"|grep 'nvme' &>/dev/null
+if [ $? -eq 0 ] ; then
+devdisk="/dev/$disk"
+sleep 3
+
 echo "Standart Scsi disk device dan farkli bir device bilgisi kullaniliyor olabilir !! "
 diskdx=$(echo "$disk"|sed 's/p*[0-9]*$//'|sed 's;/dev/;;')
 
@@ -2937,14 +2992,10 @@ if [ $? -eq 0 ] ; then
 printit 40
 lshw -class disk | awk -v dev="$diskdx" '{for(i=1;i<=NF;i++)if($i~dev){c="ok";print $i }}END{if(!c)print dev " bir disk device olarak tespit edilemedi !!"}' RS='  [*]-' FS="\n\n"
 printit 40
+fi
 diskother="ok"
+fi
 
-## nvme
-echo "$disk"|grep 'nvme' >/dev/null
-[[ $? -eq 0 ]] && devdisk=/dev/$disk
-sleep 3
-fi
-fi
 
 if [ ! -b "$devdisk" ] ; then
 echo "[$devdisk] isminde bir disk device bulunamadi !! "
@@ -3217,20 +3268,20 @@ firstcheck() {
 # islem sirasinda tekrar disk device kontrol edilmesinde fayda var
 disk=$(echo "$1"|sed 's/.*\///')
 dskchk "$disk"
+
+echo "$1"|grep 'mapper' &>/dev/null
+if [ $? -eq 0 ] ; then
+devdisk="/dev/mapper/$disk"
+else
 devdisk="/dev/$disk"
+fi
+
+[[ ! -b "$devdisk" ]] && devdisk="/dev/mapper/$disk"
 
 if [ ! -b "$devdisk" ] ; then
 echo "[$disk] parametresi gecerli bir disk device olarak gorunmuyor !!! "
 echo
 sleep 1
-echo "$disk"|grep 'mpath' >/dev/null
-if [ $? -eq 0 ] ; then
-echo "[mpath] disk isimleri kullanilamaz !!! "
-diskmpath=$(ls -ltr /dev/mapper/|grep "$disk"|awk '{print $NF}'|awk -F'/' '{print $NF}')
-[[ ! -z "$diskmpath" ]] && echo "-> $diskmpath device bilgisini kullanabilirsiniz .. "
-sleep 2
-fi
-
 errormsg
 else
 [[ "$2" = "stripe" ]] && echo "-> [striped] layout kontrolu icin verilen parametre degeri bir disk [$disk] device olarak tespit edildi !!! "
@@ -3241,6 +3292,7 @@ lsblkchk;
 #diskchck "$disk" "$devdisk"
 diskchck #"$disk" "$devdisk"
 }
+
 
 
 justdoit() {
@@ -3543,4 +3595,3 @@ fi
 ###yucel gemici 2023
 lv_layout_check $@;
 justdoit $@;
-
