@@ -3491,7 +3491,7 @@ cc=${#prmsrch[@]}
 for i in ${prmsrch[@]}
 do
 ((c++))
-if [ $c -ne $((cc-1)) ] && [ $c -ne $cc ] ; then
+if [ $c -ne $cc ] ; then
 vgxstripesrch=( ${vgxstripesrch[@]} $i )
 fi
 done
