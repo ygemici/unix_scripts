@@ -14,7 +14,7 @@
 #04-12-2023 # [new] parametresi gelistirildi.. xfs/ext4 mkfs destegi..
 
 #01-24-2025 # striped VG ler icin [ext] parametresi destegi eklendi..
-#29-06-2025 nvme desteği eklendi..
+#29-06-2025 # nvme disk extend desteği eklendi..
 
 
 printit() {
