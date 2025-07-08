@@ -877,34 +877,12 @@ fi
 fi
 }
 
-
-process_check() {
-printit 30
-[[ $lsblkok -eq 1 ]] && lsblk $devdisk
-printit 30
-pvs "$devdisk"
-printit 30
-[ ! -z "$vgx" ] && vgs "$vgx"
-printit 30
-[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs "$vgx/$lvx" 2>/dev/null | sed 's/\(.*\)Pool.*/\1/' && printit 30
-echo
-[ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a' && printit 30
-[ -z "$pesizemib" ] && pesizex
-[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && [ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" -v c="$pesizemib" 'NR==1{print;next}$2==a&&$9==b{if($8>262143)printf "%s %12.f %3s\n",$0,($8*c)/1073741824/1024," tib";else printf "%s %12.f %3s\n",$0,($8*c)/1073741824," gib"}' && printit 30
-echo
-#pvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" 'NR==1||$2==a'
-#[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" -v b="$lvx" 'NR==1||$2==a&&$1==b'
-}
-
-
 lvsizemib() {
 #sizelvmib=$(awk -v a="$sizexx" 'BEGIN{print a*1024}')
 sizelvmib=$(lvs|awk -v a="$lvx" 'a==$1'|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}$NF~/t|T/{x=$NF*1048576}$NF~/g|G/{x=$NF*1024;}$NF~/k|K/{x=$NF/1024;}$NF~/m|M/{x=$NF/1;}{printf "%0.9f",x}')
 #sizelvmibok=$(lvs|grep "$lvx "|awk '$NF~/</{sub("<","",$NF)}$NF~/m|M|k|K/{print "OK"}')
 sizelvmibshow=$(awk -v a="$sizelvmib" 'BEGIN{printf "%0.2f",a}')
 }
-
-
 
 lvsizegib() {
 sizelvgib=$(lvs|awk -v a="$lvx" 'a==$1'|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}$NF~/k|K/{x=$NF/1048576}$NF~/m|M/{x=$NF/1024}$NF~/t|T/{x=$NF*1024}$NF~/g|G/{x=$NF/1;}{;printf "%0.9f",x}')
@@ -1072,7 +1050,6 @@ sizeusermibshow=$(awk -v a="$sizeusermib" 'BEGIN{printf "%0.2f",a}')
 }
 
 
-
 disktopvresizechk() {
 printit 50
 #echo -e "\n$disk ->(dev) ile $disk ->(PV) arasinda Size kontrolu yapilacaktir .. "
@@ -1107,7 +1084,6 @@ printit 70
 ##Free Alanin PV diskinden VG alanina aktarilmis olmasi gerekir..
 pvsizex
 }
-
 
 
 partdskchk() {
@@ -1546,7 +1522,6 @@ B)pesizemib=$(vgdisplay $vgx|grep "PE Size"|awk '{print $(NF-1)*1024*1024}')
 errormsg
 ;;
 esac
-
 }
 
 pesizechk() {
@@ -1574,10 +1549,27 @@ printit 30
 
 freelvpe=$(vgdisplay $vgx|grep "PE Size"|awk 'END{print $(NF-1) $(NF)}')
 fi
-
 fi
 }
 
+process_check() {
+printit 30
+[[ $lsblkok -eq 1 ]] && lsblk $devdisk
+printit 30
+pvs "$devdisk"
+printit 30
+[ ! -z "$vgx" ] && vgs "$vgx"
+printit 30
+[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs "$vgx/$lvx" 2>/dev/null | sed 's/\(.*\)Pool.*/\1/' && printit 30
+echo
+[ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a' && printit 30
+[ -z "$pesizemib" ] && pesizex
+
+[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" -v c="$pesizemib" 'NR==1{print;next}$2==a&&$9==b{if($8>262143)printf "%s %12.f %3s\n",$0,($8*c)/1073741824/1024," tib";else printf "%s %12.f %3s\n",$0,($8*c)/1073741824," gib"}' && printit 30
+echo
+#pvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" 'NR==1||$2==a'
+#[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" -v b="$lvx" 'NR==1||$2==a&&$1==b'
+}
 
 freelvchk() {
 vgfree=$(vgs "$vgx" 2>/dev/null|awk 'NR>1{sub("<","",$NF);printf "%s",$NF}')
@@ -1613,7 +1605,6 @@ esac
 freelvgb=$(awk -v a="$freelvgib" 'BEGIN{s=a*(1073741824)/1000000000;printf "%.2f",s}')
 #freelvgibshow=$(awk -v a="$freelvgib2" 'BEGIN{printf "%.9f",s}')
 }
-
 
 lvextendx() {
 op=$1 #( ext/new)
