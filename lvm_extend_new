@@ -1546,7 +1546,7 @@ B)pesizemib=$(vgdisplay $vgx|grep "PE Size"|awk '{print $(NF-1)*1024*1024}')
 errormsg
 ;;
 esac
-fi
+
 }
 
 pesizechk() {
