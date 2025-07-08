@@ -889,8 +889,11 @@ printit 30
 [ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs "$vgx/$lvx" 2>/dev/null | sed 's/\(.*\)Pool.*/\1/' && printit 30
 echo
 [ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a' && printit 30
-[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" 'NR==1||$2==a&&$9==b' && printit 30
+[ -z "$pesizemib" ] && pesizex
+[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && [ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" -v c="$pesizemib" 'NR==1{print;next}$2==a&&$9==b{if($8>262143)printf "%s %12.f %3s\n",$0,($8*c)/1073741824/1024," tib";else printf "%s %12.f %3s\n",$0,($8*c)/1073741824," gib"}' && printit 30
 echo
+#pvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" 'NR==1||$2==a'
+#[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" -v b="$lvx" 'NR==1||$2==a&&$1==b'
 }
 
 
@@ -1523,12 +1526,13 @@ lvfreesize=$2
 lvsizechk=$(awk -v a="$lvfreesize" -v b="$sizeusergib" 'BEGIN{if(a>=b)print "OK"}')
 }
 
+pesizex() {
+if [ ! -z "$vgx" ] ; then
+echo "VG bilgisi bulunamadi !! "
+errormsg
+fi
 
-pesizechk() {
-###Pe size ( Physical Extent ) most default : 4MiB
-pesizeunit="Mib"
-pesizemibx=$(vgdisplay $vgx|grep "PE Size"|awk '{print $NF}')
-
+pesizemibx=$(vgdisplay "$vgx"|grep "PE Size"|awk '{print $NF}')
 case $pesizemibx in
 GB|GiB)pesizemib=$(vgdisplay $vgx|grep "PE Size"|awk '{print $(NF-1)/1024}')
 ;;
@@ -1542,7 +1546,13 @@ B)pesizemib=$(vgdisplay $vgx|grep "PE Size"|awk '{print $(NF-1)*1024*1024}')
 errormsg
 ;;
 esac
+fi
+}
 
+pesizechk() {
+###Pe size ( Physical Extent ) most default : 4MiB
+pesizeunit="Mib"
+pesizex
 
 ###sizeusergib = gib cinsinden
 if [ ! -z "$size" ] ; then
