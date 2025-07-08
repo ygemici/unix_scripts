@@ -1527,7 +1527,7 @@ lvsizechk=$(awk -v a="$lvfreesize" -v b="$sizeusergib" 'BEGIN{if(a>=b)print "OK"
 }
 
 pesizex() {
-if [ ! -z "$vgx" ] ; then
+if [ -z "$vgx" ] ; then
 echo "VG bilgisi bulunamadi !! "
 errormsg
 fi
