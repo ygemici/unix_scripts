@@ -1565,7 +1565,7 @@ echo
 [ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a' && printit 30
 [ -z "$pesizemib" ] && pesizex
 
-[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" -v c="$pesizemib" 'NR==1{print;next}$2==a&&$9==b{if($8>262143)printf "%s %12.f %3s\n",$0,($8*c)/1048576," tib";else printf "%s %12.f %3s\n",$0,($8*c)/1048576," gib"}' && printit 30
+[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" -v c="$pesizemib" 'NR==1{print;next}$2==a&&$9==b{if($8>262143)printf "%s %12.f %3s\n",$0,($8*c)/1048576," ->> tib";else printf "%s %12.f %3s\n",$0,($8*c)/1048576," ->> gib"}' && printit 30
 echo
 #pvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" 'NR==1||$2==a'
 #[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" -v b="$lvx" 'NR==1||$2==a&&$1==b'
