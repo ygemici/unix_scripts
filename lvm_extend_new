@@ -1565,7 +1565,7 @@ echo
 [ ! -z "$lvx" ] && lvs -v --segments 2>/dev/null | awk -v a="$lvx" 'NR==1||$1==a' && printit 30
 [ -z "$pesizemib" ] && pesizex
 
-[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" -v c="$pesizemib" 'NR==1{print;next}$2==a&&$9==b{if($8>262143)printf "%s %s %2.f %s\n",$0," ->>",($8*c)/1048576," tib";else printf "%s %s %2.f %s\n",$0,($8*c)/1048576," ->> gib"}' && printit 30
+[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && pvs -v --segments 2>/dev/null | awk -v a="$vgx" -v b="$lvx" -v c="$pesizemib" 'NR==1{print;next}$2==a&&$9==b{if($8>262143)printf "%s %s %2.f %s\n",$0," ->> ",($8*c)/1048576,"tib";else printf "%s %s %2.f %s\n",$0," ->> ",($8*c)/1024,"gib"}' && printit 30
 echo
 #pvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" 'NR==1||$2==a'
 #[ ! -z "$vgx" ] && [ ! -z "$lvx" ] && lvs -o+lv_layout,stripes,devices,size | awk -v a="$vgx" -v b="$lvx" 'NR==1||$2==a&&$1==b'
@@ -1973,7 +1973,7 @@ mpcheck() {
 if [ ! -d "/$mp" ] ; then
 echo "[/$mp] dizini bulunamadi !! "
 sleep 1
-mkdir -v /$mp
+mkdir -p -v /$mp
 errchk $? "mkdir"
 echo "[/$mp] MP dizini olusturuldu [OK] "
 else
@@ -1995,11 +1995,13 @@ errormsg
 fi
 
 #echo "$lvx"|grep -i "^lv" &>/dev/null
-mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//' -e 's/[_-]/\//g')
+#mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//' -e 's/[_-]/\//g')
+mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//')
 
 if [ -z "$mp" ] ; then
 #echo "$vgx"|grep -i "^vg" &>/dev/null
-mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//' -e 's/[_-]/\//g')
+#mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//' -e 's/[_-]/\//g')
+mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//')
 fi
 
 if [ -z "$mp" ] ; then
@@ -2803,7 +2805,7 @@ sleep 3
 [ ! -z "$size" ] && echo "->> [VG] olusturulurken [->size] bilgisi kullanilmasi desteklenmiyor !! " && echo && sleep 2
 vgcreate "$vgx" "$devdisk" ; errchk $? "vgcreate"
 if [ $? -eq 0 ] ; then
-echo "['$vgx'] isminde YENI bir [VG] olusturuldu [OK] "
+echo "['$vgx'] isminde YENI bir [VG] olusturuldu .. [OK] "
 #artik YENI disk alani Free VG alanina dahil edildi..
 sleep 1
 else
