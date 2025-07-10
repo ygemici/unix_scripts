@@ -2251,7 +2251,7 @@ islvsok=$(lvs|awk -v a="$lvx" -v b="$vgtolx" 'NR>1&&$1==a&&$2==b{print $1}')
 
 case $2 in
 "ext") if [ ! -z "$islvsok" ] ; then
-echo "-> [LV] ismi olarak [$islvsok] [LV] bilgisi kullanilacak.. [OK] "
+echo "-> [LV] ismi olarak [$islvsok] [LV] bilgisi kullanilacak .. [OK] "
 sleep 2
 
 else
@@ -2260,7 +2260,7 @@ lvcount=$(lvs|awk -v a="$vgtolx" '$2==a{x++}END{print x}')
 if [ ! -z "$lvcount" ] ; then
 if  [ $lvcount -eq 1 ] ; then
 lvx=$(lvs|awk -v a="$vgtolx" '$2==a{print $1}')
-echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
+echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak .. [OK] "
 elif [ $lvcount -gt 1 ] ; then
 echo "[$vgtolx] [VG] uzerinde birden fazla [ $(echo $(lvs|awk -v a="$vgtolx" '$2==a{print $1}')) ] [LV] device tespit edildi !! "
 echo "[LV] bilgisinin parametre olarak girilmesi gerekiyor .. !! "
@@ -2278,7 +2278,7 @@ fi
 echo "[LV] bilgisi olarak kullanilan [$islvsok] [LV] device zaten mevcut !! "
 errormsg
 else
-echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak.. [OK] "
+echo "[LV] bilgisi olarak [$lvx] [LV] bilgisi kullanilacak .. [OK] "
 sleep 2
 fi
 ;;
