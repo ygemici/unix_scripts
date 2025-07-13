@@ -41,7 +41,7 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # new bilgisi verilmise ilgili diskin yeni bir disk oldugu ve ilgili VG icin extend islemlerinin yapılacagi varsayilacaktir..
 # new bilgisi ile yeni bir LV device 'size' buyuklugunde olusturulabilir..
 
-# not : sdb -> sdb2 gibi partition bilgileri duzenlemek icin "cloud-utils-growpart" cinde yer alan growpart uygulamasi kullanilmalidir"
+# not : sdb -> sdb2 gibi partition bilgileri duzenlemek icin "cloud-utils-growpart" icinde yer alan growpart uygulamasi kullanilmalidir"
 
 # not : Sisteme yeni eklenilen bir diskin var olan bir VG icine eklenmesi asamasi 2 adimda yapilabilir :
 # ./$0 [sdxx] [VG] [LV] [new] && ./$0 [sdxx] [VG] [LV] [ext]
@@ -53,8 +53,8 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # [ stripe disk count , stripe size ... ]
 
 ### exs ( 4 x stripes and a stripe size 128 KB )
-# -> [pvcreate /dev/sda1 /dev/sdb1 /dev/sdc1 ]
-# -> [vgcreate vgdata /dev/sda1 /dev/sdb1 /dev/sdc1]
+# -> [pvcreate /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1 ]
+# -> [vgcreate vgdata /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1 ]
 # -> [lvcreate -l 100%FREE -i4 -I128 -n lvdata vgdata]
 # -> [mkfs.xfs /dev/mapper/vgdata-lvdata] "
 # https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/logical_volume_manager_administration/stripe_create_ex#stripe_create_ex
