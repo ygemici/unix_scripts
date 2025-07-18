@@ -3358,6 +3358,7 @@ diskc=$pvsc
 
 until [ $diskc -lt 1 ] ; do
 eval v=\${$disks}
+v=$(echo "$v"|sed 's;/dev/;;')
 [[ -z "${stripedisks[@]}" ]] && stripedisks="$v" || stripedisks=(${stripedisks[@]} $v)
 ((diskc--))
 ((disks++))
