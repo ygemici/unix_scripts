@@ -1612,6 +1612,7 @@ op=$1 #( ext/new)
 if [ ! -z "$2" ] ; then
 case "$2" in
 striped)for pvdskdev in ${stripedisks[@]}; do
+disk="$pvdskdev"
 pvresizex "$op"
 done
 ;;
