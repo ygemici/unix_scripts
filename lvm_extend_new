@@ -2821,7 +2821,7 @@ else
 ##VG bilgisi varsa
 
 ##ayni VG birden fazla disk uzerinde bilgilendirmesi
-vgdsks=$(pvs 2>/dev/null|grep "$vgx"|awk 'END{print NR}')
+vgdsks=$(pvs 2>/dev/null|awk -va="$vgx" '$2==a'|awk 'END{print NR}')
 if [[ "$vgdsks" -gt 1 ]] ; then
 pvsdsks=$(pvs 2>/dev/null|grep "$vgx"|awk '{sub("/dev/","",$1);print $1}')
 echo "[$vgx] ismindeki [VG] bilgisi birden fazla disk " [ $pvsdsks ] "uzerinde tanimli gorunuyor .. "
