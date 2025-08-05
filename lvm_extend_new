@@ -2682,7 +2682,7 @@ echo "-> [$vgx] [VG] extend islemleri [ext] parametresi ile yapildigi icin [$lvx
 sleep 2
 echo "-> [$vgx-$lvx] device extend islemleri icin [ext] parametresi kullanarak lutfen tekrar calistirin .. "
 echo
-echo "[$0 $disk $vgx [LV] ext] komutu ile ilgili [VG] extend edebilirsiniz.. "
+echo "[$0 $disk $vgx $lvx ext] komutu ile ilgili [VG] extend edebilirsiniz.. "
 
 printit 50
 sleep 2
