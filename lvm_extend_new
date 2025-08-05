@@ -1914,7 +1914,7 @@ lvmdev="$1"
 if [ ! -b "$lvmdev" ] ; then
 echo "[$lvmdev] [LV] device bulunamadi !! "
 echo
-echo "-> [LV] device bilgisini elle girmeniz gerekiyor !!! "
+[ -z "$lvx" ] && echo "-> [LV] device bilgisini elle girmeniz gerekiyor !!! "
 sleep 1
 errormsg
 fi
