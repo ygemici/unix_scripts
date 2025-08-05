@@ -2668,8 +2668,12 @@ sleep 3
 printit 40
 echo "->> [$vgx] [VG] icin [$lvx] isminde bir [LV] device zaten mevcut durumda !! "
 echo
+sleep 2
+echo "->>> Mevcut [$lvx] LV device i silip tekrardan ayni komut calistirmayi deneyebilirsiniz !!! "
 printit 40
-sleep 3
+sleep 2
+echo
+
 
 # new ile sadece yeni VG/LV ler olusturulabilir. extend islemleri icin ext kullanilmasi zorunlu !!
 if [ ! -z $vgextendok ] && [ $vgextendok -eq 1 ] ; then
