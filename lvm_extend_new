@@ -1996,13 +1996,13 @@ errormsg
 fi
 
 #echo "$lvx"|grep -i "^lv" &>/dev/null
-#mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//' -e 's/[_-]/\//g')
-mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//')
+mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//' -e 's/[_-]/\//g')
+#mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//')
 
 if [ -z "$mp" ] ; then
 #echo "$vgx"|grep -i "^vg" &>/dev/null
-#mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//' -e 's/[_-]/\//g')
-mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//')
+mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//' -e 's/[_-]/\//g')
+#mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//')
 fi
 
 if [ -z "$mp" ] ; then
