@@ -2612,7 +2612,7 @@ esac
 lvrecheck() {
 ##lvx LV kontrolleri
 lvx="$1"
-lvc=$(lvs |grep "$lvx "|awk '{print $1}')
+lvc=$(lvs|awk -v a="$vgx" -v b="$lvx" '$1==b&&$2==a')
 if [ -z "$lvc" ] ; then
 
 case $3 in
