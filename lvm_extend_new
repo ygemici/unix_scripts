@@ -13,7 +13,7 @@
 
 #04-12-2023 # [new] parametresi gelistirildi.. xfs/ext4 mkfs destegi..
 
-#24-01-2025 # striped VG ler icin [ext] parametresi destegi eklendi..
+#01-24-2025 # striped VG ler icin [ext] parametresi destegi eklendi..
 #29-06-2025 # nvme disk extend desteği eklendi..
 
 #08-11-2025 # striped VG ler icin [new] parametresi destegi eklendi..
@@ -4040,19 +4040,23 @@ pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{print $(NF-1)
 #vgx_layout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{a[$2]}END{for(i in a)print i}')
 vgx_layout=$(pvdisplay "${disk_layout_dev}"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
 elif [ $pvslc -gt 1 ] ; then
-echo "[$disk_layout_dev] birden fazla segment iceriyor olabilir [INFO] "
+echo "-> [$disk_layout_dev] birden fazla segment iceriyor olabilir [INFO] "
 printit 40
 pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{a[$(NF-1)]++}END{for(i in a)print i}')
 pvs "${disk_layout_dev}" -v --segments
 vgx_layout=$(pvdisplay "${disk_layout_dev}"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
 pvlayoutc=$(echo "$pvlayout"|awk 'END{print NR}')
 if [ $pvlayoutc -gt 1 ] ; then
-echo "[$disk] diskinde birden fazla Layout bilgisi tespit edildi ?? "
+echo
+echo "-> [$disk] diskinde birden fazla Layout bilgisi tespit edildi [WARN] "
+echo "-> [$disk] diskinde henuz bir [LV] device atanmamis Free Alan olabilir [INFO] "
+sleep 1
+pvlayout=$(vgs "$vgx_layout" -o+lv_layout | awk 'NR>1{print $NF}')
 fi
 printit 50
 pvs "${disk_layout_dev}" -o+lv_layout,stripes
 printit 50
-[[ "$pvlayout" = "unknown" ]] && echo "[$disk_layout_dev] disk alani tamami kullanilmamis olabilir !!! "
+[[ "$pvlayout" = "unknown" ]] && echo "[$disk_layout_dev] disk alaninin tamami kullanilmamis olabilir !! "
 fi
 
 ###
