@@ -1250,15 +1250,9 @@ fi
 
 
 
-###============================###
-###Mevcut Free LV alan kontrolleri
-###============================###
-#freevggib=$(vgs|grep "$vgx "|awk '$NF=="0"{print $NF;exit}$NF~/k/||/m/{print "0";exit}$NF~/t/{x=$NF*1024;sub(/.$/,"",x)}$NF~/g/{x=$NF;sub(/.$/,"",x)}$NF~/</{x=$NF;sub("<","",x)}{printf "%0.2f\n",x}' )
-
-
-
-## Sadece 0.1 Gib(1024 Mib ?) a kadar Free alan icin islem yapilabilir.. ->> [m$]
-freevgsize=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~"m$"{exit}$NF~/</{sub("<","",$NF)}{print $NF}')
+## IPTAL -> Sadece 0.1 Gib(1024 Mib ?) a kadar Free alan icin islem yapilabilir.. ->> [m$]
+freevgsize=$(vgs "$vgx"|awk 'NR>1'|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}{print $NF}')
+#freevgsize=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~"m$"{exit}$NF~/</{sub("<","",$NF)}{print $NF}')
 #freevgsize=$(vgs "$vgx"|awk 'END{if($NF=="0"){exit};if($NF~/</){sub("<","",$NF)}print $NF}')
 
 freevggib=$(vgs --units g "$vgx"|awk 'END{if($NF=="0g"||$NF=="0G"){exit};if($NF~/</){sub("<","",$NF)};sub(".$","",$NF);print $NF}')
@@ -1271,6 +1265,8 @@ freevggib2=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}$NF~/k|
 else
 freevggib2=$freevggib
 fi
+
+[[ ! -z "$freevggib2" ]] && freevggib=$freevggib2
 
 #isfree=$(awk -v n1="$freevggib" -v n2="0.1" 'BEGIN {(n1>n2 ? x="ok" : x="notok");print x }')
 
@@ -1433,6 +1429,8 @@ sleep 2
 
 
 else
+echo xx $usersizechange xx $usersize
+exit
 echo
 printit 50
 echo "->> [$vgx] [VG] icinde (Free LV) alan bulunamadi !! "
@@ -2976,6 +2974,7 @@ case "$2" in
 ### LV parametresi yoksa
 if [ -z "$lvx" ] ; then
 echo "[$vgx] ismindeki [VG] kullanilarak [ext/extend] islemlerine devam edilecek ... "
+printit 40
 echo
 echo -e "-> [lvextend] islemlerini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
 sleep 3
