@@ -9,12 +9,14 @@
 ############ # pvs ciktisi default "G"(gigabyte) formatinda geliyor !!
 
 #22-08-2023 # [new] parametresi gelistirildi..
-#24-08-2023 # bazı düzeltmeler ve gelistirmeler yapıldı.. ( 1 GB (0.1 GB e kadar) altındaki alan extend ozelligi vs .. )
+#24-08-2023 # bazı düzeltme ve gelistirmeler yapıldı.. ( 1 GB (0.1 GB e kadar) altındaki alan extend ozelligi vs .. )
 
 #04-12-2023 # [new] parametresi gelistirildi.. xfs/ext4 mkfs destegi..
 
 #01-24-2025 # striped VG ler icin [ext] parametresi destegi eklendi..
 #29-06-2025 # nvme disk extend desteği eklendi..
+
+#08-11-2025 # striped VG ler icin [new] parametresi destegi eklendi..
 
 
 printit() {
@@ -23,7 +25,7 @@ awk -v a="$1" 'BEGIN{$a=OFS="-";print $0;}';
 
 help() {
 printit 40
-echo "LV disk extend uygulamasi"
+echo "Yucel Gemici - LV disk extend uygulamasi"
 printit 40
 echo "Ornek kullanim : ./$0 [sdxx] [VG] [ext] (s='size') "
 
@@ -65,7 +67,9 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 # ./$0 [sdb] [sdc] [sdd] [sde] [VG_striped] [ext]
 
 # Stripe disk extend islemlerinde ayni sayida x disk bilgisi ( ör: "4" ) ve aktif bir [VG-striped] bilgisi zorunludur. !!
-echo "Ornek kullanim : ./$0 [sdxx1] [sdxx2] [sdxx3] [sdxx4] [VG_striped] [ext] "
+echo "Ornek kullanim : ./$0 [sdxx1] [sdxx2] [sdxx3] [sdxx4] [VG_striped] [[s]triped] [ext] "
+
+echo "Ornek kullanim : ./$0 [sdxx1] [sdxx2] [sdxx3] [sdxx4] [VG_striped] [[s]triped] [new] "
 
 printit 40
 }
@@ -104,8 +108,12 @@ echo
 }
 
 
+
+
+
+
+
 pvfscheck() {
-echo
 pvcreteis=0
 [ ! -z "$1" ] && [ $1 == "new" ] && pvcreteis=1 || pvcreteis=0
 printit 30
@@ -125,7 +133,7 @@ sleep 3
 echo -e "\n-> [pvcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! "
 printit 30
 sleep 3
-[ $pvcreteis -eq 1 ] && pvcreatex "$devdisk" || echo "[pvcreate] islemleri [ext] mode da yapilamiyor !! "
+[ $pvcreteis -eq 1 ] && pvcreatex || echo "[pvcreate] islemleri [ext] mode da yapilamiyor !! "
 echo
 ;;
 *)echo "[$disk] diski uzerinde bir filesystem bilgisi olabilir !! "
@@ -145,17 +153,33 @@ vgdsk=$(pvdisplay "$devdisk" 2>/dev/null|awk '/VG Name/{print $3}')
 ###pvs den VG bulma
 vgchkf=$(echo "$vgdsk"|awk 'END{print NR}')
 if [ "$vgchkf" -ne 1 ] ; then
-echo "[$disk] diski uzerinde birden fazla [VG] bulundu ? LVM konfigurasyonunda yada uygulamada bir sorun olabilir !! "
+echo "[$disk] diski uzerinde birden fazla [VG] bulundu ??"
+echo "LVM konfigurasyonunda yada uygulamada bir sorun olabilir !! "
+sleep 2
 errormsg
 fi
-[ -z "$vgx" ] && vgx="$vgdsk"
+
+if [ -z "$vgx" ] ; then
+vgx="$vgdsk"
+else
+
+###vgx ilk kontrol !!! ###
+##  Name contains invalid character, valid set includes: [a-zA-Z0-9.-_+].
+vgx_chars=$(echo "$vgx" |grep -o .|grep -v -e '[a-z]' -e '[A-Z]' -e '[0-9]' -e '[-_+]' -e '\.')
+if [[ ! -z "$vgx_chars" ]] ; then
+echo "Girilen VG bilgisi [$vgx] gecersiz karakterler iceriyor gibi gorunuyor ->> " [ $vgx_chars ]
+sleep 1
+errormsg
+fi
+fi
+
 
 #pvgc=$(pvs "$devdisk"|awk 'NR>1{if(NF==5)print "";else print $2}')
 #pvc=$(pvs |grep "/$disk "|awk '{print $2}')
 
 pvccheck;
 
-case $1 in
+case "$1" in
 
 "new")
 if [ -z "$pvc" ] ; then
@@ -181,9 +205,10 @@ echo "Bu durumda [$vgx] [VG] kullanilarak YENI bir [LV] olusturulacak ... "
 echo
 sleep 1
 else
-echo "->> [$disk] diski uzerinde [$vgdsk] isminde zaten bir [VG] mevcut !! "
+pvlayout=$(pvs -o+lv_layout,stripes|awk -v a="$vgdsk" 'a==$2{print $(NF-1);exit}')
+echo "-> [$disk] diski uzerinde [$vgdsk] isminde *[VG-${pvlayout}] yapida zaten bir [VG] mevcut !! "
 #echo "[$disk] diski uzerinde [$vgx] isminde YENI bir [VG] olusturulacak ... "
-echo "Ayni disk uzerinde birden fazla [VG] olusturulamaz !!! "
+echo "-> Ayni disk uzerinde birden fazla [VG] olusturulamaz. [FAIL] "
 sleep 2
 errormsg
 fi
@@ -198,18 +223,28 @@ fi
 if [ -z "$pvc" ] ; then
 pvfscheck
 printit 30
-[ $ispvalready -ne 1 ] && echo "[./$0 $disk VG (LV) new] komutu ile yeni bir [PV] olusturabilirsiniz.. "
+[[ $ispvalready -ne 1 ]] && echo "[./$0 $disk VG (LV) new] komutu ile yeni bir [PV] olusturabilirsiniz.. "
 errormsg
 fi
 
-
 vgdskn=$(pvdisplay "$devdisk" 2>/dev/null|awk '/VG Name/{print $3}')
 if [ "$vgdskn" != "$vgx" ] ; then
-echo
+if [ -b "$vgx" ] ; then
+echo "[VG] bilgisi icin girilen deger [$vgx] bir disk device olarak gorunuyor !! "
+errormsg
+else
+if [ -b "/dev/$vgx" ] ; then
+echo "[VG] bilgisi icin girilen deger [$vgx] bir disk device olarak gorunuyor !! "
+errormsg
+fi
+fi
+
 echo "[$disk] diski uzerinde [$vgx] isminde bir [VG] bilgisi bulunamadi !!! "
 sleep 1
 vguess "$devdisk"
 fi
+
+
 if [ "$vgdskn" != "$vgx" ] ; then
 echo
 echo "[$disk] diski uzerinde [$vgx] isminde bir [VG] bilgisi bulunamadi !!!! "
@@ -222,21 +257,26 @@ esac
 
 
 vgscheck() {
-case $2 in
-"disk") if [ ! -z "$vgc" ] ; then
-echo "[$disk] zaten bir VG [$vgc] icinde gorunuyor !! "
-echo "[$disk] diski icin size extend islemi uygulanmak isteniyorsa [new] parametresi kullanMAdan uygulamayi calistirabilirsiniz.. !! "
+vgc="$1"
+if [[ -b "/dev/$vgc" ]] ; then
+echo "[VG] olarak verilen parametre [$vgc] degeri sistem uzerinde bir disk device olarak gorunuyor .. !! [FAIL] "
 errormsg
 fi
-;;
+
+case "$2" in
+#"ext") if [ ! -z "$vgc" ] ; then
+#echo "[$disk] zaten bir VG [$vgc] icinde gorunuyor !! "
+#echo "[$disk] diski icin size extend islemi uygulanmak isteniyorsa [new] parametresi kullanMAdan uygulamayi calistirabilirsiniz.. !! "
+#errormsg
+#fi
 "new") vgcc=$1
-isanothervg=$(pvs|awk -v a=$vgcc '$2==a{print $1}'|grep -v $disk)
+isanothervg=$(pvs|awk -v a=$vgcc '$2==a{print $1}'|grep -v $devdisk)
 if [ ! -z "$isanothervg" ] ; then
 isanothervgc=$(echo "$isanothervg"|awk 'END{print NR}')
 [[ $isanothervgc -gt 1 ]] && mess1="diskler" || mess1="disk"
 echo "[$vgcc] isimli [VG] zaten asagidaki $mess1 uzerinde tanimli gorunuyor !! "
 printit 40
-echo "->> $isanothervg"
+echo "$isanothervg"
 printit 40
 sleep 3
 fi
@@ -478,18 +518,20 @@ growpartmsg() {
 if [ $growpartprint -ne 1 ] ; then
 freerawgib=$1
 diskprt=$(echo "$disk"|sed 's/[^0-9]*//g')
+[[ "$diskother" = "ok" ]] && diskprt=$(echo "$disk"|sed 's/.*p\([0-9]*\)$/\1/')
 echo
 printit 70
-if [ $freeraw_new -eq 1 ] ; then
-[ $freeraw_old -eq 1 ] && FREE_RAW="Yeni ve Mevcut" || FREE_RAW="Yeni"
+if [[ $freeraw_new -eq 1 ]] ; then
+[[ $freeraw_old -eq 1 ]] && FREE_RAW="Yeni ve Mevcut" || FREE_RAW="Yeni"
 else
-[ $freeraw_old -eq 1 ] && FREE_RAW="Mevcut"
+[[ $freeraw_old -eq 1 ]] && FREE_RAW="Mevcut"
 fi
-[ ! -z "$diskdevx" ] && grow_devdisk="$diskdevx" || grow_devdisk="$devdisk"
-[ ! -z "$freerawgib" ] && \
+[[ -z "$FREE_RAW" ]] && FREE_RAW="Mevcut"
+[[ ! -z "$diskdevx" ]] && grow_devdisk="$diskdevx" || grow_devdisk="$devdisk"
+[[ ! -z "$freerawgib" ]] && \
 echo "[ growpart $grow_devdisk $diskprt ] komutu ile bu ( $freerawgib Gib ) $FREE_RAW RAW alani [$disk] partitiona aktarmayi deneyebilirsiniz .. " || \
 echo "[ growpart $grow_devdisk $diskprt ] komutu ile bu $FREE_RAW RAW alani [$disk] partitiona aktarmayi deneyebilirsiniz .. "
-echo "[ growpart shell script ] dosyasi [ cloud-utils-growpart paketi ] icinde yer almaktadir !! "
+echo "[ growpart shell script ] dosyasi [ cloud-utils-growpart ] paketi icinde yer almaktadir !! "
 #growpart_menu
 printit 70
 growpartprint=1
@@ -567,7 +609,8 @@ freeraw_new=0
 
 printit 50
 
-[[ "$diskother" = "ok" ]] && diskchk=$diskdx
+[[ "$diskother" = "ok" ]] && diskchk=$diskdx && diskdev=$diskdx
+
 echo "[$diskchk] diski icin YENI bir (Free RAW) alan bulunamadi !!"
 printit 50
 sleep 2
@@ -576,11 +619,9 @@ echo
 fi
 
 ### Eger PV disk , partition device ise MEVCUT(daha onceden eklenmis ama kullanilmamis ) kullanilabilir Free RAW alan aranir..
-if [ "$isdisk" = "part" ] ; then
-diskdevx=/dev/$diskdev
+#if [ "$isdisk" = "part" ] ; then
+diskdevx="$devdisk"
 
-#Disk
-#diskdevx=$devdisk
 
 printit 50
 echo "[$disk] diski icin daha onceden eklenmis MEVCUT (Free RAW) alan kontrolu yapiliyor .. "
@@ -599,7 +640,7 @@ freeszchkgb=$(awk -v a="$freeszgb" 'BEGIN{if(a>=1024)printf "%0.2f",a/1024}')
 if [ ! -z "$freeszgib" ] ; then
 [ ! -z "$freeszchkgib" ] && echo "[$diskdev] diski ile [$disk] arasinda [ $freeszchkgib Tib ( $freeszchkgb TB ) ] buyuklugunde bir FARK tespit edildi .. " || echo "[$diskdev] diski ile [$disk] arasinda [ $freeszgib Gib ( $freeszgb GB ) ] buyuklugunde bir FARK tespit edildi .. "
 echo "->> Bu alanin [$disk] icin kullanilabilir olup olmadigini kontrol edin ... "
-growpartmsg;
+growpartmsg "$freeszgib"
 sleep 1
 free_othersgib=$(lsblk -b $diskdevx|grep "$diskdev"|grep -v "$diskdev "|grep -v "$disk "|awk '{x+=$4}END{printf "%.2f",x/1073741824}')
 free_remaingib=$(awk -v a="$free_othersgib" -v b="$freeszgib" 'BEGIN{if(b>a)print b-a}' )
@@ -629,7 +670,7 @@ sleep 2
 
 ##1 GB dan kucuk Free alanlar goz ardi edilir
 freeforgibp=$(parted -s $diskdevx unit B print free 2>/dev/null|awk '/Free/{x=$3;if(x>1073741824)sx+=x}END{printf "%0.2f",sx/1073741824}')
-freerawgibp=$(awk -v a="$isfreeforgibp" 'BEGIN{if(a>1)print "OK"}')
+freerawgibp=$(awk -v a="$freeforgibp" 'BEGIN{if(a>1)print "OK"}')
 
 fi
 
@@ -646,6 +687,8 @@ sleep 2
 
 ##1 GB dan kucuk Free alanlar goz ardi edilir
 freeforgibl=$(lsblk -b $diskdevx|awk '/ 8:/{if(NR==2)s=$4;else sx+=$4}END{x=s-sx;if(x>1073741824)printf "%0.2f",x/1073741824}')
+##diskother -> nvme MAJOR -> 259
+[[ "$diskother" = "ok" ]] && freeforgibl=$(lsblk -b $diskdevx|awk '/ 259:/{if(NR==2)s=$4;else sx+=$4}END{x=s-sx;if(x>1073741824)printf "%0.2f",x/1073741824}')
 freerawgibl=$(awk -v a="$isfreeforgibl" 'BEGIN{if(a>1)print "OK"}')
 
 fi
@@ -657,7 +700,7 @@ else
 echo "[$disk] diski icin MEVCUT bir (Free RAW) alan bulunamadi !!"
 echo
 fi
-fi
+
 
 
 #### PV disk - RAW disk farki ####
@@ -713,6 +756,8 @@ freeszchkgb=$(awk -v a="$freeszgb" 'BEGIN{if(a>=1024)printf "%0.2f",a/1024}')
 [ ! -z "$freeszchkgib" ] && echo "[$diskf] diskinde [ $freeszchkgib Tib ( $freeszchkgb TB ) ] lik bir (Free RAW) alan bulunuyor.." || echo "[$diskf] diskinde [ $freeszgib Gib ( $freeszgb GB ) ] lik bir (Free RAW) alan bulunuyor.."
 
 diskprt=$(echo "$disk"|sed 's/[^0-9]//g')
+[[ "$diskother" = "ok" ]] && diskprt=$(echo "$disk"|sed 's/.*p\([0-9]*\)$/\1/')
+
 printit 30
 echo "'growpart $devdisk $diskprt' komutu ile bu Free alani [$disk] partitiona aktarip bu alani da kullanabilirsiniz .. "
 echo "'growpart shell script i 'cloud-utils-growpart' paketi icinde yer almaktadir !! "
@@ -726,6 +771,7 @@ echo
 fi
 }
 
+
 partsizechk() {
 partedchk;
 partdisk="$1"
@@ -738,6 +784,7 @@ echo
 fi
 }
 
+
 diskpartscan() {
 diskd="$1"
 
@@ -748,26 +795,22 @@ diskchk=$(echo "$diskd"|grep 'sd'|sed 's/[0-9]*$//')
 fi
 
 
-#mapper
-echo "$devdisk"|grep 'mapper' &>/dev/null
+#mpath(friendly_names) mapper_to_dm
+echo "$devdisk"|grep 'mapper'|grep -v 'mpath' &>/dev/null
 if [ $? -eq 0 ] ; then
 diskchk=$(ls -ltr "$devdisk"|sed 's/.*mapper.* .*\/\(.*\)/\1/')
 disk=$diskchk
 fi
 
 ##mpath
-echo "$diskd"|egrep '^dm-|^mpath*' &>/dev/null
+#echo "$diskd"|egrep '^dm-|^mpath*' &>/dev/null
+#echo "$devdisk"|egrep 'mapper' &>/dev/null
+echo "$devdisk"|grep -e '/dev/mapper/' -e '/dev/dm-' >/dev/null
 if [ $? -eq 0 ] ; then
-case "$diskd" in
-"^dm-")
-mpathx=$(ls -ltr /dev/mapper/|grep "$diskd"|sed 's/.*\(mpath.*\) ->.*/\1/')
-;;
-"^mpath*")
-mpathx=$(ls -ltr /dev/mapper/|grep "$diskd"|sed 's/.*mpath.* .*\/\(.*\)/\1/')
-;;
-esac
+mpathx=$(ls -ltr /dev/mapper/|grep " $diskd "|sed 's/.*\(dm-.*\)/\1/')
 diskchk="$mpathx"
 fi
+
 
 [[ "$diskother" = "ok" ]] && diskchk="$diskdx"
 
@@ -787,49 +830,108 @@ partsizechk_pre $diskscan
 rawsizef=$rawsize_f
 }
 
-diskpartchk() {
-[[ "$diskother" = "ok" ]] && diskpartscan $diskdx || diskpartscan "$disk"
 
+multipath_new() {
+mpaths=$(multipath -l "$1"|sed -n '/:/{s/.*[^ ]*:[^ ]*:[^ ]*:[^ ]* \([^ ]*\) .*/\1/p}')
+#multipathd -k'resize map '$disk''
+multipathd resize map "$1"
+sleep 1
+printit 30
+for i in $mpaths; do
+echo "$i re-scanning .. " 
+echo 1 > /sys/block/$i/device/rescan
+done
+printit 30
+sleep 1
+systemctl restart multipathd
+#dmsetup reload map
+#systemctl reload multipathd
+sleep 1
+partsizechk "$2" 
+}
+
+
+diskpartchk() {
+mpath=0
+[[ "$diskother" = "ok" ]] && diskpartscan "$diskdx" || diskpartscan "$disk"
 if [ "$diskother" = "ok" ] ; then
 partscan "$devdisk"
 
 ###############
 echo 1 > /sys/block/$diskdx/device/rescan
-partsizechk $devdisk
+partsizechk "$devdisk"
 
 else
-
-
-#dm
-echo "$disk"|grep '^dm-' &>/dev/null
-if [ $? -eq 0 ] ; then
-partscan "$devdisk"
-isdisk=disk
-
-#dmsetup reload map
-systemctl reload multipathd
-#echo 1 > /sys/block/$disk/device/rescan
-partsizechk $devdisk
-fi
 
 
 #mpath
-echo "$disk"|grep '^mpath*' &>/dev/null
+#echo "$disk"|grep '^mpath*' &>/dev/null
+echo "$devdisk"|grep -e '/dev/mapper/' -e '/dev/dm-' &>/dev/null
 if [ $? -eq 0 ] ; then
-echo "$disk"|grep '[0-9]$' &>/dev/null
-if [ $? -ne 0 ] ; then
-partscan "$devdisk"
-isdisk=disk
+mpath=1
 
-#dmsetup reload map
-systemctl reload multipathd
-#echo 1 > /sys/block/$disk/device/rescan
-partsizechk $devdisk
-
+#mpath part check
+if [[ $lsblkok -eq 1 ]] ; then 
+part_check=$(lsblk -o NAME,TYPE -n -i -r "$devdisk" 2>/dev/null|awk 'NR==1'|grep part)
+[[ -z "$part_check" ]] && partscan "$devdisk" && isdisk=disk && mpathdsk=disk
 else
+which partprobe &>/dev/null
+if [ $? -eq 0 ] ; then
+part_check2=$(partprobe -d -s "$devdisk" 2>/dev/null)
+[[ ! -z "$part_check2" ]] && partscan "$devdisk" && isdisk=disk && mpathdsk=disk
+else
+echo "lsblk veya partprobe olmadan isleme devam edilemiyor !! "
+errormsg
+fi
+fi
 
-##part
-diskdev=$(echo $disk|sed 's/[0-9]\+//g')
+if [[ "$mpathdsk" = "disk" ]] ; then
+##mpath disk
+echo "$devdisk"|grep -e '/dev/mapper/' &>/dev/null
+if [ $? -eq 0 ] ; then
+dm_disk=$(ls -ltr "$devdisk"|sed 's;.*../\([^ ]*\);\1;')
+dm_disk_dev=$(echo "/dev/$dm_disk")
+multipath_new "$dm_disk_dev" "$devdisk"
+fi
+
+echo "$devdisk"|grep '/dev/dm-' &>/dev/null
+if [ $? -eq 0 ] ; then
+partscan "$devdisk"
+multipath_new "$devdisk" "$devdisk"
+fi
+
+
+##mpath part
+else
+##mpath part
+isdisk=part
+
+echo "$devdisk"|grep '/dev/dm-' &>/dev/null
+if [ $? -eq 0 ] ; then
+dm_part_id=$(echo "$disk"|sed 's;dm-;;')
+dm_disk_id=$(dmsetup ls --tree|grep -A1 ":$dm_part_id"\)|awk 'END{print}'|sed 's;.*:\([^ ]\)*);\1;')
+diskdev=$(echo "/dev/dm-$dm_disk_id")
+partscan "$devdisk"
+multipath_new "$diskdev" "$devdisk"
+else
+#mpath
+diskdev=$(echo "$disk"|sed 's/[0-9]\+//g')
+partscan "$devdisk"
+multipath_new "$diskdev" "$devdisk"
+fi
+
+fi
+
+fi
+
+
+###not mpath
+if [[ $mpath -ne 1 ]] ; then
+echo "$disk"|grep '[0-9]$' &>/dev/null
+if [ $? -eq 0 ] ; then
+
+##partition
+diskdev=$(echo "$disk"|sed 's/[0-9]\+//g')
 partscan "$devdisk"
 isdisk=part
 
@@ -837,45 +939,25 @@ isdisk=part
 echo 1 > /sys/block/$diskdev/device/rescan
 partsizechk "/dev/$diskdev"
 ###############
-fi
-fi
 
-#partprobe $devdisk
-##eger disk yerine partition bilgisi kullaniliyorsa free space in daha onceden bu partitiona aktarildigina EMIN olunmasi gerekiyor..
-
-
-##scsi disk
-echo "$disk"|egrep '^dm-|^mpath*' &>/dev/null
-if [ $? -ne 0 ] ; then
-echo "$disk"|grep '[0-9]$' &>/dev/null
-if [ $? -ne 0 ] ; then
-
+else
 ### disk size before scsi scan
 partscan "$devdisk"
 isdisk=disk
 
 ###############
 echo 1 > /sys/block/$disk/device/rescan
-partsizechk $devdisk
-###############
-
-else
-
-##partition
-diskdev=$(echo $disk|sed 's/[0-9]\+//g')
-partscan "$devdisk"
-isdisk=part
-
-###############
-echo 1 > /sys/block/$diskdev/device/rescan
-partsizechk "/dev/$diskdev"
+partsizechk "$devdisk"
 ###############
 
 fi
 fi
 
+#partprobe $devdisk
+##eger disk yerine partition bilgisi kullaniliyorsa free space in daha onceden bu partitiona aktarildigina EMIN olunmasi gerekiyor..
 fi
 }
+
 
 lvsizemib() {
 #sizelvmib=$(awk -v a="$sizexx" 'BEGIN{print a*1024}')
@@ -978,7 +1060,7 @@ sizeok=$(awk -v a=$sizedsk -v b=$sizepv_after 'BEGIN{if(a-b<=0.1)print "a-b"}')
 if [ -z "$sizeok" ] ; then
 echo
 printit 30
-if [ $freeraw_new -eq 1 ] || [ $freeraw_old -eq 1 ] ; then
+if [[ "$freeraw_new" -eq 1 ]] || [[ "$freeraw_old" -eq 1 ]] ; then
 echo "[pvresize] islemine ragmen (Free RAW) alan [PV] diskine aktarilamamis olabilir !!"
 echo "Eger (Free RAW) alan bulunmasina ragmen yeni disk size degeri sistem tarafindan taninmadiysa sistemin reboot edilmesi gerekiyor olabilir .. !! "
 printit 30
@@ -1119,7 +1201,7 @@ diskpartchk
 
 
 #### YENI FREE RAW alan varsa
-if [ "$freeraw_new" -eq 1 ] ; then
+if [[ "$freeraw_new" -eq 1 ]] ; then
 if [ "$isdisk" = "part" ] ; then
 growpartmsg
 
@@ -1138,7 +1220,7 @@ fi
 fi
 
 
-if [ "$freeraw_old" -eq 0 ] && [ "$freeraw_pvs" -eq 0 ] ; then
+if [[ "$freeraw_old" -eq 0 ]] && [[ "$freeraw_pvs" -eq 0 ]] ; then
 echo -e "\n-> [pvresize] asamasi pass geciliyor ... "
 printit 50
 sleep 1
@@ -1146,14 +1228,14 @@ fi
 
 
 #### PV disk ile Disk/Part arasinda Free RAW alan varsa
-if [ "$freeraw_pvs" -eq 1 ] ; then
+if [[ "$freeraw_pvs" -eq 1 ]] ; then
 disktopvresizechk
 fi
 
 
 
 #### MEVCUT FREE RAW alan yoksa
-if [ "$freeraw_old" -eq 1 ] ; then
+if [[ "$freeraw_old" -eq 1 ]] ; then
 
 #PV_Disk tarafina henuz aktarilmamis bir FREE RAW alan varsa
 if [ "$isdisk" = "part" ] ; then
@@ -1174,11 +1256,10 @@ fi
 #freevggib=$(vgs|grep "$vgx "|awk '$NF=="0"{print $NF;exit}$NF~/k/||/m/{print "0";exit}$NF~/t/{x=$NF*1024;sub(/.$/,"",x)}$NF~/g/{x=$NF;sub(/.$/,"",x)}$NF~/</{x=$NF;sub("<","",x)}{printf "%0.2f\n",x}' )
 
 
-freevgsize=$(vgs "$vgx"|awk 'END{if($NF=="0"){exit};if($NF~/</){sub("<","",$NF)}print $NF}')
 
-if [ -z "$freevgsize" ] ; then
-freevgsize=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}{print $NF}')
-fi
+## Sadece 0.1 Gib(1024 Mib ?) a kadar Free alan icin islem yapilabilir.. ->> [m$]
+freevgsize=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~"m$"{exit}$NF~/</{sub("<","",$NF)}{print $NF}')
+#freevgsize=$(vgs "$vgx"|awk 'END{if($NF=="0"){exit};if($NF~/</){sub("<","",$NF)}print $NF}')
 
 freevggib=$(vgs --units g "$vgx"|awk 'END{if($NF=="0g"||$NF=="0G"){exit};if($NF~/</){sub("<","",$NF)};sub(".$","",$NF);print $NF}')
 
@@ -1191,7 +1272,6 @@ else
 freevggib2=$freevggib
 fi
 
-## Sadece 0.1 Gib(102.4 Mib ?) a kadar Free alan icin islem yapilabilir..
 #isfree=$(awk -v n1="$freevggib" -v n2="0.1" 'BEGIN {(n1>n2 ? x="ok" : x="notok");print x }')
 
 if [ ! -z "$freevgsize" ] ; then
@@ -1358,10 +1438,11 @@ printit 50
 echo "->> [$vgx] [VG] icinde (Free LV) alan bulunamadi !! "
 printit 30
 echo
+#errormsg
 
 #if [ "$pvlayout" == "linear" ] ; then
 if [ "$1" = "ext" ] ; then
-echo "EXTEND(ext) islemleri yapilamiyor... !! "
+echo "EXTEND[ext] islemleri yapilamiyor... !! "
 if [[ "$growpartprint" -eq 1 ]] ; then
 echo
 echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
@@ -1374,7 +1455,7 @@ fi
 errormsg
 fi
 
-echo "CREATE(new) islemlerine devam ediliyor ... "
+echo "CREATE[new] islemlerine devam ediliyor ... "
 fi
 printit 70
 
@@ -1677,6 +1758,17 @@ echo
 printit 50
 echo "[Extend] islemi icin [$vgx] [VG] uzerinde yeterli buyuklukte alan bulunmuyor -> [ $freelvgib Gib < $sizeusergibshow Gib ] !! "
 printit 50
+
+if [[ "$growpartprint" -eq 1 ]] ; then
+echo
+echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
+sleep 2
+echo
+echo "[growpart] uygulamasi kullanilamiyor ise [fdisk] komutu ile [$disk] partitionu silip tekrardan olusturmaniz gerekiyor olabilir .... "
+echo
+sleep 2
+fi
+
 errormsg
 fi
 fi
@@ -1747,7 +1839,7 @@ printit 30
 sleep 1
 echo "-> [vgextend] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! "
 printit 30
-sleep 3
+sleep 2
 
 ispvsok=$(pvs "$vgextenddsk" 2>/dev/null|awk -v a="$vgx" '$2==a{print "OK"}')
 if [ -z "$ispvsok" ] ; then
@@ -1856,6 +1948,16 @@ echo
 echo "---------- FileSystem (ext) ----------"
 sleep 1
 printit 20
+
+mount_tmp=$(df -h |awk -va="$lvmmapperdev" '$1==a')
+if [[ -z "$mount_tmp" ]] ; then
+echo "[$lvmmapperdev] device icin aktif bir Mount bulunamadi !! "
+sleep 1
+mountx
+sleep 1
+fi
+
+
 case "$fst" in
 xfs|XFS) xfs_growfs "$lvmmapperdev" ; errchk $? "xfs_growfs"
 ;;
@@ -1912,9 +2014,9 @@ fi
 lvmdevcheck() {
 lvmdev="$1"
 if [ ! -b "$lvmdev" ] ; then
-echo "[$lvmdev] [LV] device bulunamadi !! "
+echo "[$lvmdev] [LV] device bulunamadi !!! "
 echo
-[ -z "$lvx" ] && echo "-> [LV] device bilgisini elle girmeniz gerekiyor !!! "
+echo "-> [LV] device bilgisini elle girmeniz gerekiyor !!! "
 sleep 1
 errormsg
 fi
@@ -1923,7 +2025,7 @@ fi
 
 devmapperchk() {
 mapperpath="/dev/mapper"
-
+[[ "$pvlayout" == "striped" ]] && vgx=$vgx_striped
 vgxnamechk "$vgx" ; lvxnamechk "$lvx"
 #lvmmapperdev="$mapperpath/$vgc-$lvc"
 lvmmapperdev="$mapperpath/$vgxtmp-$lvxtmp"
@@ -1996,13 +2098,13 @@ errormsg
 fi
 
 #echo "$lvx"|grep -i "^lv" &>/dev/null
-mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//' -e 's/[_-]/\//g')
-#mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//')
+#mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//' -e 's/[_-]/\//g')
+mp=$(echo "$lvx"|sed -e 's/^lv[_-]*\|^LV[_-]*//')
 
 if [ -z "$mp" ] ; then
 #echo "$vgx"|grep -i "^vg" &>/dev/null
-mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//' -e 's/[_-]/\//g')
-#mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//')
+#mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//' -e 's/[_-]/\//g')
+mp=$(echo "$vgx"|sed -e 's/^vg[_-]*\|^VG[_-]*//')
 fi
 
 if [ -z "$mp" ] ; then
@@ -2240,6 +2342,7 @@ vgcl=$(echo "$1"|awk 'END{print NR}')
 }
 
 vgtolv() {
+sleep 1
 vgtolx=$1
 #lvx=$(echo "$vgtolx"|sed 's/vg[-_]*\|VG[-_]*/-\*, -\*, -\*,/'|sed 's/-\*, -\*, -\*,/lv_/')
 lvx=$(echo "$vgtolx"|sed 's/vg\|VG\([-_]*\)\(.*\)/lv\1\2/')
@@ -2298,11 +2401,21 @@ pvdiskchk=$1
 vgchk=$2
 
 ## mpath
-echo "$disk"|grep 'dm-' >/dev/null
-if [ $? -eq 0 ] ; then
-mpathx=$(ls -ltr /dev/mapper/|grep $disk|sed 's/.*\(mpath.*\) ->.*/\1/')
-pvdiskchk="/dev/mapper/$mpathx"
-fi
+#echo "$disk"|grep -e 'dm-' -e mapper >/dev/null
+#if [ $? -eq 0 ] ; then
+#case "$disk" in
+#dm-*)mpathx=$(ls -ltr /dev/mapper/|grep "$disk"$|sed 's/.* \([^ ]*\) ->.*/\1/')
+#pvdiskchk="/dev/mapper/$mpathx"
+#;;
+#*mapper*) 
+#mpathx=$(ls -ltr /dev/mapper/|grep " $disk "|sed 's/.* \([^ ]*\) ->.*/\1/')
+#pvdiskchk="/dev/mapper/$mpathx"
+#;;
+#*)echo "Disk bilgisi erisim sirasinda bir sorun olustu !! "
+#errormsg
+#esac
+#fi
+
 
 vgnamex=$(pvdisplay "$devdisk" 2>/dev/null|awk '/VG Name/{print $3}')
 
@@ -2339,7 +2452,7 @@ lvcp=$(lvs -o +devices|awk -v a="$vgchk" -v b="$pvdiskchk" '{sub(/\(.*\)/,"",$NF
 [ -z "$lvcl" ] && lvcl=0
 if [ $lvcl -gt 1 ] ; then
 echo "[$disk] disk uzerinde birden fazla (x$lvcl) sayida [LV] device tespit edildi !! "
-echo "->>" [ $lvcp ]
+echo "->" [ $disk: $lvcp ]
 echo
 ##[ext] isleminde birden fazla LV varsa LV tahmini yapilamaz !!!
 if [ -z "$lvx" ] ; then
@@ -2380,7 +2493,7 @@ if [ $? -ne 0 ] ; then
 echo "[$disk] diskin bir PV disk olup olmadigini kontrol edin .. !! "
 echo
 echo "[$disk] diskin bir PV diski oldugundan eminseniz.. "
-echo "(PFree) alanindan [LV] icin size(LSize) atamasi yapildigini kontrol edip tekrar calistirin .."
+echo "(PFree) alanindan bir [LV] icin size(LSize) atamasi yapildigini kontrol edip tekrar calistirin .."
 printit 70
 [ ! -z "$ext" ] && errormsg
 fi
@@ -2389,23 +2502,34 @@ fi
 #VG bilgisi girilmemisse VG bilgisi tahmin etme
 if [ -z "$2" ] ; then
 #vgclc=$(vgs -o +devices|grep "$diskchk"\(|awk '{a[$1]=x++}END{print x}')
+
+##Ayni disk birden fazla VG ??##
 vgclc=$(vgs -o +devices |awk 'NR>1{print $1 FS $NF}'|grep "$diskchk"\(|awk '{if(!a[$1])a[$1]++}END{for(i in a)x+=a[i];print x}')
+[ -z "$vgclc" ] && vgclc=$(pvs -o +devices "$diskchk" |awk 'NR>1{a[$2]=x++}END{print x}')
 [ -z "$vgclc" ] && vgclc=0
-if [ $vgclc -eq 0 ] ; then
+
+if [ "$vgclc" -eq 0 ] ; then
 echo "[$disk] diski uzerinden bir [VG] bilgisi tahmin edilemedi !! "
 echo "[$disk] diski uzerinde gecerli en az bir [LV] device oldugudan emin olun !! "
-vgx=$(pvs|awk -v a="$diskchk" '$1==a{b[$2]}END{for(i in b);print i}')
-lvxc=$(lvs|awk -v a="$vgx" '$2==a{x++}END{if(!x){x=0;print x}}')
-echo "[$disk] diski uzerindeki [$vgx] [VG] uzerinde yer alan [LV] sayisi -> '$lvxc' "
+
+#vgx=$(pvs|awk -v a="$diskchk" '$1==a{b[$2]}END{for(i in b);print i}')
+vgx=$(pvs "$diskchk"|awk '/VG Name/{if($NF!="Name")print $NF}')
+[[ ! -z "$vgx" ]] && lvxc=$(lvs|awk -v a="$vgx" '$2==a{x++}END{if(!x){x=0;print x}}')
+[[ ! -z "$vgx" ]] && echo "[$disk] diski uzerindeki [$vgx] [VG] uzerinde yer alan [LV] sayisi -> '$lvxc' "
 echo
 errormsg
 elif [ $vgclc -gt 1 ] ; then
 echo "[$disk] diski uzerinde birden fazla [VG] bulundu. LVM konfigurasyonunda yada uygulamada bir sorun olabilir !! "
 errormsg
 elif [ $vgclc -eq 1 ] ; then
-vgdiskchk=$(pvs|awk -v a="$diskchk" '$1==a{print $2}')
+#vgdiskchk=$(pvs "$diskchk"|awk 'NR>1{print $2}')
+vgdiskchk=$(pvdisplay "$diskchk"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
+if [ -z "$vgdiskchk" ] ; then
+echo "[VG] bilgisi tespit edilemedi !!! "
+errormsg
+fi
 vgx=$vgdiskchk
-echo "->>[$disk] uzerinde [VG] bilgisi [$vgdiskchk] olarak tahmin edildi [OK] "
+echo "->> [$disk] uzerinde [VG] bilgisi [$vgdiskchk] olarak tespit edildi [OK] "
 echo
 sleep 3
 echo "[VG] bilgisi [$vgdiskchk] ile devam ediliyor ... "
@@ -2417,7 +2541,7 @@ sleep 1
 echo
 
 #LV tahmin
-lvguess $diskchk $vgx
+#lvguess $diskchk $vgx
 sleep 1
 fi
 
@@ -2425,6 +2549,7 @@ else
 [ -z "$lvx" ] && lvguess $diskchk $vgx
 fi
 }
+
 
 
 islvs() {
@@ -2437,7 +2562,8 @@ echo "->> [$lvx] isminde zaten bir [LV] device bulunuyor !! "
 sleep 1
 printit 20
 sleep 1
-echo "[LV] device bilgisi olarak [$lvx] ismi kullanilacak !! "
+echo "->> [LV] device bilgisi olarak [$lvx] ismi kullanilacak [INFO] "
+sleep 1
 islvsalready=1
 fi
 else
@@ -2477,6 +2603,17 @@ if [ -z "$lvsizechk" ] ; then
 echo "[LV-Create] islemi icin [$vgx] [VG] uzerinde yeterli buyuklukte alan bulunmuyor -> [ $freelvgib Gib < $sizeusergibshow Gib ] !! "
 #echo "[LV-Create] islemi icin [$vgx] [VG] uzerinde yeterli buyuklukte alan bulunmuyor -> [ $freelvgib Gib < $sizec ] !! "
 printit 50
+
+if [[ "$growpartprint" -eq 1 ]] ; then
+echo
+echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
+sleep 2
+echo
+echo "[growpart] uygulamasi kullanilamiyor ise [fdisk] komutu ile [$disk] partitionu silip tekrardan olusturmaniz gerekiyor olabilir .... "
+echo
+sleep 2
+fi
+
 errormsg
 else
 lvcreate -L ${sizec} -n $lvx $vgx
@@ -2515,7 +2652,8 @@ fi
 
 else
 echo "Daha onceden [vgextend] islemi yapildigi icin bu adimda yeni bir LV olusturulmasi desteklenmiyor !! "
-echo "Lutfen uygulamayi ayni degerlerle ve [ext] parametresi ile tekrar calistirin .. "
+recomm=$(for((i=1;i<=$((cc-1));i++));do echo -n "${@: $i:1} "; done)
+echo "Lutfen uygulamayi ayni degerlerle ve [ext] parametresi ile tekrar calistirin .. -> $recomm"
 sleep 1
 exit 0
 #errormsg
@@ -2557,7 +2695,8 @@ else
 lvx=$(echo "$isvgx"|sed 's/vg\|VG\|vG\|Vg/lv/g')
 fi
 
-echo -e "\n[LV] bilgisi olarak [$lvx] ismi kullanilacak !! "
+echo
+echo "[LV] bilgisi olarak [$lvx] ismi kullanilacak !!! "
 }
 
 
@@ -2592,7 +2731,7 @@ lvnamerecreate $vgx
 if [ ! -z "$lvx" ] ; then
 lvchecklvs "$vgx" "$lvx"
 if [ ! -z "$islvsx" ] ; then
-echo "->> [$isvgx] uzerinde [$lvx] isminde zaten bir [LV] device bulunuyor !! "
+echo "-> [$isvgx] [VG] uzerinde [$lvx] isminde zaten bir [LV] device bulunuyor !! "
 printit 30
 sleep 2
 echo
@@ -2605,21 +2744,22 @@ echo
 fi
 fi
 ;;
-
 esac
 }
+
 
 lvrecheck() {
 ##lvx LV kontrolleri
 lvx="$1"
-lvc=$(lvs|awk -v a="$vgx" -v b="$lvx" '$1==b&&$2==a')
+lvc=$(lvs|awk -v a="$lvx" -v b="$vgx" '$1==a&&$2==b{print $1}')
 if [ -z "$lvc" ] ; then
 
 case $3 in
 "ext")ext="1"
 vguess "$devdisk" "$vgx"
 lvx=$(echo "$lvx"|sed 's/[-]\+/-/g')
-lvc=$(lvs |grep "$lvx "|awk '{print $1}')
+#lvc=$(lvs |grep "$lvx "|awk '{print $1}')
+lvc=$(lvs|awk -v a="$lvx" -v b="$vgx" '$1==a&&$2==b{print $1}')
 if [ -z "$lvc" ] ; then
 echo "[$vgx] [VG] uzerinde [$lvx] isminde bir [LV] device bulunamadi !! "
 #parametre new degil ve lvx device yoksa
@@ -2645,9 +2785,9 @@ fi
 ###LV device zaten mevcutsa"
 if [ "$vgcl" -eq 1 ] ; then
 
-lvclstchk=$(lvs |awk -v a="$lvx" 'a==$1{print $1}')
+lvclstchk=$(lvs|awk -v a="$lvx" 'a==$1{print $1}')
 if [ -z "$lvclstchk" ] ; then
-lvclstchk=$(lvs |awk -v a="$lvc" 'a==$1{print $1}')
+lvclstchk=$(lvs|awk -v a="$lvc" 'a==$1{print $1}')
 if [ ! -z "$lvclstchk" ] ; then
 lvx="$lvc"
 else
@@ -2668,12 +2808,8 @@ sleep 3
 printit 40
 echo "->> [$vgx] [VG] icin [$lvx] isminde bir [LV] device zaten mevcut durumda !! "
 echo
-sleep 2
-echo "->>> Mevcut [$lvx] LV device i silip tekrardan ayni komut calistirmayi deneyebilirsiniz !!! "
 printit 40
-sleep 2
-echo
-
+sleep 3
 
 # new ile sadece yeni VG/LV ler olusturulabilir. extend islemleri icin ext kullanilmasi zorunlu !!
 if [ ! -z $vgextendok ] && [ $vgextendok -eq 1 ] ; then
@@ -2682,14 +2818,15 @@ lvextendok=1
 else
 lvextendok=0
 
-echo "-> [$vgx] [VG] extend islemleri [ext] parametresi ile yapildigi icin [$lvx] ismindeki [LV] device extend edilemiyor .. !!! "
+echo "-> [$vgx] [VG] extend islemleri sadece [ext] parametresi ile yapildigi icin [$lvx] ismindeki [LV] device extend edilemiyor .. !!! "
 sleep 2
 echo "-> [$vgx-$lvx] device extend islemleri icin [ext] parametresi kullanarak lutfen tekrar calistirin .. "
 echo
-echo "[$0 $disk $vgx $lvx ext] komutu ile ilgili [VG] extend edebilirsiniz.. "
-
+[[ -z "$lvx" ]] && LV=LV || LV=$lvx
+echo "[$0 $disk $vgx $LV ext] komutu ile ilgili [VG] extend edebilirsiniz .. "
 printit 50
 sleep 2
+errormsg
 fi
 #islem sonuc herhangi bir degisiklik olmadiginin gorulmesi icin HATA verdirilmiyor ??
 #errormsg
@@ -2785,12 +2922,13 @@ echo "[$disk] diski uzerinde [$vgtmpx] isminde bir [VG] bilgisi bulunamadi !!! "
 errormsg
 
 ##PV disk kontrol
-pvscheck "ext"
+#pvscheck "ext"
 ;;
 
 "new")echo "[$disk] diski uzerinde [$vgtmpx] isminde bir [VG] bilgisi bulunamadi !! "
 vgnamechk "$vgtmpx"
-echo "['$vgx'] isminde YENI bir [VG] olusturulacaktir !!! -> ['$2'] "
+echo "->> ['$vgx'] isminde YENI bir [VG] olusturulacaktir [INFO] "
+sleep 1
 echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
 sleep 3
 #echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
@@ -2801,15 +2939,15 @@ printit 50
 ####
 
 ##PV disk kontrol
-pvscheck "new"
+#pvscheck "new"
 
 ###VG create
 echo -e "-> [vgcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
 printit 30
 sleep 3
 [ ! -z "$size" ] && echo "->> [VG] olusturulurken [->size] bilgisi kullanilmasi desteklenmiyor !! " && echo && sleep 2
-vgcreate "$vgx" "$devdisk" ; errchk $? "vgcreate"
-if [ $? -eq 0 ] ; then
+vgcreate "$vgx" "$devdisk" ; vgcreate_st=$? ; errchk $vgcreate_st "vgcreate"
+if [ $vgcreate_st -eq 0 ] ; then
 echo "['$vgx'] isminde YENI bir [VG] olusturuldu .. [OK] "
 #artik YENI disk alani Free VG alanina dahil edildi..
 sleep 1
@@ -2827,8 +2965,8 @@ else
 ##ayni VG birden fazla disk uzerinde bilgilendirmesi
 vgdsks=$(pvs 2>/dev/null|awk -va="$vgx" '$2==a'|awk 'END{print NR}')
 if [[ "$vgdsks" -gt 1 ]] ; then
-pvsdsks=$(pvs 2>/dev/null|grep "$vgx"|awk '{sub("/dev/","",$1);print $1}')
-echo "[$vgx] ismindeki [VG] bilgisi birden fazla disk " [ $pvsdsks ] "uzerinde tanimli gorunuyor .. "
+pvsdsks=$(pvs 2>/dev/null|grep "$vgx"|awk '{sub("/dev/","",$1);sub("mapper/","",$1);print $1}')
+echo "[$vgx] ismindeki [VG] bilgisi birden fazla disk "[ $pvsdsks ]" uzerinde tanimli gorunuyor .. "
 sleep 1
 fi
 
@@ -2923,7 +3061,7 @@ else
 diskvgx=$(pvs|awk -v a="$vgx" -v b="$disk" '$2==a&&$1!="/dev/"b{sub("/dev/","",$1);print $1}' ORS=" " )
 diskvgx2=$(pvs|awk -v a="$vgx" -v b="$disk" '$2==a&&$1=="/dev/"b{sub("/dev/","",$1);print $1}' ORS=" " )
 if [ ! -z "$diskvgx" ] && [ -z "$diskvgx2" ] ; then
-echo "[$vgx] [VG] bilgisi ile FARKLI bir [ -> $diskvgx] uzerinde bir [VG] tespit edildi !!! "
+echo "[$vgx] [VG] bilgisine ait disk(ler) [ -> $diskvgx] "
 echo
 printit 30
 
@@ -2959,8 +3097,8 @@ pvdiskl=$(echo "$pvdisk"|awk 'END{print NR}')
 if [ $pvdiskl -eq 1 ] ; then
 if [[ "$pvdisk" != "$devdisk" ]] ; then
 ispvalready=1
-pvdisknodev=$(echo "$pvdisk"|sed 's;/dev/;;')
-echo "[$disk] e ait farkli bir partition [$pvdisknodev] uzerinde zaten bir PV yapisi bulunuyor.. !! "
+pvdisknodev=$(echo "$pvdisk"|sed 's;/dev/;;'|sed 's;mapper/;;')
+echo "[$disk] e ait farkli bir partition [$pvdisknodev] uzerinde bir [PV] yapisi bulunuyor.. !! "
 errormsg
 fi
 fi
@@ -2969,7 +3107,7 @@ ispvalready=1
 pvdiska=$(echo "$pvdisk"|awk -v a="$devdisk" '$1!=a{print ++x}')
 #pvdiska=$(pvs 2>/dev/null|grep "$devdisk" |awk '{print $1}'|awk -v a="$devdisk" '$1==a{print ++x}')
 [ $pvdiska -gt 1 ] && msg2="lar"
-echo "[$devdisk] e ait farkli partition${msg2} uzerinde" [$pvdisk] "zaten bir PV yapisi bulunuyor.. !! "
+echo "[$devdisk] e ait farkli partition${msg2} uzerinde" [$pvdisk] "zaten bir [PV] yapisi bulunuyor.. !! "
 errormsg
 fi
 fi
@@ -3003,6 +3141,7 @@ devdisk="/dev/$disk"
 sleep 3
 
 echo "Standart Scsi disk device dan farkli bir device bilgisi kullaniliyor olabilir !! "
+echo "$disk"|grep -q 'p[0-9]*$' && isdisk=part || isdisk=disk
 diskdx=$(echo "$disk"|sed 's/p*[0-9]*$//'|sed 's;/dev/;;')
 
 lshw &>/dev/null
@@ -3043,24 +3182,25 @@ fdiskchk=$(which fdisk 2>/dev/null)
 printit 30
 echo
 
-echo -e "[LVM] EXTEND/CREATE islemlerini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
+echo -e "[LV] extend/create islemlerini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
 sleep 3
 printit 30
 sleep 2
 else
 echo
-echo "[LVM] islemlerinde kullanilacak DISK bilgisi ... "
+echo "[LV] islemlerinde kullanilacak DISK bilgisi ... "
 printit 30
 lsblk "$devdisk"
 printit 30
 sleep 1
 echo
-echo "[LVM] EXTEND/CREATE islemlerine devam ediliyor ... "
+echo "[LV] extend/create islemlerine devam ediliyor ... "
 sleep 1
 printit 50
 echo
 fi
 }
+
 
 dskchk() {
 if [ -z "$1" ] ; then
@@ -3092,7 +3232,7 @@ fi
 #fi
 
 
-complete() {
+completed() {
 echo
 echo "ISLEM SONRASI"
 process_check
@@ -3104,7 +3244,7 @@ echo
 paramfail() {
 echo "Uygulamaya verilen parametreler YANLIS gibi gorunuyor !! "
 if [ -z "$sizec" ] ; then
-echo "-> Size('s=xx') bilgisi son parametre olarak verilmelidir !! "
+#echo "-> $1 parametre kullaniminda Size('s=xx') bilgisi son parametre olarak verilebilir .. "
 sleep 1
 echo "Size('s=xx') bilgisi verilmeden $1 adet parametre ile uygulama calistirilamaz !! "
 echo
@@ -3133,7 +3273,7 @@ case "$4" in
 esac
 
 else
-paramfail $#
+[[ ! $stripe_param -eq 1 ]] && paramfail $#
 fi
 ;;
 
@@ -3224,6 +3364,7 @@ fi
 
 #####2
 2)if [ "$2" == "ext" ] ; then
+sleep 3
 ext="1"
 pvscheck "ext"
 vguess "$devdisk" "$vgx"
@@ -3260,17 +3401,19 @@ errormsg
 
 
 #####?
-*)if [ "$pvlayout" == "linear" ] ; then
-echo "Girilen parametreler hatali veya max parametre sayisindan FAZLA gorunuyor !! "
-[ $# -gt 5 ] && echo "Parametre sayisi 5 den fazla olamaz.. !! "
+*)
+#if [ $stripe_param -ne 1 ] ; then
+echo "-> [linear] layout yapida [VG] extend/create islemleri icin girilen parametreler hatali veya max parametre sayisi asilmis !! "
+if [ $# -gt 5 ] ; then echo "Parametre sayisi 5 den fazla olamaz .. !! "
 echo "* max verilebilecek parametre sayisi : 5 ;;; -> Girilen parametre sayisi : $paramc "
-errormsg
 fi
+errormsg
+#fi
 ;;
 
 esac
 
-complete
+completed
 }
 
 
@@ -3281,7 +3424,22 @@ sizeprmchk $last $@
 }
 
 
-# justdoit() @unix.com ygemici
+justdoit() {
+if [[ $stripe_param -eq 1 ]] ; then
+completed       	
+else
+if [ ! -z "$1" ] ; then
+issize $@
+paramcheck $@
+else
+echo "1. parametre olarak 'Disk' bilgisi girildiginden emin olun !! "
+errormsg
+fi
+fi
+}
+
+
+### justdoit() @unix.com ygemici ###
 firstcheck() {
 # islem sirasinda tekrar disk device kontrol edilmesinde fayda var
 disk=$(echo "$1"|sed 's/.*\///')
@@ -3292,20 +3450,34 @@ if [ $? -eq 0 ] ; then
 devdisk="/dev/mapper/$disk"
 else
 devdisk="/dev/$disk"
-fi
-
 [[ ! -b "$devdisk" ]] && devdisk="/dev/mapper/$disk"
+fi
 
 if [ ! -b "$devdisk" ] ; then
 echo "[$disk] parametresi gecerli bir disk device olarak gorunmuyor !!! "
 echo
-sleep 1
+devdisk=""
+if [ "$2" != "stripe" ] ; then
 errormsg
 else
-[[ "$2" = "stripe" ]] && echo "-> [striped] layout kontrolu icin verilen parametre degeri bir disk [$disk] device olarak tespit edildi !!! "
-echo
+vgsfrechk=$(vgs "$vgx" 2>/dev/null|awk -v a="$vgx" 'NR>1{if(a==$1)print "OK"}')
+if [ ! -z "$vgsfrechk" ] ; then
+echo "-> [striped] layout kontrolu icin verilen parametre degeri [$vgx] aktif bir [VG] olarak tespit edildi [OK] "
+else
+echo "-> [striped] layout kontrolu icin verilen parametre degeri [$vgx] gecerli bir [VG] olarak tespit edilemedi !!! "
 sleep 1
+#errormsg
 fi
+fi
+else
+[[ "$2" == "stripe" ]] && echo "-> [striped] layout kontrolu icin verilen parametre degeri [$disk] bir disk device olarak tespit edildi {INFO] "
+[[ "$2" != "stripe" ]] && echo "-> [$disk] parametresi gecerli bir disk device olarak gorunuyor [OK] " || \
+echo "-> [$disk] parametresi gecerli bir disk device olarak gorunuyor [OK-stripe]"
+sleep 1
+printit 30
+fi
+echo
+
 lsblkchk;
 #diskchck "$disk" "$devdisk"
 diskchck #"$disk" "$devdisk"
@@ -3313,25 +3485,153 @@ diskchck #"$disk" "$devdisk"
 
 
 
-justdoit() {
-if [ ! -z "$1" ] ; then
-issize $@
-paramcheck $@
-else
-echo "1. parametre olarak 'Disk' bilgisi girildiginden emin olun !! "
-errormsg
-fi
-}
-
 stripecheck() {
 stripedsk="$1"
 isstriped=$(lvs -o+lv_layout,stripes,devices|awk -v a="$vgx" '$2==a'|grep -w "$stripedsk")
 if [ ! -z "$isstriped" ] ; then
-echo "[$stripedsk] diski zaten [$vgx] icinde yer aliyor !!! "
-echo "[VG-striped] yapidaki diskler extend edilemez !!! "
+#echo "[VG-striped] yapidaki diskler extend edilemez !!! "
+echo "->> [$stripedsk] diski zaten [$vgx] icinde yer aliyor !!! "
 sleep 1
 errormsg
 fi
+}
+
+
+stripe_pv_checks() {
+# islem sirasinda tekrar disk device kontrol edilmesinde fayda var
+disk=$(echo "$1"|sed 's/.*\///')
+dskchk "$disk"
+devdisk="/dev/$disk"
+
+pvccheck
+if [ -z "$pvc" ] ; then
+echo "[$disk] [PV] diski olarak gorunmuyor .. [OK] "
+
+else
+## PV disk olup olmamasinin bir onemi yok..
+echo "[$disk] zaten bir [PV] diski olarak gorunuyor .. [INFO] "
+
+## Disk Aktif bir [VG] icinde yer aliyor mu ?
+vgxstripeval=$(pvdisplay "$devdisk"|awk '/VG Name/{print $3}')
+if [[ -z "$vgxstripeval" ]] ; then 
+echo "[$disk] aktif bir [VG] icinde yer almiyor ... [OK] "
+else
+
+## Farkli bir [VG] icinde yer aliyor mu ?
+vgx_stripe=$(pvdisplay "$devdisk"|awk '/VG Name/{if($3!=a)print $3}')
+if [[ ! -z "$vgx_stripe" ]] ; then
+echo "[$disk] zaten [$vgx_stripe] isimli [VG] icinde gorunuyor !! "
+echo "[$disk] diskini [$vgx_stripe] isimli [VG] den cikarip (vgreduce/vgremove) islemi tekrar denemeniz gerekiyor !! "
+sleep 1
+errormsg
+#echo "[$disk] [$vgx] isimli [VG] icinde gorunmuyor !!! "
+#[[ "$lastp" == "ext" ]] && errormsg
+fi
+fi
+fi
+printit 30
+echo
+}
+
+
+pv_other_layout() {
+####
+stripe_no=0
+####
+echo
+case "$pvlayout" in
+linear)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
+echo
+sleep 1
+[[ "$lastp" == "ext" ]] && echo "Extend islemlerine devam edilecektir ... "
+stripe_no=1
+;;
+mirror)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
+echo
+sleep 1
+echo "Mirror [LVM] disk islemleri desteklenmemektedir !! " && errormsg
+stripe_no=1
+;;
+raid*)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
+echo
+sleep 1
+echo "Raid [LVM] disk islemleri desteklenmemektedir !! " && errormsg
+stripe_no=1
+;;
+striped)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
+echo
+sleep 1
+[[ "$lastp" == "ext" ]] && echo "[$disk] diski zaten bir [VG] icinde yer aldigi icin islemlere devam edilemiyor !! " && errormsg
+stripe_no=0
+;;
+### unknown ###
+#[root@xxxx ~]# pvs -o+lv_layout,stripes /dev/sde
+#  PV         VG Fmt  Attr PSize PFree Layout     #Str
+#  /dev/sde      lvm2 ---  4.00g 4.00g unknown       0
+unknown)
+printit 30
+echo "[$disk] diski uzerindeki [PV] layout *[${pvlayout}] yapida gorunuyor .. "
+sleep 1
+[[ "$vgx_layout" == "unknown" ]] && echo "[$disk] [PV] diski icin bir [VG]/[LV] olusturmaniz gerekiyor olabilir !! "
+#echo "[$disk] diski uzerindeki [PV] *[${pvlayout}] icinde aktif herhangi bir [VG] bulunamadi "
+[[ ! -z "$vgx_layout" ]] &&  echo "[$disk] diski uzerindeki [$vgx_layout] [VG] icinde FREE alan olabilir [INFO] "
+[[ -z "$vgx_layout" ]] && echo "[$disk] diski uzerinde aktif bir [VG] bilgisi bulunamadi [INFO] "
+printit 30
+echo
+sleep 1
+printit 30
+pvs "$disk_layout_dev" -o+lv_layout,stripes 2>/dev/null
+printit 30
+sleep 1
+;;
+"")
+echo
+echo "[$disk] diski uzerinde [$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
+vgs_chk=$(vgs "$vgx_layout" 2>/dev/null)
+if [[ ! -z "$vgs_chk" ]] ; then
+vglayout=$(vgs "$vgx_layout" -o+lv_layout,stripes|awk 'NR>1{print $(NF-1);exit}')
+if [[ ! -z "$vglayout" ]] ; then
+[[ "$vglayout" == "striped" ]] && stripe_no=1
+echo "[$vgx_layout] [VG-$vglayout] yapida aktif olarak kullaniliyor !! "
+sleep 1
+fi
+fi
+
+if [[ "$lastp" = "new" ]] ; then
+echo "-> [new] parametresi kullanilarak [VG] create yada extend islemleri yapilacaktir .. "
+elif [[ "$lastp" = "ext" ]] ; then
+echo "-> [ext] parametresi kullanilarak [VG] extend islemleri yapilacaktir .. "
+fi
+echo
+sleep 1
+#errormsg
+#firstcheck "$1"
+;;
+*)
+### unknown ###
+#[root@xxxx ~]# pvs -o+lv_layout,stripes /dev/sde
+#  PV         VG Fmt  Attr PSize PFree Layout     #Str
+#  /dev/sde      lvm2 ---  4.00g 4.00g unknown       0
+### failed ###
+#[root@xxxx ~]# pvs -o+lv_layout,stripes /dev/sde
+#  Failed to find physical volume "/dev/sde".
+echo
+echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
+if [[ "$lastp" = "new" ]] ; then
+echo "-> [new] parametresi kullanilarak yeni bir [VG] olusturulacaktir ... "
+#firstcheck "$1"
+sleep 1
+elif [[ "$lastp" = "ext" ]] ; then
+echo "[VG] layout bilgisi tespit edilemedi !!! "
+sleep 1
+errormsg
+fi
+echo
+
+;;
+esac
+printit 40
+echo
 }
 
 
@@ -3341,10 +3641,10 @@ printit 20
 echo "-> LVM Disk Layout [striped] olarak tespit edildi .. "
 echo
 sleep 2
-echo "Uygulama icinde sadece Disk Extend islemleri desteklenmektedir !!! "
+#echo "Uygulama icinde sadece Disk Extend islemleri desteklenmektedir !!! "
 sleep 1
 printit 30
-echo "Stripe yapida LVM disk olusturmak icin ornek komut : "
+echo "Stripe yapida [LV] disk olusturmak icin ornek komut : "
 printit 30
 echo "-> [pvcreate /dev/sda1 /dev/sdb1 /dev/sdc1 ]
 -> [vgcreate vgdata /dev/sda1 /dev/sdb1 /dev/sdc1]
@@ -3355,31 +3655,41 @@ echo
 sleep 1
 
 ##########
-disks=1
-diskc=$pvsc
+#disks=1
+#diskc=$pvsc
 #vgstripe=$((diskc+1))
 #lvstripe=$((diskc+2))
 
-until [ $diskc -lt 1 ] ; do
-eval v=\${$disks}
-v=$(echo "$v"|sed 's;/dev/;;')
-[[ -z "${stripedisks[@]}" ]] && stripedisks="$v" || stripedisks=(${stripedisks[@]} $v)
-((diskc--))
-((disks++))
-done
+
+#until [ $diskc -lt 1 ] ; do
+#eval v=\${$disks}
+#v=$(echo "$v"|sed 's;/dev/;;')
+#[[ -z "${stripedisks[@]}" ]] && stripedisks="$v" || stripedisks=(${stripedisks[@]} $v)
+#((diskc--))
+#((disks++))
+#done
+
+#v=$(echo "$v"|sed 's;/dev/;;')
+#[[ -z "${stripedisks[@]}" ]] && stripedisks="$v" || stripedisks=(${stripedisks[@]} $v)
+
+#if [[ $pvsc -ne ${#stripedisks[@]} ]] ; then
+#echo
+#echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !! [FAIL] "
+#errormsg
+#fi
 
 
-if [[ $pvsc -ne ${#stripedisks[@]} ]] ; then
-echo
-echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !! [FAIL] "
-errormsg
-fi
 
 #eval v=\${$lvstripe}
 #lvx="$v"
-[ -z "$lvx" ] && lvcheck "ext"
+#lvcheck "$lvx" "ext"
 
 devmapperchk;
+
+echo "-> [striped] yapida [VG] extend islemleri icin kullanilacak diskler : [ ${stripedisks[@]} ] "
+echo
+printit 30
+sleep 1
 
 echo "[striped] Disk Extend islemlerine geciliyor .... "
 sleep 3
@@ -3389,7 +3699,7 @@ if [[ -z "${stripedisks[@]}" ]] ; then
 echo "Disk bilgisi olusturulmasi isleminde HATA alindi !! "
 errormsg
 else
-echo "[$vgx] [VG-striped ] device extend islemleri uygulanacaktir .. "
+echo "[$vgx] [VG-striped ] icin extend islemleri uygulanacaktir .. "
 echo
 echo "[striped] [VG] device extend islemleri icin [ ${stripedisks[@]} ] bilgileri bir disk bilgisi olarak kullanilacaktir ... "
 sleep 2
@@ -3398,8 +3708,8 @@ fi
 
 ##LV striped new segment extend
 echo
-echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !!! "
-sleep 1
+echo "->> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !!! "
+sleep 2
 
 
 for pvdskdev in ${stripedisks[@]}; do
@@ -3407,43 +3717,21 @@ echo
 printit 40
 echo "[$pvdskdev] diski kontrol ediliyor ... "
 printit 40
-firstcheck "$pvdskdev"
 stripecheck "$pvdskdev"
 printit 40
 done
 
+
 for pvdskdev in ${stripedisks[@]}; do
-
-# islem sirasinda tekrar disk device kontrol edilmesinde fayda var
-disk=$(echo "$pvdskdev"|sed 's/.*\///')
-dskchk "$disk"
-devdisk="/dev/$disk"
+stripe_pv_checks "$pvdskdev"
+done
 
 
-pvccheck
-if [ -z "$pvc" ] ; then
-pvcreatex
-else
-echo "[$disk] zaten bir [PV] diski olarak gorunuyor !!! "
-
-vgxstripeval=$(pvdisplay "$devdisk"|awk '/VG Name/{print $3}')
-if [ -z "$vgxstripeval" ] ; then
-echo "[$disk] icin henuz bir [VG] bilgisi bulunmuyor ... "
-
-else
-
-vgxstripechk=$(pvdisplay "$devdisk"|awk -v a="$vgx" '/VG Name/{if($3==a)print "OK"}')
-if [ -z "$vgxstripechk" ] ; then
-echo "[$disk] farkli bir [VG -> $vgxstripeval] icinde gorunuyor !!! "
-errormsg
-fi
-
-fi
-fi
-
+for pvdskdev in ${stripedisks[@]}; do
+stripe_pv_checks "$pvdskdev"
+pvcreatex 
 #### striped VG extend ####
 vgextendx "$vgx" "$devdisk" && errchk $? "vgextend"
-
 done
 
 
@@ -3452,161 +3740,459 @@ lvextendx "ext" "striped"
 #lvextend --extents +100%FREE "$lvmmapperdev" && errchk $? "lvextend-striped"
 sleep 2
 
+
 ###islem sonrasi filesystem islemleri
 fschk "$lvmmapperdev" "ext" && [ "$fst" != "NULL" ] && resizepck "$fst" && resizefsx
+
 }
 
 
-pv_layout() {
-###"vgs gecerli mi ?"
-vgsfchk=$(vgs "$vgx" 2>/dev/null|awk -v a="$vgx" 'NR>1{if(a==$1)print "OK"}')
-if [ -z "$vgsfchk" ] ; then
-printit 30
-[[ "$1" != "stripe" ]] && echo "-> [linear] layout kontrolu icin 2. parametre bilgisi olan [$vgx] isminde gecerli bir [VG] bulunamadi !!! "
-[[ "$1" = "stripe" ]] && firstcheck "$vgx" "stripe"
-echo
-((cx++))
-[[ $cx -eq 1 ]] && echo "-> [striped] layout yapida [VG] lar icin sadece [extend] islemleri yapilmaktadir !!! "
+stripe_arraycheck() {
+local e match="$1"
+shift
+for e; do [[ "$e" == "$match" ]] && echo "[$e] diski parametre listesinde zaten belirtilmis !! " && echo && return 0; done
+return 1
+}
+
+
+stripedisks_create() {
+cc=$#
+
+## VG striped
+vgx_striped=${@: $((cc-3)):1}
+lvx_striped=${@: $((cc-2)):1}
+
+vgx="$vgx_striped"
+lvx="$lvx_striped"
+
+#vgx_stripe_dsktmp=$(echo ${@: $((cc-3)):1}|sed 's;/dev/;;')
+vgx_tmp=$(echo "$vgx"|sed 's;/dev/;;')
+if [ -b "/dev/$vgx_tmp" ] ; then
+vgx="$lvx_striped"
+lvx=""
+echo "-> [LV] bilgisi otomatik olusturulacak .. "
 sleep 1
-printit 30
-echo
-else
-pvsc=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $NF;exit}')
-pvlayout=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $(NF-1);exit}')
-lvx_striped=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $1;exit}')
 fi
-}
 
-stripe_layout_check() {
-if [ -z "$pvlayout" ] ; then
-echo "[VG] layout bilgisi tespit edilemedi !!! "
-sleep 1
+
+[[ -z "$lvx" ]] && stc=$((cc-2)) || stc=$((cc-3))
+for((i=1;i<$stc;i++));do
+v=$(echo "${@: $i:1}"|sed 's;/dev/;;')
+if [[ -b "/dev/$v" ]] ; then
+if [[ -z "${stripedisks[@]}" ]] ; then
+stripedisks="$v"
+else
+stripe_arraycheck "$v" "${stripedisks[@]}"
+[[ $? -eq 1 ]] && stripedisks=(${stripedisks[@]} $v)
+fi
+else
+echo "-> [$v] parametresi gecerli bir disk device olarak gorunmuyor [FAIL] !! "
 errormsg
 fi
-case "$pvlayout" in
-"striped")echo "[$vgx] *[VG-striped ] yapida [ x $pvsc stripe ] konfigurasyonda olusturulmus gorunuyor ... "
-sleep 2
-stripe_ext $@;
-;;
-esac
-echo
+done
+stripe_pvsc=${#stripedisks[@]}
 }
+
+
+stripe_layout() {
+stripe_pv_dev="/dev/$1"
+pvlayout=$(pvs -o+lv_layout,stripes|awk -v a="$stripe_pv_dev" 'a==$1{print $(NF-1);exit}')
+}
+
 
 stripe_vg_search() {
 #son 4 parametrede VG stripe bilgisi aranir..
 #vgxstripesrch=( ${@: -2:1} ${@: -3:1} ${@: -4:1} ${@: -5:1} )
-prmsrch=( $@ )
-cc=${#prmsrch[@]}
-for i in ${prmsrch[@]}
-do
-((c++))
-if [ $c -ne $cc ] ; then
-vgxstripesrch=( ${vgxstripesrch[@]} $i )
-fi
-done
-for vgxstripe in ${vgxstripesrch[@]} ; do
-vgx="$vgxstripe"
-pv_layout "stripe";
-if [ ! -z "$pvlayout" ] ; then
-echo "[$vgx] [VG] layout bilgisi [$pvlayout] olarak bulunmustur .. [OK] "
+
+striped_ext=0
+
+
+vgx_chars=$(echo "$vgx" |grep -o .|grep -v -e '[a-z]' -e '[A-Z]' -e '[0-9]' -e '[-_+]' -e '\.')
+if [[ ! -z "$vgx_chars" ]] ; then
+echo "Girilen VG bilgisi [$vgx] gecersiz karakterler iceriyor gibi gorunuyor ->> " [ $vgx_chars ]
 sleep 1
-lvx="$lvx_striped"
-[[ -z "$lvx" ]] && echo "[$vgx] [striped] diske ait [LV] bilgisi bulunamiyor .. !! " && errormsg
-break
-fi
-done
-if [ -z "$pvlayout" ] ; then
-echo "Parametreler arasinda gecerli bir [VG] (*striped layout) bilgisi bulunamadi !!! "
-#errormsg;
-fi
-}
-
-pv_other_layout() {
-##Stripe yapisi var mi?
-stripe_vg_search $@;
-
-case "$pvlayout" in
-"linear")echo "-> Parametreleri dogru sirada girdiginizden emin olun !! "
-errormsg;
-;;
-"mirror")echo "[$vgx] *[VG-mirror ] yapida olusturulmus gorunuyor .. "
-sleep 2
 errormsg
-;;
-raid*)echo "[$vgx] *[VG-$pvlayout ] yapida olusturulmus gorunuyor .. "
-sleep 2
-errormsg
-;;
-striped)echo "[$vgx] *[VG-striped ] yapida olusturulmus gorunuyor .. "
-sleep 2
+fi
+
+vgs "$vgx" -o+lv_layout,stripes 2>/dev/null
+if [ $? -ne 0 ] ; then
 if [[ "$lastp" = "ext" ]] ; then
-stripe_layout_check $@
-elif [[ "$lastp" = "new" ]] ; then
-echo
-echo "[VG-striped] yapida yeni bir [VG] olusturulma islemi desteklenmiyor !!! "
+echo "[$vgx] isminde bir [VG] bulunamadi !! "
+echo "[striped] [VG] islemleri icin gecerli bir [VG] bilgisi girilmelidir !!! "
+sleep 1
 errormsg
+fi
+fi
+
+################
+case "$lastp" in
+ext)
+vglayout=$(vgs "$vgx" -o+lv_layout|awk 'NR>1{print $NF;exit}')
+if [[ "$vglayout" != "striped" ]] ; then
+echo "[vgx] VG bilgisi [striped] layout yapida gorunmuyor !! "
+sleep 1
+[[ ! -z "$vglayout" ]] && echo "[VG-$vglayout]"
+errormsg
+fi
+
+## VG-striped stripe sayisi
+pvsc=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $NF;exit}')
+
+if [[ $pvsc -ne $stripe_pvsc ]] ; then
+echo
+echo "-> [$vgx] icindeki stripe disk sayisi [$pvsc] ile girilen toplam disk sayisi [$stripe_pvsc] esit olmalidir ... !! [FAIL] "
+errormsg
+fi
+
+
+###
+for pvdskdev in ${stripedisks[@]}; do
+stripe_layout "$pvdskdev"
+pvlayout_unknown=0
+if [[ "$pvlayout" == "unknown" ]] ; then
+pv_stripe_vgx=$(pvdisplay "$pvdskdev" 2>/dev/null|awk '/VG Name/{print $3}')
+if [ ! -z "$pv_stripe_vgx" ] ; then
+echo "[$pvdskdev] diski uzerinde [$pv_stripe_vgx] isminde tanimli bir [VG] bulunuyor !! "
+[[ "$vglayout" != "$pv_stripe_vgx" ]] && errormsg
+else
+pvlayout_unknown=1
+fi
+fi
+
+if [[ -z "$pvlayout" ]] ; then
+striped_ext=1
+sleep 1
 else
 echo
-echo "Bilinmeyen parametre ["$lastp"] degeri girildi !! "
-sleep 1
-echo "[VG-striped] yapida islemler icin yalnizca [ext] parametresi desteklenmektedir !! "
-echo
+if [[ $pvlayout_unknown -eq 0 ]] ; then
+echo "[$pvdskdev] disk layout bilgisi [$pvlayout] olarak bulunmustur .. "
+echo "[$pvdskdev] diski zaten [$vgx] {VG] icinde yer almaktadir !! [FAIL] "
 errormsg
 fi
-;;
-"")echo
-echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
-echo
-if [[ "$lastp" = "new" ]] ; then
-echo "-> [new] parametresi kullanilarak yeni bir [VG] olusturulabilir .. ?? "
+#break
 fi
-echo
-sleep 1
-#errormsg
-firstcheck "$1"
+
+done
 ;;
-*)echo "**[VG] layout bilgisi tespit edilemedi !!! "
+
+
+new)
+if [[ $stripe_pvsc -lt 2 ]] ; then
+[[ "$lastp" == "new" ]] && echo "[striped] yapida bir [VG] olusturulmasi icin en az x2 disk gereklidir [FAIL] " && echo " Mevcut disk sayisi -> $stripe_pvsc "
 errormsg
-;;
+fi
+
+for pvdskdev in ${stripedisks[@]}; do
+stripe_layout "$pvdskdev"
+
+if [[ "$pvlayout" == "unknown" ]] ; then
+pv_stripe_vgx=$(pvdisplay "$pvdskdev" 2>/dev/null|awk '/VG Name/{print $3}')
+if [ ! -z "$pv_stripe_vgx" ] ; then
+echo "[$pvdskdev] diski uzerinde [$pv_stripe_vgx] isminde tanimli bir [VG] bulunuyor !! "
+errormsg
+fi
+fi
+
+done
+
 esac
-echo
 }
+
+
+stripe_new() {
+##########
+#striped_full="$@"
+#son 4 parametre -> [vgx lvx striped new]
+#son 4 parametre -> [sdx vgx striped new]
+#disks="${@: -4}"
+#diskt="${#@}"
+#ilk parametre disk mi VG mi ?
+#set -- ${disks[@]}
+
+[[ -z "$lvx" ]] && lvnamecreate $vgx "new"
+[[ -z "$lvx" ]] && echo "Stripe [LV] bilgisi olusturulamadi !! " && errormsg
+#diskstrpc=$(($diskt-3))
+
+##stripedisks new
+#for((i=1;i<=$diskstrpc;i++)); do
+#eval v=\${$i}
+#[[ -z "${stripedisks[@]}" ]] && stripedisks="$v" || stripedisks=(${stripedisks[@]} $v)
+#done
+
+printit 30
+echo
+echo "-> [striped] yapida [VG] olusturabilmek icin kullanilacak diskler : [ ${stripedisks[@]} ] "
+echo
+printit 30
+sleep 1
+
+
+##PV check
+for pvdskdev in ${stripedisks[@]}; do
+stripe_pv_checks "$pvdskdev"
+[[ -z "${stripe_devdisks[@]}" ]] && stripe_devdisks="/dev/${pvdskdev}" || stripe_devdisks=(${stripe_devdisks[@]} "/dev/${pvdskdev}")
+done
+
+
+##VG create
+vgcreate "$vgx" ${stripe_devdisks[@]} ; errchk $? "vgcreate"
+
+echo
+printit 30
+echo "->> Default STRIPE SIZE = 128 KB "
+sleep 1
+echo "->> Default STRIPE SIZE = 128 KB "
+sleep 1
+echo "->> Default STRIPE SIZE = 128 KB "
+echo
+printit 30
+echo -e "[lvcreate] islemi kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
+sleep 2
+
+##
+##LV create
+Stripe_Size=128  ## 128KB
+stripepvc=${#stripedisks[@]}
+if [ -z "$size" ] ; then
+lvcreate -l 100%FREE -i ${stripepvc} -I "${Stripe_Size}" -n $lvx $vgx ; errchk $? "lvcreate"
+else
+lvcreate -i ${stripepvc} -I "${Stripe_Size}" -L "${sizec}" -n $lvx $vgx ; errchk $? "lvcreate"
+fi
+
+## Stripe LV Create
+devmapperchk;
+####
+fschk_p_wait=3
+fschck_limit $fschk_p_wait
+
+fschk_new "$fst"
+fstchk "$fst"
+formatx "$fst"
+
+mountx
+sleep 1
+}
+
+
+stripe_check() {
+#sc="${#@}"
+#shift $((sc-2))
+##striped kelimesi aranir...
+cc=$#
+echo ${@: $((cc-1)):1}
+}
+
 
 last_param_check() {
 #for last; do true; done
 #echo "$last"
-echo "${@: -1}"
+issize $@
+[[ ! -z "$size" ]] && set -- "${@: 1: $#-1}"
+lastp="${@: -1}"
+
+## son parametre kontrolu
+if [[ "$lastp" != "ext" ]] && [[ "$lastp" != "new" ]] ; then
+if [[ "$#" -lt 2 ]] ; then
+echo "En az 2 parametre ile islem yapilabilir !! "
+else
+echo "Bilinmeyen parametre [$lastp] degeri girildi !! "
+fi
+errormsg
+fi
 }
 
 
 lv_layout_check() {
-if [ ! -z "$2" ] ; then
-vgx="$2"
-pv_layout;
-case "$pvlayout" in
-linear)echo "[$vgx] *[VG-linear] yapida olusturulmus gorunuyor ... "
-echo ... [OK]
-echo
-sleep 2
-##1. parametre disk bilgisi olmali !!
+## son parametre kontrolu
+last_param_check $@;
+
+## Linear yapilarda sadece 1 tane disk ile islem yapilabilir .. ##
+if [ ! -z "$1" ] ; then
 firstcheck "$1"
-;;
+#disk_layout=$(echo "$devdisk"|sed 's;/dev/;;')
+[[ -z "$devdisk" ]] && echo "Disk device bulunamadi !! " && errormsg
+[[ ! -z "$devdisk" ]] && disk_layout_dev="$devdisk"
+#echo "$disk"|grep -e 'dm-' -e mapper -e mpath >/dev/null
+
+###
+echo "$devdisk"|grep -e '/dev/mapper/'|grep -v dm- >/dev/null
+if [ $? -eq 0 ] ; then
+case "$disk" in
 *)
-#Disk bilgisi kontrolu
-#firstcheck "$1"
-lastp=$(last_param_check $@)
-if [[ "$lastp" == "new" ]] ; then
-echo "[striped] yapida yeni bir [VG] olusturulma islemi desteklenmemektedir !! "
-sleep 1
-echo "[linear] yapida yeni bir [VG] -> [$1] disk bilgisi kabul edilerek olusturulacaktir ... "
-echo
-##1. parametre disk bilgisi olmali !!
-firstcheck "$1"
-else
-pv_other_layout $@;
-fi
+mpathx=$(ls -ltr /dev/mapper/|grep " $disk "|sed 's/.* \([^ ]*\) ->.*/\1/')
+pvdiskchk="/dev/mapper/$mpathx"
 ;;
 esac
+fi
+
+
+## multipath device
+[[ ! -z "$pvdiskchk" ]] && disk_layout_dev="$pvdiskchk" || disk_layout_dev="$devdisk"
+
+###
+pvslc=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes 2>/dev/null|awk 'END{if(NR)print NR-1;else print 0}')
+if [ $pvslc -eq 0 ] ; then
+[[ "$lastp" == "new" ]] && echo "[$disk] diskinin bir [PV] disk oldugundan emin olun [INFO] "
+[[ "$lastp" == "ext" ]] && echo "[$disk] diskinin bir [PV] disk oldugundan emin olun [FAIL] "
+sleep 1
+elif [ $pvslc -eq 1 ] ; then
+pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{print $(NF-1)}')
+#vgx_layout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{a[$2]}END{for(i in a)print i}')
+vgx_layout=$(pvdisplay "${disk_layout_dev}"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
+elif [ $pvslc -gt 1 ] ; then
+echo "[$disk_layout_dev] birden fazla segment iceriyor olabilir [INFO] "
+printit 40
+pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{a[$(NF-1)]++}END{for(i in a)print i}')
+pvs "${disk_layout_dev}" -v --segments
+vgx_layout=$(pvdisplay "${disk_layout_dev}"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
+pvlayoutc=$(echo "$pvlayout"|awk 'END{print NR}')
+if [ $pvlayoutc -gt 1 ] ; then
+echo "[$disk] diskinde birden fazla Layout bilgisi tespit edildi ?? "
+fi
+printit 50
+pvs "${disk_layout_dev}" -o+lv_layout,stripes
+printit 50
+[[ "$pvlayout" = "unknown" ]] && echo "[$disk_layout_dev] disk alani tamami kullanilmamis olabilir !!! "
+fi
+
+###
+vg_empty=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{if($2=="lvm2")print "OK"}')
+if [[ ! -z "$vg_empty" ]] ; then
+if [[ "$lastp" == "new" ]] ; then
+echo "-> [$disk] diski herhangi bir [VG] dahil edilmemis [OK] "
+echo
+fi
+sleep 1
+fi
+else
+echo "1. parametre bos olamaz !! "
+echo "Disk bilgisi bulunamiyor !! "
+errormsg
+fi
+
+## Linear VG islemleri 1 tane disk bilgisi ile isletilebilir. Bu nedenle 2. parametre VG olmak zorundadir..
+if [ ! -z "$2" ] ; then
+vgx="$2"
+vgsfchk=$(vgs "$vgx" 2>/dev/null)
+if [[ -z "$vgsfchk" ]] ; then
+if [[ "$lastp" == "ext" ]] ; then
+[[ "$pvlayout" == "linear" ]] && echo "[$vgx] isminde Linear yapida aktif bir [VG] bulunamadi [FAIL] "
+if [[ "$vgx" == "ext" ]] || [[ "$vgx" == "new" ]] ; then
+echo "[VG] bilgisi olarak [$vgx] degeri kullanilamaz !! "
+errormsg
+fi
+fi
+fi
+
+else
+echo "2. parametre bos olamaz !! "
+echo "[VG] bilgisi bulunamiyor !! "
+errormsg
+fi
+
+
+####
+pv_other_layout
+####
+
+#pvsc=$(lvs -o+lv_layout,stripes|awk -v a="$vgx" 'a==$2{print $NF;exit}')
+
+##1. parametre disk bilgisi olmali !!
+#firstcheck "$1"
+
+## 2. parametre ile striped yapida bir [VG] ismi bulunamaz !!
+##########################################################
+
+## [VG] tespit edilemedi ise
+## stripe kontrolleri ##
+#echo "[$vgx] isminde gecerli bir [VG] bulunamadi !! "
+## Layout Linear degil veya new islemleri ise
+## son parametre size bilgisi iceriyor mu?
+
+
+## stripe kontrolu
+if [ "$stripe_no" -eq 0 ] ; then
+echo "[striped] [PV] layout parametre kontrolleri yapiliyor ... "
+printit 60
+sleep 1
+
+#####################################################
+### HENUZ DESTEKLENMEYEN LVM LAYOUT BILGILERI !!! ###
+## raid vg_search $@
+## mirror vg_search $@
+#####################################################
+issize $@
+[[ ! -z "$size" ]] && set -- "${@: 1: $#-1}"
+
+stripe_param=0
+## [striped] parametresi girilmesi zorunlu !!
+is_stripe=$(stripe_check $@)
+if [[ "$is_stripe" == "[s]triped" ]] ; then 
+stripedisks_create $@
+stripe_vg_search $@
+stripe_param=1
+fi
+
+## layout (stripe/raid.. ) layout bilgisini belirle..
+#pv_other_layout $@;
+
+
+if [[ $stripe_param -eq 1 ]] ; then
+
+for pvdskdev in ${stripedisks[@]}; do
+firstcheck "$pvdskdev" "stripe"
+done
+
+
+## Stripe layout ext islemleri
+if [[ $striped_ext -eq 1 ]] ; then
+echo "[$vgx_striped] *[VG-striped] yapida [ x$stripe_pvsc ] konfigurasyonda olusturulmus gorunuyor ... "
+sleep 1
+if [[ "$lastp" == "ext" ]] ; then
+echo "-> [striped] yapida [$vgx] icin [VG] extend islemleri gerceklestirilecektir ... "
+sleep 2
+vgx_striped=$vgx
+[[ -z "$lvx" ]] && lvx_striped=$(lvs -o+lv_layout,stripes|awk -v a="$vgx_striped" 'a==$2{print $1;exit}') && lvx="$lvx_striped"
+[[ -z "$lvx" ]] && echo "[$vgx] [striped] diske ait [LV] bilgisi bulunamiyor .. !! " && errormsg
+if [[ ! -z "$lvx" ]] ; then
+lvx_striped_tmp=$(lvs -o+lv_layout,stripes|awk -v a="$vgx_striped" 'a==$2{print $1;exit}')
+if [[ "$lvx_striped_tmp" != "$lvx" ]] ; then
+echo
+echo "[$vgx] [VG] icinde [$lvx] isimli [LV] device bulunamiyor !! "
+sleep 1
+errormsg
+fi
+fi
+
+
+stripe_ext $@;
+elif [[ "$lastp" == "new" ]] ; then
+echo "[$vgx_striped] isimli [VG] zaten [striped] yapida olusturulmus gorunuyor .. !! "
+errormsg
+fi
+fi
+
+
+## Stripe layout new islemleri
+if [[ "$lastp" == "new" ]] ; then
+printit 30
+echo
+echo "-> [striped] yapida yeni bir [VG] create islemleri gerceklestirilecektir ... "
+sleep 2
+## 'striped' isiminde bir LV bilgisi olusturulma ihtimaline karsilik 1 onceki parametrenin Disk Device olmamasi lazim !!
+## Bunun yerine [linear] layout [VG] lar icin yeni bir VG ismi belirtilmis olmasi gerekiyor..
+## [striped] layout VG icin Bu kontrol icin 'striped' kelimesinden bir onceki parametrenin disk degilde [VG-striped] olmasi gerekli .. !!
+echo "[VG] bilgisi olarak [$vgx] kullanilacak !!! "
+printit 30
+if [[ ! -b "/dev/$vgx" ]] ; then
+stripe_new $@;
+fi
+fi
+else
+echo "[striped] parametresi bulunamadi !! "
+echo
+#firstcheck "$1"
+fi
 fi
 }
 
