@@ -1250,7 +1250,7 @@ fi
 
 
 
-## IPTAL -> Sadece 0.1 Gib(1024 Mib ?) a kadar Free alan icin islem yapilabilir.. ->> [m$]
+## iptal -08-11-2025 -> Sadece 0.1 Gib(1024 Mib ?) a kadar Free alan icin islem yapilabilir.. ->> [m$]
 freevgsize=$(vgs "$vgx"|awk 'NR>1'|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}{print $NF}')
 #freevgsize=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~"m$"{exit}$NF~/</{sub("<","",$NF)}{print $NF}')
 #freevgsize=$(vgs "$vgx"|awk 'END{if($NF=="0"){exit};if($NF~/</){sub("<","",$NF)}print $NF}')
