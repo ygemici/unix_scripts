@@ -3767,9 +3767,6 @@ vgx_tmp=$(echo "$vgx"|sed 's;/dev/;;')
 if [ -b "/dev/$vgx_tmp" ] ; then
 vgx="$lvx_striped"
 lvx=""
-printit 30
-echo "-> [LV] bilgisi otomatik olusturulacak .. "
-printit 30
 sleep 1
 fi
 
@@ -3823,11 +3820,12 @@ else
 echo "$vg_tmp_x"
 printit 30
 pvs -v --segments 2>/dev/null|awk -v a="$vgx" 'NR==1{print;next}$2==a'
+printit 30
 fi
 
-
+echo
 ## stripe lv check
-[[ -z "$lvx" ]] && echo "[LV] bilgisi otomatik olusturulacak [$lastp] " && lvnamecreate "$vgx" "$lastp"
+[[ -z "$lvx" ]] && echo "-> [LV] bilgisi otomatik olusturulacak [$lastp] " && lvnamecreate "$vgx" "$lastp"
 [[ -z "$lvx" ]] && echo "Stripe [LV] bilgisi olusturulamadi !! " && errormsg
 
 
