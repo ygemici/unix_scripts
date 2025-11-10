@@ -3769,7 +3769,9 @@ vgx_tmp=$(echo "$vgx"|sed 's;/dev/;;')
 if [ -b "/dev/$vgx_tmp" ] ; then
 vgx="$lvx_striped"
 lvx=""
+printit 30
 echo "-> [LV] bilgisi otomatik olusturulacak .. "
+printit 30
 sleep 1
 fi
 
