@@ -3800,7 +3800,7 @@ stripe_vg_search() {
 #vgxstripesrch=( ${@: -2:1} ${@: -3:1} ${@: -4:1} ${@: -5:1} )
 
 
-# stripe vg check
+## stripe vg check ##
 vgx_chars=$(echo "$vgx" |grep -o .|grep -v -e '[a-z]' -e '[A-Z]' -e '[0-9]' -e '[-_+]' -e '\.')
 if [[ ! -z "$vgx_chars" ]] ; then
 echo "Girilen VG bilgisi [$vgx] gecersiz karakterler iceriyor gibi gorunuyor ->> " [ $vgx_chars ]
@@ -3811,7 +3811,7 @@ fi
 vg_tmp_x=$(vgs "$vgx" -o+lv_layout,stripes 2>/dev/null)
 if [[ -z "$vg_tmp_x" ]] ; then
 if [[ "$lastp" = "ext" ]] ; then
-echo "[$vgx] isminde bir [VG] bulunamadi !! "
+echo "[$vgx] isminde gecerli bir [VG] bulunamadi !! "
 echo "[striped] [VG] islemleri icin gecerli bir [VG] bilgisi girilmelidir !!! "
 sleep 1
 errormsg
@@ -3824,9 +3824,17 @@ printit 30
 fi
 
 echo
-## stripe lv check
+
+
+## stripe lv check ##
 [[ -z "$lvx" ]] && echo "-> [LV] bilgisi otomatik olusturulacak [$lastp] " && lvnamecreate "$vgx" "$lastp"
 [[ -z "$lvx" ]] && echo "Stripe [LV] bilgisi olusturulamadi !! " && errormsg
+
+lv_tmp_x=$(lvs -o+lv_layout|awk -va="$vgx" -vb="$lvx" '$2==a&&$1==b')
+if [[ -z "$lv_tmp_x" ]] ; then
+echo "[$vgx] [VG] ile eslesen [$lvx] isminde bir [LV] device bulunamadi !! "
+errormsg
+fi
 
 
 striped_ext=0
