@@ -3461,12 +3461,15 @@ errormsg
 else
 vgsfrechk=$(vgs "$vgx" 2>/dev/null|awk -v a="$vgx" 'NR>1{if(a==$1)print "OK"}')
 if [ ! -z "$vgsfrechk" ] ; then
+printit 30
 echo "-> [striped] layout kontrolu icin verilen parametre degeri [$vgx] aktif bir [VG] olarak tespit edildi [OK] "
 else
+printit 30
 echo "-> [striped] layout kontrolu icin verilen parametre degeri [$vgx] gecerli bir [VG] olarak tespit edilemedi !!! "
 sleep 1
 #errormsg
 fi
+printit 30
 fi
 else
 [[ "$2" == "stripe" ]] && echo "-> [striped] layout kontrolu icin verilen parametre degeri [$disk] bir disk device olarak tespit edildi {INFO] "
