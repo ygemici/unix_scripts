@@ -3820,14 +3820,19 @@ sleep 1
 errormsg
 fi
 
-vgs "$vgx" -o+lv_layout,stripes 2>/dev/null
-if [ $? -ne 0 ] ; then
+
+vg_tmp_x=$(vgs "$vgx" -o+lv_layout,stripes 2>/dev/null)
+if [[ -z "$vg_tmp_x" ]] ; then
 if [[ "$lastp" = "ext" ]] ; then
 echo "[$vgx] isminde bir [VG] bulunamadi !! "
 echo "[striped] [VG] islemleri icin gecerli bir [VG] bilgisi girilmelidir !!! "
 sleep 1
 errormsg
 fi
+else
+echo "$vg_tmp_x"
+printit 30
+pvs -v --segments 2>/dev/null|awk -v a="$vgx" 'NR==1{print;next}$2==a'
 fi
 
 ################
