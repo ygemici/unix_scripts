@@ -1427,10 +1427,7 @@ echo "islem sonrasi : Yeni [ $vgx-$lvx ] [LV] Size bilgisi :  $newlvsizeshow $ne
 
 sleep 2
 
-
 else
-echo xx $usersizechange xx $usersize
-exit
 echo
 printit 50
 echo "->> [$vgx] [VG] icinde (Free LV) alan bulunamadi !! "
