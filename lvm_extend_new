@@ -3642,9 +3642,12 @@ echo
 #### STRIPE SET ###
 stripe_ext() {
 printit 20
-echo "-> LVM Disk Layout [striped] olarak tespit edildi .. "
+echo "-> [VG] Disk Layout [striped] olarak tespit edildi .. "
 echo
 sleep 2
+
+[[ -z "$lvx" ]] && echo "LV bilgisi otomatik bulunacak .. " && lvnamecreate "$vgx" "ext"
+
 #echo "Uygulama icinde sadece Disk Extend islemleri desteklenmektedir !!! "
 sleep 1
 printit 30
@@ -3810,8 +3813,8 @@ stripe_vg_search() {
 #son 4 parametrede VG stripe bilgisi aranir..
 #vgxstripesrch=( ${@: -2:1} ${@: -3:1} ${@: -4:1} ${@: -5:1} )
 
-striped_ext=0
 
+striped_ext=0
 
 vgx_chars=$(echo "$vgx" |grep -o .|grep -v -e '[a-z]' -e '[A-Z]' -e '[0-9]' -e '[-_+]' -e '\.')
 if [[ ! -z "$vgx_chars" ]] ; then
@@ -3819,7 +3822,6 @@ echo "Girilen VG bilgisi [$vgx] gecersiz karakterler iceriyor gibi gorunuyor ->>
 sleep 1
 errormsg
 fi
-
 
 vg_tmp_x=$(vgs "$vgx" -o+lv_layout,stripes 2>/dev/null)
 if [[ -z "$vg_tmp_x" ]] ; then
@@ -3920,7 +3922,7 @@ stripe_new() {
 #ilk parametre disk mi VG mi ?
 #set -- ${disks[@]}
 
-[[ -z "$lvx" ]] && lvnamecreate $vgx "new"
+[[ -z "$lvx" ]] && lvnamecreate "$vgx" "new"
 [[ -z "$lvx" ]] && echo "Stripe [LV] bilgisi olusturulamadi !! " && errormsg
 #diskstrpc=$(($diskt-3))
 
