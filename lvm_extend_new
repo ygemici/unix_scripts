@@ -3472,6 +3472,7 @@ fi
 printit 30
 fi
 else
+printit 30
 [[ "$2" == "stripe" ]] && echo "-> [striped] layout kontrolu icin verilen parametre degeri [$disk] bir disk device olarak tespit edildi {INFO] "
 [[ "$2" != "stripe" ]] && echo "-> [$disk] parametresi gecerli bir disk device olarak gorunuyor [OK] " || \
 echo "-> [$disk] parametresi gecerli bir disk device olarak gorunuyor [OK-stripe]"
