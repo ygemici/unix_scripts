@@ -3416,7 +3416,6 @@ esac
 completed
 }
 
-
 issize() {
 ####s=size kontrolu - size bilgisi sadece SON parametre icinde aranir !! ####
 for last; do true; done
@@ -3486,7 +3485,6 @@ lsblkchk;
 #diskchck "$disk" "$devdisk"
 diskchck #"$disk" "$devdisk"
 }
-
 
 
 stripecheck() {
@@ -3646,8 +3644,6 @@ echo "-> [VG] Disk Layout [striped] olarak tespit edildi .. "
 echo
 sleep 2
 
-[[ -z "$lvx" ]] && echo "LV bilgisi otomatik bulunacak .. " && lvnamecreate "$vgx" "ext"
-
 #echo "Uygulama icinde sadece Disk Extend islemleri desteklenmektedir !!! "
 sleep 1
 printit 30
@@ -3684,7 +3680,6 @@ sleep 1
 #echo "-> Toplamda [$pvsc] adet gecerli disk bilgisi girilmis olmalidir ... !! [FAIL] "
 #errormsg
 #fi
-
 
 
 #eval v=\${$lvstripe}
@@ -3747,10 +3742,8 @@ lvextendx "ext" "striped"
 #lvextend --extents +100%FREE "$lvmmapperdev" && errchk $? "lvextend-striped"
 sleep 2
 
-
 ###islem sonrasi filesystem islemleri
 fschk "$lvmmapperdev" "ext" && [ "$fst" != "NULL" ] && resizepck "$fst" && resizefsx
-
 }
 
 
@@ -3783,7 +3776,6 @@ printit 30
 sleep 1
 fi
 
-
 [[ -z "$lvx" ]] && stc=$((cc-2)) || stc=$((cc-3))
 for((i=1;i<$stc;i++));do
 v=$(echo "${@: $i:1}"|sed 's;/dev/;;')
@@ -3814,8 +3806,7 @@ stripe_vg_search() {
 #vgxstripesrch=( ${@: -2:1} ${@: -3:1} ${@: -4:1} ${@: -5:1} )
 
 
-striped_ext=0
-
+# stripe vg check
 vgx_chars=$(echo "$vgx" |grep -o .|grep -v -e '[a-z]' -e '[A-Z]' -e '[0-9]' -e '[-_+]' -e '\.')
 if [[ ! -z "$vgx_chars" ]] ; then
 echo "Girilen VG bilgisi [$vgx] gecersiz karakterler iceriyor gibi gorunuyor ->> " [ $vgx_chars ]
@@ -3837,6 +3828,13 @@ printit 30
 pvs -v --segments 2>/dev/null|awk -v a="$vgx" 'NR==1{print;next}$2==a'
 fi
 
+
+## stripe lv check
+[[ -z "$lvx" ]] && echo "[LV] bilgisi otomatik olusturulacak [$lastp] " && lvnamecreate "$vgx" "$lastp"
+[[ -z "$lvx" ]] && echo "Stripe [LV] bilgisi olusturulamadi !! " && errormsg
+
+
+striped_ext=0
 ################
 case "$lastp" in
 ext)
@@ -3921,9 +3919,6 @@ stripe_new() {
 #diskt="${#@}"
 #ilk parametre disk mi VG mi ?
 #set -- ${disks[@]}
-
-[[ -z "$lvx" ]] && lvnamecreate "$vgx" "new"
-[[ -z "$lvx" ]] && echo "Stripe [LV] bilgisi olusturulamadi !! " && errormsg
 #diskstrpc=$(($diskt-3))
 
 ##stripedisks new
