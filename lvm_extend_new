@@ -50,7 +50,7 @@ echo "Ornek kullanim : ./$0 [sdxx] [VG] [LV] [new] "
 
 
 ### STRIPE new ###
-# Stripe yapida bir [VG] olusturulmasi desteklenmez !!
+# Stripe yapida bir [VG] olusturulmasi desteklenir.
 # Cunku Stripe bir [VG] olusturulmasi asamasinda birden fazla parametre kullanilabilir.
 # [ stripe disk count , stripe size ... ]
 
