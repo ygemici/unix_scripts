@@ -2941,7 +2941,7 @@ printit 50
 echo -e "-> [vgcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
 printit 30
 sleep 3
-[ ! -z "$size" ] && echo "->> [VG] olusturulurken [->size] bilgisi kullanilmasi desteklenmiyor !! " && echo && sleep 2
+[ ! -z "$size" ] && echo "->> [VG] olusturulurken [size: $sizec] bilgisi kullaniliyor [INFO] " && echo && sleep 2
 vgcreate "$vgx" "$devdisk" ; vgcreate_st=$? ; errchk $vgcreate_st "vgcreate"
 if [ $vgcreate_st -eq 0 ] ; then
 echo "['$vgx'] isminde YENI bir [VG] olusturuldu .. [OK] "
