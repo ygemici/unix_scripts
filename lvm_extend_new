@@ -4047,13 +4047,13 @@ if [ $pvslc -eq 0 ] ; then
 [[ "$lastp" == "ext" ]] && echo "[$disk] diskinin bir [PV] disk oldugundan emin olun [FAIL] "
 sleep 1
 elif [ $pvslc -eq 1 ] ; then
-pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{print $(NF-1)}')
+pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes 2>/dev/null|awk 'NR>1{print $(NF-1)}')
 #vgx_layout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{a[$2]}END{for(i in a)print i}')
 vgx_layout=$(pvdisplay "${disk_layout_dev}"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
 elif [ $pvslc -gt 1 ] ; then
 echo "-> [$disk_layout_dev] birden fazla segment iceriyor olabilir [INFO] "
 printit 40
-pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{a[$(NF-1)]++}END{for(i in a)print i}')
+pvlayout=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes 2>/dev/null|awk 'NR>1{a[$(NF-1)]++}END{for(i in a)print i}')
 pvs "${disk_layout_dev}" -v --segments
 vgx_layout=$(pvdisplay "${disk_layout_dev}"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
 pvlayoutc=$(echo "$pvlayout"|awk 'END{print NR}')
@@ -4071,7 +4071,7 @@ printit 50
 fi
 
 ###
-vg_empty=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes|awk 'NR>1{if($2=="lvm2")print "OK"}')
+vg_empty=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes 2>/dev/null|awk 'NR>1{if($2=="lvm2")print "OK"}')
 if [[ ! -z "$vg_empty" ]] ; then
 if [[ "$lastp" == "new" ]] ; then
 echo "-> [$disk] diski herhangi bir [VG] dahil edilmemis [OK] "
