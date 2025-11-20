@@ -4043,7 +4043,7 @@ fi
 ###
 pvslc=$(pvs "${disk_layout_dev}" -o+lv_layout,stripes 2>/dev/null|awk 'END{if(NR)print NR-1;else print 0}')
 if [ $pvslc -eq 0 ] ; then
-[[ "$lastp" == "new" ]] && echo "[$disk] diskinin bir [PV] disk oldugundan emin olun [INFO] "
+[[ "$lastp" == "new" ]] && echo "[$disk] diski bir [PV] disk olarak gorunmuyor [INFO] "
 [[ "$lastp" == "ext" ]] && echo "[$disk] diskinin bir [PV] disk oldugundan emin olun [FAIL] "
 sleep 1
 elif [ $pvslc -eq 1 ] ; then
