@@ -32,12 +32,6 @@
 #=======================================================
 
 
-calldates() {
-daysago=$(date -d "-$day days" +'%Y%m%d%H%M%S')
-#lastyearstart=$(last|awk 'END{print $NF}')
-validyear=$(date -d "-$day days" +'%Y')
-}
-
 writeerror() {
 echo "Last Login information for '$1' could [not found] for $day days"
 }
@@ -61,16 +55,16 @@ calllastlogin() {
 calloldwtmp
 
 
+if [[ "$lasttyear" != "$validyear" ]] ; then
+
 for((i=$lasttyear;i<=$validyear;i++)) ; do
 lastlogl=$(last -t ${i}1231235959 -1 $user -f /var/log/wtmp*|awk 'NR==1')
 j=$((i+1)) ; lastlogf=$(last -t ${j}1231235959 -1 $user -f /var/log/wtmp*|awk 'NR==1')
-
-if [ "$lastlogl" == "$lastlogf" ] ; then
-validyearnew=$i
+[[ "$lastlogl" == "$lastlogf" ]] && validyearnew=$i
+done
 else
 validyearnew=$validyear
 fi
-done
 
 
 lastlogin=$(last -1 $user -f /var/log/wtmp*|awk -vy=$validyearnew 'NR==1&&NF{if(/pts/)print $5,$6,",",y,$7":01";if(/tty/)print $4,$5,",",y,$6":01"}')
@@ -82,7 +76,6 @@ else
 
  lastlgepochtime=$(date +%s -d"$lastlogin")
  wantedepochtime=$(date +%s -d"-$day days")
-
 
  if [ $lastlgepochtime -lt $wantedepochtime ] ; then
  echo "Last Login time is long from period ['$day'] of days ago for [$user] user"
@@ -104,11 +97,23 @@ fi
 done
 }
 
+callfunc() {
+case $1 in
+ notlogins) calllastloginall notlogins ;;
+ logins)  calllastloginall logins ;;
+ *) user=$1 ; calllastlogin $user ;;
+esac
+}
+
 checkuser() {
 if [ "$1" != "notlogins" ] && [ "$1" != "logins" ] ; then
-grep $1 $passwd 2>&1 >/dev/null
+grep -q $1 $passwd
 if [ $? -ne 0 ] ; then
-echo "Username is seem invalid!!" ; exit 1
+id $1 &>/dev/null
+if [ $? -ne 0 ] ; then
+echo "Username is seem invalid !!"
+exit
+fi
 fi
 else
 awk -vn=$1 'BEGIN{printf "%30s\n",n}'
@@ -116,12 +121,10 @@ echo|awk 'BEGIN{printf "%15c","-";for(i=1;i<=25;i++)printf "%c","-"}END{printf "
 fi
 }
 
-callfunc() {
-case $1 in
- notlogins) calllastloginall notlogins ;;
- logins)  calllastloginall logins ;;
- *) user=$1 ; calllastlogin $user ;;
-esac
+calldates() {
+daysago=$(date -d "-$day days" +'%Y%m%d%H%M%S')
+#validyear=$(date -d "-$day days" +'%Y')
+validyear=$(date '+%Y')
 }
 
 numcheckandset() {
