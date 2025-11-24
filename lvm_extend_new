@@ -528,9 +528,10 @@ else
 fi
 [[ -z "$FREE_RAW" ]] && FREE_RAW="Mevcut"
 [[ ! -z "$diskdevx" ]] && grow_devdisk="$diskdevx" || grow_devdisk="$devdisk"
+grow_devdiskp=$(echo $grow_devdisk|sed 's/[0-9]\+$//')
 [[ ! -z "$freerawgib" ]] && \
-echo "[ growpart $grow_devdisk $diskprt ] komutu ile bu ( $freerawgib Gib ) $FREE_RAW RAW alani [$disk] partitiona aktarmayi deneyebilirsiniz .. " || \
-echo "[ growpart $grow_devdisk $diskprt ] komutu ile bu $FREE_RAW RAW alani [$disk] partitiona aktarmayi deneyebilirsiniz .. "
+echo "[ growpart $grow_devdiskp $diskprt ] komutu ile bu ( $freerawgib Gib ) $FREE_RAW RAW alani [$disk] partitiona aktarmayi deneyebilirsiniz .. " || \
+echo "[ growpart $grow_devdiskp $diskprt ] komutu ile bu $FREE_RAW RAW alani [$disk] partitiona aktarmayi deneyebilirsiniz .. "
 echo "[ growpart shell script ] dosyasi [ cloud-utils-growpart ] paketi icinde yer almaktadir !! "
 #growpart_menu
 printit 70
@@ -759,7 +760,8 @@ diskprt=$(echo "$disk"|sed 's/[^0-9]//g')
 [[ "$diskother" = "ok" ]] && diskprt=$(echo "$disk"|sed 's/.*p\([0-9]*\)$/\1/')
 
 printit 30
-echo "'growpart $devdisk $diskprt' komutu ile bu Free alani [$disk] partitiona aktarip bu alani da kullanabilirsiniz .. "
+grow_devdiskp=$(echo $grow_devdisk|sed 's/[0-9]\+$//')
+echo "'growpart $devdiskp $diskprt' komutu ile bu Free alani [$disk] partitiona aktarip bu alani da kullanabilirsiniz .. "
 echo "'growpart shell script i 'cloud-utils-growpart' paketi icinde yer almaktadir !! "
 #growpart_menu
 #printit 50
@@ -1440,7 +1442,8 @@ if [ "$1" = "ext" ] ; then
 echo "EXTEND[ext] islemleri yapilamiyor... !! "
 if [[ "$growpartprint" -eq 1 ]] ; then
 echo
-echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
+grow_devdiskp=$(echo $grow_devdisk|sed 's/[0-9]\+$//')
+echo "[growpart $grow_devdiskp $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
 sleep 2
 echo
 echo "[growpart] uygulamasi kullanilamiyor ise [fdisk] komutu ile [$disk] partitionu silip tekrardan olusturmaniz gerekiyor olabilir .... "
@@ -1756,7 +1759,8 @@ printit 50
 
 if [[ "$growpartprint" -eq 1 ]] ; then
 echo
-echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
+grow_devdiskp=$(echo $grow_devdisk|sed 's/[0-9]\+$//')
+echo "[growpart $grow_devdiskp $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
 sleep 2
 echo
 echo "[growpart] uygulamasi kullanilamiyor ise [fdisk] komutu ile [$disk] partitionu silip tekrardan olusturmaniz gerekiyor olabilir .... "
@@ -2601,7 +2605,8 @@ printit 50
 
 if [[ "$growpartprint" -eq 1 ]] ; then
 echo
-echo "[growpart $grow_devdisk $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
+grow_devdiskp=$(echo $grow_devdisk|sed 's/[0-9]\+$//')
+echo "[growpart $grow_devdiskp $diskprt] komutunu calistirmaniz gerekiyor olabilir ... "
 sleep 2
 echo
 echo "[growpart] uygulamasi kullanilamiyor ise [fdisk] komutu ile [$disk] partitionu silip tekrardan olusturmaniz gerekiyor olabilir .... "
