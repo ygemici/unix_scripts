@@ -67,7 +67,7 @@ validyearnew=$validyear
 fi
 
 
-lastlogin=$(last -1 $user -f /var/log/wtmp*|awk -vy=$validyearnew 'NR==1&&NF{if(/pts/)print $5,$6,",",y,$7":01";if(/tty/)print $4,$5,",",y,$6":01"}')
+lastlogin=$(last -1 $user -f /var/log/wtmp*|awk -v y="$validyearnew" 'NR==1&&NF{if(/pts/)x=$5 FS $6 FS "," FS y FS $7 ":01";if(($0~/tty/)||($3!~/[0-9]/))x=$4 FS $5 FS "," FS y FS $6 ":01"}END{print x}')
 if [ -z "$lastlogin" ] ; then
  if [ "$1" = "notlogins" ] || [ "$1" = "$user" ] || [ -z "$1" ] ; then
  writeerror $user
