@@ -4067,7 +4067,7 @@ echo
 echo "-> [$disk] diskinde birden fazla Layout bilgisi tespit edildi [WARN] "
 echo "-> [$disk] diskinde henuz bir [LV] device atanmamis Free Alan olabilir [INFO] "
 sleep 1
-pvlayout=$(vgs "$vgx_layout" -o+lv_layout | awk 'NR>1{print $NF}')
+pvlayout=$(vgs "$vgx_layout" -o+lv_layout | awk 'NR>1{print $NF;exit}')
 fi
 printit 50
 pvs "${disk_layout_dev}" -o+lv_layout,stripes
