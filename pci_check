@@ -472,6 +472,11 @@ for f in /sys/class/$subsys/*; do
     *[Bb][oO][nN][dD]*)driver="bonding"
     bonddevs=$(awk '{for(i=1;i<NF;i++)if($i~"Permanent HW addr"){sub(" *","",$1);split($i,a,": ");printf "%10s [%10s]\n",$1,a[2]}}' FS="\n" RS="Slave Interface:" /proc/net/bonding/$dev 2>/dev/null )
     [ ! -z "$bonddevs" ] && echo -e "\nBonding devices [Permanent Mac] \n-------\n$bonddevs\n========================" || echo
+    vlan_id=$(nmcli con 2>/dev/null|grep "$dev"|awk '$3=="vlan"'); [[ ! -z "$vlan_id" ]] && driver="bonding_vlan"
+    [[ -z "$vlan_id" ]] && vlan_id=$(grep -il 'type=vlan' /etc/NetworkManager/system-connections/* 2>/dev/null | while read ifcfg ; do grep interface-name "$ifcfg" |sed 's/interface-name=//' ; done | grep -w "$dev")
+    [[ ! -z "$vlan_id" ]] && driver="bonding_vlan"
+    [[ -z "$vlan_id" ]] && vlan_id=$(grep -il 'type=vlan' /etc/sysconfig/network-scripts/* 2>/dev/null | while read ifcfg ; do grep -i DEVICE= "$ifcfg" |sed 's/DEVICE=//' ; done | grep -w "$dev")
+    [[ ! -z "$vlan_id" ]] && driver="bonding_vlan"
     esac
     #[ "$dev" != "lo" ] && module_or_builtin "CONFIG_$driver=" "$driver" && [ ! -z "$modul2" ] && [ ! -z "$driver" ] && driver="$modul2"
     [ ! -z "$addr" ] && printf "%10s [%s] : %14s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
@@ -833,3 +838,4 @@ fi
 ###lets go
 menux "$1"
 justdoit "$1"
+
