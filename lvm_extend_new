@@ -3971,7 +3971,7 @@ sleep 2
 Stripe_Size=128  ## 128KB
 stripepvc=${#stripedisks[@]}
 if [ -z "$size" ] ; then
-lvcreate -l 100%FREE -i ${stripepvc} -I "${Stripe_Size}" -n $lvx $vgx ; errchk $? "lvcreate"
+lvcreate -l +100%FREE -i ${stripepvc} -I "${Stripe_Size}" -n $lvx $vgx ; errchk $? "lvcreate"
 else
 lvcreate -i ${stripepvc} -I "${Stripe_Size}" -L "${sizec}" -n $lvx $vgx ; errchk $? "lvcreate"
 fi
