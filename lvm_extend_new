@@ -221,7 +221,8 @@ fi
 
 "ext")
 if [ -z "$pvc" ] ; then
-pvfscheck
+## ext parametresinde pvcreate yapilmamasi daha mantikli olur ##
+#pvfscheck
 printit 30
 [[ $ispvalready -ne 1 ]] && echo "[./$0 $disk VG (LV) new] komutu ile yeni bir [PV] olusturabilirsiniz.. "
 errormsg
