@@ -79,7 +79,7 @@ done
 ################################################
 
 # is enable multipath
-multipath -l > mpaths
+multipath -l 2>/dev/null > mpaths
 if [ -s mpaths ] ; then
 grep "kernel driver not loaded" mpaths >/dev/null
 if [ $? -ne 0 ] ; then
