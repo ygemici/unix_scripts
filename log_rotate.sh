@@ -87,6 +87,10 @@ single_log_rotate() {
                : > /proc/"$pid"/fd/"$fd"
             fi
          done
+      
+      elif [ "$logfile_date" = "wrapper.log" ] ; then
+           # dosya wrapper.log ise ve herhangi bir aktif process tarafindan okunmuyorsa dosya manuel olarak sifirlanir.
+          >${logpath}/${logfile_date}
       fi
    }
  
@@ -124,7 +128,7 @@ datechk "$LOG_FILE"
  
 [[ ! -f "$LOG_PATH"/"$LOG_FILE" ]] && continue
 [[ ! -z "$logfile_base" ]] && test "$(echo "$LOG_FILE"|grep -v '\.log\.')" && continue
-[[ -z "$logfile_base" ]] && test "$(echo "$LOG_FILE"|grep -v '\.log\.')" && continue
+[[ -z "$logfile_base" ]] && test "$(echo "$LOG_FILE"|grep -v '\.log\.*')" && continue
  
       # önce log rotate yap
       single_log_rotate "$LOG_FILE" "$LOG_PATH" "$LOG_FILE_DATE"
