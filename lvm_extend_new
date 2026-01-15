@@ -2534,9 +2534,9 @@ echo
 sleep 3
 echo "[VG] bilgisi [$vgdiskchk] ile devam ediliyor ... "
 sleep 3
-echo -e "-> [$vgdiskchk] icin yapilacak islemi kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
+echo -e "-> [$vgdiskchk] [VG] icin yapilacak islemi kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
 sleep 2
-echo -e "-> [$vgdiskchk] icin yapilacak islemi kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !!! \n"
+echo -e "-> [$vgdiskchk] [VG] icin yapilacak islemi kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !!! \n"
 sleep 1
 echo
 
@@ -3377,7 +3377,7 @@ else
 vgx="$2"
 pvscheck "ext"
 echo "Girilen parametreler eksik veya HATALI !! [ parametre sayisi : $paramc ] "
-if [[ "${@: -1}" != "ext" ]] || [[ "${@: -1}" != "new" ]] ; then
+if [[ "${@: -1}" != "ext" ]] && [[ "${@: -1}" != "new" ]] ; then
 echo
 echo "->> Son parametre olarak 'ext' yada 'new' degerleri girilmeli !! "
 echo
@@ -4011,10 +4011,13 @@ lastp="${@: -1}"
 if [[ "$lastp" != "ext" ]] && [[ "$lastp" != "new" ]] ; then
 if [[ "$#" -lt 2 ]] ; then
 echo "En az 2 parametre ile islem yapilabilir !! "
-else
-echo "Bilinmeyen parametre [$lastp] degeri girildi !! "
-fi
 errormsg
+else
+echo "-> Bilinmeyen parametre [$lastp] degeri girildi !! "
+sleep 1
+echo
+fi
+#errormsg
 fi
 }
 
