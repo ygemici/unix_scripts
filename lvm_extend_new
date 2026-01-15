@@ -3379,7 +3379,7 @@ pvscheck "ext"
 echo "Girilen parametreler eksik veya HATALI !! [ parametre sayisi : $paramc ] "
 if [[ "${@: -1}" != "ext" ]] && [[ "${@: -1}" != "new" ]] ; then
 echo
-echo "->> Son parametre olarak 'ext' yada 'new' degerleri girilmeli !! "
+echo "-> Son parametre olarak [ext] yada [new] degerleri girilebilir !! "
 echo
 sleep 1
 fi
