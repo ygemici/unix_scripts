@@ -4101,7 +4101,7 @@ vgsfchk=$(vgs "$vgx" 2>/dev/null)
 if [[ -z "$vgsfchk" ]] ; then
 if [[ "$lastp" == "ext" ]] ; then
 [[ "$pvlayout" == "linear" ]] && echo "[$vgx] isminde Linear yapida aktif bir [VG] bulunamadi [FAIL] "
-if [[ "$vgx" == "ext" ]] || [[ "$vgx" == "new" ]] ; then
+if [[ "$vgx" == "ext" ]] && [[ "$vgx" == "new" ]] ; then
 echo "[VG] bilgisi olarak [$vgx] degeri kullanilamaz !! "
 errormsg
 fi
