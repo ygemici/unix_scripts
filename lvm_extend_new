@@ -2732,7 +2732,7 @@ lvnamerecreate $vgx
 if [ ! -z "$lvx" ] ; then
 lvchecklvs "$vgx" "$lvx"
 if [ ! -z "$islvsx" ] ; then
-[[ "$lastp" == "new" ]] && echo "-> [$isvgx] [VG] uzerinde [$lvx] isminde zaten bir [LV] device bulunuyor [FAIL] " && errormsg
+[[ "$lastp" == "new" ]] && echo "-> [$isvgx] [VG] uzerinde [$lvx] isminde zaten bir [LV] device bulunuyor [FAIL] "
 [[ "$lastp" == "ext" ]] && echo "-> [$isvgx] [VG] uzerinde [$lvx] isminde [LV] device tespit edildi [OK] "
 printit 30
 sleep 2
