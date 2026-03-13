@@ -6,6 +6,9 @@
 ## ex: cronjob -> 59 23 * * * bash log_rotate.sh "error.log.$(date +\%Y-\%m-\%d)" "/var/log"
 
 #set -euo pipefail
+
+#### YUCEL example
+# 59 23 * * * bash log_rotate.sh "bank_error.log.$(date +\%Y-\%m-\%d)" "bank_event.log.$(date +\%Y-\%m-\%d)" wrapper.log /opt/apps/log
  
 manage_old_logs() {
    local logfile="$1"
