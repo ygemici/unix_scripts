@@ -157,7 +157,7 @@ swport=$(cat /sys/class/fc_host/$host/fabric_name 2>/dev/null);
 [[ $? -eq 1 ]] && swport="[?]"
 hostwwn=$(cat /sys/class/fc_host/$host/port_name 2>/dev/null)
 awk -vhost=$host -vpci="$(lspci -s $pci)" 'BEGIN{print host FS pci }' >> fullports;
-for rport in $(ls -1d /sys/class/fc_host/$host/device/rport-*|awk -F'/' '{print $NF}'); do
+for rport in $(ls -1d /sys/class/fc_host/$host/device/rport-* 2>/dev/null|awk -F'/' '{print $NF}'); do
 grep -H "FCP" /sys/class/fc_remote_ports/$rport/roles 2>/dev/null|
 awk -F '/' -vhost="$host" -vhostwwn="$hostwwn" -vswport="$swport" '{print host,hostwwn"[wwn]->",swport"[swport]",$(NF-1)}'; done;
 done >> fullports
