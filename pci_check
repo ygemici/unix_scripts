@@ -463,24 +463,47 @@ for f in /sys/class/$subsys/*; do
 
     net)
     ((c++))
-    [ $c -eq 1 ] && printf "%10s [%s] : %22s %12s\n" "Device" "MAC_Addr" "Driver" "State" && awk 'BEGIN{$62=OFS="-";print $0; }'
+    [ $c -eq 1 ] && printf "%-14s [%s] : %42s %12s\n" "Device" "MAC_Addr" "Driver" "State" && awk 'BEGIN{$84=OFS="-";print $0; }'
     addr=$(cat "$f/address" 2>/dev/null)
     operstate=$(cat "$f/operstate" 2>/dev/null)
     #[ -z "$addr" ] && addr="N/A"
     [ -z "$operstate" ] && operstate="N/A"
-    case "$dev" in
-    *[Bb][oO][nN][dD]*)driver="bonding"
+    #case "$dev" in
+    #*[Bb][oO][nN][dD]*)driver="bonding"
+
+    bond_id=$(nmcli con 2>/dev/null|grep -w "$dev"|awk '$3=="bond"'); [[ ! -z "$bond_id" ]] && driver="bonding"
+    [[ -z "$bond_id" ]] && bond_id=$(grep -il 'type=bond' /etc/NetworkManager/system-connections/* 2>/dev/null | while read ifcfg ; do grep interface-name "$ifcfg" |sed 's/interface-name=//' ; done | grep -w "$dev")
+    [[ ! -z "$bond_id" ]] && driver="bonding"
+    [[ -z "$bond_id" ]] && bond_id=$(grep -il 'type=bond' /etc/sysconfig/network-scripts/* 2>/dev/null | while read ifcfg ; do grep -i DEVICE= "$ifcfg" |sed 's/DEVICE=//' ; done | grep -w "$dev")
+    if [ ! -z "$bond_id" ] ; then
+    printf "%24s [%s] %26s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
     bonddevs=$(awk '{for(i=1;i<NF;i++)if($i~"Permanent HW addr"){sub(" *","",$1);split($i,a,": ");printf "%10s [%10s]\n",$1,a[2]}}' FS="\n" RS="Slave Interface:" /proc/net/bonding/$dev 2>/dev/null )
-    [ ! -z "$bonddevs" ] && echo -e "\nBonding devices [Permanent Mac] \n-------\n$bonddevs\n========================" || echo
-    vlan_id=$(nmcli con 2>/dev/null|grep "$dev"|awk '$3=="vlan"'); [[ ! -z "$vlan_id" ]] && driver="bonding_vlan"
+    #[ ! -z "$bonddevs" ] && echo -e "\nBonding devices [Permanent Mac] \n-------\n$bonddevs\n========================"
+    [ ! -z "$bonddevs" ] && echo -e "========================\n$bonddevs\n========================\n"
+    continue
+    fi
+
+    vlan_id=$(nmcli con 2>/dev/null|grep -w "$dev"|awk '$3=="vlan"'); [[ ! -z "$vlan_id" ]] && driver="bonding_vlan"
     [[ -z "$vlan_id" ]] && vlan_id=$(grep -il 'type=vlan' /etc/NetworkManager/system-connections/* 2>/dev/null | while read ifcfg ; do grep interface-name "$ifcfg" |sed 's/interface-name=//' ; done | grep -w "$dev")
     [[ ! -z "$vlan_id" ]] && driver="bonding_vlan"
     [[ -z "$vlan_id" ]] && vlan_id=$(grep -il 'type=vlan' /etc/sysconfig/network-scripts/* 2>/dev/null | while read ifcfg ; do grep -i DEVICE= "$ifcfg" |sed 's/DEVICE=//' ; done | grep -w "$dev")
     [[ ! -z "$vlan_id" ]] && driver="bonding_vlan"
-    esac
+    if [ ! -z "$vlan_id" ] ; then
+    vlan_dev=$(grep -il "DEVICE=$dev" /etc/sysconfig/network-scripts/* 2>/dev/null | while read ifcfg ; do grep -i PHYSDEV= "$ifcfg" |sed 's/PHYSDEV=//' ; done )
+    [[ -z "$vlan_dev" ]] && vlan_dev=$(grep -il "interface-name=$dev" /etc/NetworkManager/system-connections/* 2>/dev/null | while read ifcfg ; do grep interface-name "$ifcfg" |sed 's/parent=//' ; done )
+    if [ ! -z "$vlan_dev" ] ; then
+    uuid_chk=$(nmcli con 2>/dev/null| awk '{print $2}' |grep -w "$vlan_dev")
+    [ ! -z "$uuid_chk" ] && vlan_dev=$(nmcli con 2>/dev/null| grep -w "$vlan_dev" |awk '{print $4}')
+    [[ ! -z "$vlan_dev" ]] && printf "*\n%10s [%s] %29s %10s\n\n" "${dev}(vlan)->$vlan_dev" "$addr" "$driver" "($operstate)" && continue
+    fi
+    fi
+    #esac
     #[ "$dev" != "lo" ] && module_or_builtin "CONFIG_$driver=" "$driver" && [ ! -z "$modul2" ] && [ ! -z "$driver" ] && driver="$modul2"
-    [ ! -z "$addr" ] && printf "%10s [%s] : %14s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
+    #[[ -z "$vlan_dev" ]] || [[ -z "$bond_id" ]] && [[ -z "$tmpv" ]] && echo
+    tmpv=1
+    [[ ! -z "$addr" ]] && printf "%10s [%s] %40s %10s\n" "$dev" "$addr" "$driver" "($operstate)"
     ;;
+
 
 
 
