@@ -1538,7 +1538,7 @@ else
 freelv=$(awk -v a="$sizepvx_old" 'BEGIN{if(a>0)printf "%.0f",a}')
 fi
 ;;
-6|7|8)echo "[$disk] diskinde (Free LV) alan bulunamadi [oldoscheck OK] !! "
+6|7|8)echo "[$disk] diskinde (Free LV) alan bulunamadi..  [oldoscheck OK] "
 freelv=0
 ;;
 *)echo "Sistem destegi bulunmamaktadir.. $(uname -r) " ; freelv=0
