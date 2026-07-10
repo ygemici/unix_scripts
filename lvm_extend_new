@@ -1528,7 +1528,7 @@ disk=$1
 el=$(uname -r|sed 's/.*el\([0-9]*\).*/\1/')
 case "$el" in
 4|5)
-sizepvx_old=$(pvs --units g "$disk" 2>/dev/null|awk 'NR>1{sub("<","",$(NF-1));x=$(NF-1);sub(".$","",x);printf "%.2f",x}'
+sizepvx_old=$(pvs --units g "$disk" 2>/dev/null|awk 'NR>1{sub("<","",$(NF-1));x=$(NF-1);sub(".$","",x);printf "%.2f",x}')
 if [ -z "$sizepvx_old" ] ; then
 sizepvx_old=$(pvs $disk 2>/dev/null|awk 'NR>1{sub("<","",$NF);x=$(NF);if(x==0){print 0;exit};if(x~"G")s=x;;if(x~"T")s=x*1024;if(x~"M")s=x/1024;if(x~"K")s=x/1024/1024;printf "%0.2f",s }')
 fi
@@ -1538,10 +1538,11 @@ else
 freelv=$(awk -v a="$sizepvx_old" 'BEGIN{if(a>0)printf "%.0f",a}')
 fi
 ;;
-6|7|8)echo "[$disk] diskinde (Free LV) alan bulunamadi..  [oldoscheck OK] "
+6|7|8)echo "[$disk] diskinde (Free LV) alan bulunamadi.. [oldoscheck OK] "
 freelv=0
 ;;
-*)echo "Sistem destegi bulunmamaktadir.. $(uname -r) " ; freelv=0
+*)echo "Sistem destegi bulunmamaktadir.. $(uname -r) "
+freelv=0
 ;;
 esac
 printit 50
