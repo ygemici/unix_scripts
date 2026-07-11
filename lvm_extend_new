@@ -1261,14 +1261,11 @@ freevgsize=$(vgs "$vgx"|awk 'NR>1'|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}{p
 freevggib=$(vgs --units g "$vgx"|awk 'END{if($NF=="0g"||$NF=="0G"){exit};if($NF~/</){sub("<","",$NF)};sub(".$","",$NF);print $NF}')
 
 if [ -z "$freevggib" ] ; then
-freevggib=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}$NF~/k|K/{x=$NF/1024/1024}$NF~/m|M/{x=$NF/1024}$NF~/t|T/{x=$NF*1024}$NF~/g|G/{x=$NF;}{;printf "%0.2f",x}')
-
-freevggib2=$(vgs|grep "$vgx "|awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}$NF~/k|K/{x=$NF/1024/1024}$NF~/m|M/{x=$NF/1024}$NF~/t|T/{x=$NF*1024}$NF~/g|G/{x=$NF;}{;printf "%0.9f",x}')
-
+freevggib=$(vgs --noheadings -o vg_free "$vgx" 2>/dev/null |awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}$NF~/k|K/{x=$NF/1024/1024}$NF~/m|M/{x=$NF/1024}$NF~/t|T/{x=$NF*1024}$NF~/g|G/{x=$NF;}{;printf "%0.2f",x}')
+freevggib2=$(vgs --noheadings -o vg_free "$vgx" 2>/dev/null |awk '$NF=="0"{exit}$NF~/</{sub("<","",$NF)}$NF~/k|K/{x=$NF/1024/1024}$NF~/m|M/{x=$NF/1024}$NF~/t|T/{x=$NF*1024}$NF~/g|G/{x=$NF;}{;printf "%0.9f",x}')
 else
 freevggib2=$freevggib
 fi
-
 [[ ! -z "$freevggib2" ]] && freevggib=$freevggib2
 
 #isfree=$(awk -v n1="$freevggib" -v n2="0.1" 'BEGIN {(n1>n2 ? x="ok" : x="notok");print x }')
@@ -1294,8 +1291,6 @@ sleep 2
 fi
 
 
-
-
 ### lv_size ###
 lvsizemib
 lvsizegib
@@ -1310,7 +1305,6 @@ lvsizemibx=1
 lvsize="$sizelvmibshow"
 fi
 fi
-
 
 
 #### usersize ####
@@ -1421,13 +1415,14 @@ usersizeshow=$(awk -v a="$usersize" 'BEGIN{printf "%0.2f",a}')
 #usersizeshow=$(awk -v a="$usersize" 'BEGIN{if(a~".00$")printf "%.2f",a;else print a}')
 
 
-[ ! -z "$sizec" ] && \
-echo "[$vgx] VG icin '+$sizec ($usersizeshow $usersizeunit)' kadar (Free LV) alan bilgisi kullanilarak islem yapilacak ... " || \
+if [ ! -z "$sizec" ] ; then
+echo "[$vgx] VG icin '+$sizec ($usersizeshow $usersizeunit)' kadar (Free LV) alan bilgisi kullanilarak islem yapilacak ... "
+sleep 2
+else
 echo "[$vgx] VG icin '+$usersizeshow $usersizeunit' kadar (Free LV) alan bilgisi kullanilarak islem yapilacak ... " || \
-sleep 4
+sleep 2
+fi
 echo "islem sonrasi : Yeni [ $vgx-$lvx ] [LV] Size bilgisi :  $newlvsizeshow $newlvsizeunit ( $lvsizeshow $lvsizeunit + $usersizeshow $usersizeunit ) ]"
-
-
 sleep 2
 
 else
