@@ -861,11 +861,12 @@ if [ "$diskother" = "ok" ] ; then
 partscan "$devdisk"
 
 ###############
-echo 1 > /sys/block/$diskdx/device/rescan
+## nvme ##
+nvme_rescan=$(echo "$diskdx"|sed 's/\(nvme[0-9]*\).*/\1/')
+[[ "$diskother" = "ok" ]] && echo 1 > /sys/class/nvme/$nvme_rescan/device/rescan || echo 1 > /sys/block/$diskdx/device/rescan
 partsizechk "$devdisk"
 
 else
-
 
 #mpath
 #echo "$disk"|grep '^mpath*' &>/dev/null
@@ -2052,7 +2053,7 @@ echo "fstab dosyasi eski haline geri donuldu .. "
 
 fstab_check() {
 isfstabinready=0
-checkl=$(grep $(echo "$mp"|sed 's/[_-]/\./g') /etc/fstab )
+checkl=$(grep -w /$(echo "$mp"|sed 's/[_-]/\./g') /etc/fstab )
 if [ ! -z "$checkl" ] ; then
 isfstabinready=1
 echo
