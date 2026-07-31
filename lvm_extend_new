@@ -136,6 +136,8 @@ sleep 3
 [ $pvcreteis -eq 1 ] && pvcreatex || echo "[pvcreate] islemleri [ext] mode da yapilamiyor !! "
 echo
 ;;
+*swap*)echo "[$disk] diski ('swap alani') iceriyor.. [PV] diski olarak kullanilamaz !! " ; errormsg
+;;
 *)echo "[$disk] diski uzerinde bir filesystem bilgisi olabilir !! "
 ;;
 esac
