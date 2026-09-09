@@ -4026,7 +4026,7 @@ lv_layout_check() {
 last_param_check $@;
 
 ## mpath - multipath device
-echo "Yeni Multipath devicelar sisteme yansimasi icin [sg3_utils] paketi icinde yer alan [rescan-scsi-bus.sh] scriptini calistirabilirsiniz .. "
+echo "Yeni multipath devicelarin sistemde goruntulenmesi icin [sg3_utils] paketi icinde yer alan [rescan-scsi-bus.sh] scriptini calistirabilirsiniz .. "
 sleep 1
 
 ## Linear yapilarda sadece 1 tane disk ile islem yapilabilir .. ##
