@@ -1970,6 +1970,25 @@ esac
 printit 30
 }
 
+lv_naming_rules() {
+echo 'LVM2 allows volume group names and logical volume names to contain characters A to Z, a to z, 0 to 9, underscore (_), hyphen (-), dot (.), and plus (+). 
+The names cannot begin with a hyphen.
+
+Reserved names and character strings that are used internally by LVM cannot be used as volume group names or logical volume names. 
+A volume group cannot be called anything that exists in /dev/ at the time of creation. 
+It cannot be named '.' (a single dot) or '..' (double dot).
+
+A logical volume cannot be named the following reserved words:
+.  (a single dot)
+.. (double dot)
+snapshot
+pvmove
+
+The logical volume name also cannot contain the following strings:
+_mlog
+_mimage'
+}
+
 
 vgxnamechk() {
 case "$1" in
@@ -3606,9 +3625,9 @@ if [ $? -ne 0 ] ; then
 vgs 2>/dev/null|grep -q "$vgx"
 if [ $? -eq 0 ] ; then
 vgxx=$(vgs 2>/dev/null|grep "$vgx"|awk '{print $1}')
-echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->> [$vgxx]"
+echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->>" [$vgxx]
 sleep 1
-echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->> [$vgxx]"
+echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->>" [$vgxx]
 sleep 1
 fi
 if [[ "$lastp" = "new" ]] ; then
