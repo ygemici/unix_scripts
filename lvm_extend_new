@@ -3641,9 +3641,11 @@ errormsg
 fi
 else
 if [[ "$lastp" = "new" ]] ; then
+echo
 echo "-> [new] parametresi kullanilarak [VG] extend islemleri yapilacaktir .. "
 sleep 1
 elif [[ "$lastp" = "ext" ]] ; then
+echo
 echo "-> [ext] parametresi kullanilarak [VG] extend islemleri yapilacaktir .. "
 fi
 fi
