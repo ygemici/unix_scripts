@@ -3629,6 +3629,7 @@ echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->>" [$vgxx]
 sleep 1
 echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->>" [$vgxx]
 sleep 1
+echo
 fi
 if [[ "$lastp" = "new" ]] ; then
 echo "-> [new] parametresi kullanilarak [$vgx] isimli yeni bir [VG] create edilecektir .. "
