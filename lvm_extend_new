@@ -3601,11 +3601,34 @@ sleep 1
 fi
 fi
 
+vgs "$vgx" 2>/dev/null
+if [ $? -ne 0 ] ; then
+vgs 2>/dev/null|grep -q "$vgx"
+if [ $? -eq 0 ] ; then
+vgxx=$(vgs 2>/dev/null|grep "$vgx"|awk '{print $1}')
+echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->> [$vgxx]"
+sleep 1
+echo "->> DIKKAT : Benzer isimde [VG] bilgisi tespit edildi ->> [$vgxx]"
+sleep 1
+fi
 if [[ "$lastp" = "new" ]] ; then
-echo "-> [new] parametresi kullanilarak [VG] create yada extend islemleri yapilacaktir .. "
+echo "-> [new] parametresi kullanilarak [$vgx] isimli yeni bir [VG] create edilecektir .. "
+sleep 2
+echo
+elif [[ "$lastp" = "ext" ]] ; then
+echo "-> [$vgx] isminde gecerli bir [VG] bilgisi bulunamadigi icin extend islemleri yapilamiyor !!! "
+errormsg
+fi
+else
+if [[ "$lastp" = "new" ]] ; then
+echo "-> [new] parametresi kullanilarak [VG] extend islemleri yapilacaktir .. "
+sleep 1
 elif [[ "$lastp" = "ext" ]] ; then
 echo "-> [ext] parametresi kullanilarak [VG] extend islemleri yapilacaktir .. "
 fi
+fi
+
+
 echo
 sleep 1
 #errormsg
@@ -3620,7 +3643,7 @@ sleep 1
 #[root@xxxx ~]# pvs -o+lv_layout,stripes /dev/sde
 #  Failed to find physical volume "/dev/sde".
 echo
-echo "[$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
+echo "-> [$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
 if [[ "$lastp" = "new" ]] ; then
 echo "-> [new] parametresi kullanilarak yeni bir [VG] olusturulacaktir ... "
 #firstcheck "$1"
