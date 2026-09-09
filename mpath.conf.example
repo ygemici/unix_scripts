@@ -1,0 +1,63 @@
+cat /etc/multipath.conf
+# device-mapper-multipath configuration file
+
+# For a complete list of the default configuration values, run either:
+# # multipath -t
+# or
+# # multipathd show config
+
+# For a list of configuration options with descriptions, see the
+# multipath.conf man page.
+
+defaults {
+        user_friendly_names yes
+        find_multipaths yes
+        enable_foreign "^$"
+}
+
+devices {
+        device {
+                vendor "IBM"
+                product "2145"
+                path_grouping_policy "group_by_prio"
+                path_selector "service-time 0" # Used by Red Hat 7.x
+                prio "alua"
+                path_checker "tur"
+                failback "immediate"
+                no_path_retry 5
+                rr_weight uniform
+                rr_min_io_rq "1"
+                dev_loss_tmo 120
+        }
+
+}
+
+multipaths {
+        multipath {
+                wwid            "360050768138182798800000000002f68"
+                alias           "backup"
+        }
+multipath {
+                wwid            "360050768138182798800000000002f67"
+                alias           "data"
+        }
+multipath {
+                wwid            "36005076813818279880000000001a9bb"
+                alias           "data02"
+        }
+multipath {
+                wwid            "36005076813818279880000000003100f"
+                alias           "data03"
+        }
+multipath {
+                wwid            "360050768138182798800000000002f69"
+                alias           "wal"
+        }
+}
+
+blacklist_exceptions {
+        property "(SCSI_IDENT_|ID_WWN)"
+}
+
+blacklist {
+}
