@@ -3620,7 +3620,7 @@ sleep 1
 fi
 fi
 
-vgs "$vgx" 2>/dev/null
+vgs "$vgx" &>/dev/null
 if [ $? -ne 0 ] ; then
 vgs 2>/dev/null|grep -q "$vgx"
 if [ $? -eq 0 ] ; then
