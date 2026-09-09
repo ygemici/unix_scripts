@@ -4025,6 +4025,10 @@ lv_layout_check() {
 ## son parametre kontrolu
 last_param_check $@;
 
+## mpath - multipath device
+echo "Yeni Multipath devicelar sisteme yansimasi icin [sg3_utils] paketi icinde yer alan [rescan-scsi-bus.sh] scriptini calistirabilirsiniz .. "
+sleep 1
+
 ## Linear yapilarda sadece 1 tane disk ile islem yapilabilir .. ##
 if [ ! -z "$1" ] ; then
 firstcheck "$1"
