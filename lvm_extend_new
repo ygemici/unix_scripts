@@ -3612,6 +3612,7 @@ sleep 1
 "")
 echo
 echo "[$disk] diski uzerinde [$vgx] isminde gecerli bir [VG] bilgisi bulunamadi .. !! "
+if [ ! -z "$vgx_layout" ] ; then
 vgs_chk=$(vgs "$vgx_layout" 2>/dev/null)
 if [[ ! -z "$vgs_chk" ]] ; then
 vglayout=$(vgs "$vgx_layout" -o+lv_layout,stripes|awk 'NR>1{print $(NF-1);exit}')
@@ -3619,6 +3620,7 @@ if [[ ! -z "$vglayout" ]] ; then
 [[ "$vglayout" == "striped" ]] && stripe_no=1
 echo "[$vgx_layout] [VG-$vglayout] yapida aktif olarak kullaniliyor !! "
 sleep 1
+fi
 fi
 fi
 
