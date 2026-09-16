@@ -3586,7 +3586,7 @@ stripe_no=1
 striped)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
 echo
 sleep 1
-[[ "$lastp" == "ext" ]] && echo "[$disk] diski zaten bir [VG] icinde yer aldigi icin islemlere devam edilemiyor !! " && errormsg
+[[ "$lastp" == "ext" ]] && echo "[$disk] diski zaten [$vgx_layout] [VG] icinde yer aldigi icin extend edilemiyor !! " && errormsg
 stripe_no=0
 ;;
 ### unknown ###
