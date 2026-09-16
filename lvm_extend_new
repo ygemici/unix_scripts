@@ -4173,6 +4173,8 @@ sleep 2
 echo
 elif [[ "$lastp" = "ext" ]] ; then
 echo "-> [$vgx] isminde gecerli bir [VG] bilgisi bulunamadigi icin extend islemleri yapilamiyor !!! "
+echo "->> BILGI: [striped] [VG] ler icin extend islemi yapilamaz !! "
+sleep 1
 errormsg
 fi
 else
