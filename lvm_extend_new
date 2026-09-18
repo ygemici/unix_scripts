@@ -4202,7 +4202,6 @@ fi
 
 stripe_param_check() {
 ## stripe kontrolu
-#echo "[striped] [PV] layout parametre kontrolleri yapiliyor ... "
 sleep 1
 
 #####################################################
@@ -4353,6 +4352,7 @@ pv_other_layout
 echo "-> [striped] parametre kontrolleri yapiliyor ... "
 printit 40
 
+## ilk asamada sadece 1. parametrede verilen disk kontrol edilir ..
 if [ $stripe_no -eq 0 ] ; then
 stripe_param_check $@;
 else
