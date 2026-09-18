@@ -3636,7 +3636,10 @@ pv_other_layout() {
 stripe_no=0
 ####
 echo
-
+printit 30
+echo "->> BILGI: [PV] kontrollerinde 'ilk asamada' sadece 1. parametrede verilen disk kontrol edilir !!! "
+sleep 2
+printit 30
 case "$pvlayout" in
 linear)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
 echo
