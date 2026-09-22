@@ -4383,8 +4383,10 @@ printit 40
 if [ $stripe_no -eq 0 ] ; then
 stripe_param_check $@;
 else
+if [[ "$lastp" = "new" ]] ; then
 echo "[$disk] diski zaten bir [VG] icinde yer aldigi icin [VG] islemlerine devam edilemiyor !!! "
 errormsg
+fi
 fi
 
 
