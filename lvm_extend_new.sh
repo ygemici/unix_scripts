@@ -2987,9 +2987,9 @@ if [ "$name" = "." ] || [ "$name" = ".." ] || [ "$name" = "snapshot" ] || [ "$na
     errormsg
 fi
 
-# _mlog ve _mimage dizgisi (içerme) kontrolleri
+# _mlog ve _mimage kelime (içerme) kontrolleri
 if echo "$name" | grep -q '_mlog' || echo "$name" | grep -q '_mimage'; then
-    echo "HATA: LV ismi '_mlog' veya '_mimage' dizgilerini içeremez. !! "
+    echo "HATA: LV ismi '_mlog' veya '_mimage' kelimelerini iceremez !! "
     errormsg
 fi
 
