@@ -2547,7 +2547,7 @@ elif [ $vgclc -eq 1 ] ; then
 #vgdiskchk=$(pvs "$diskchk"|awk 'NR>1{print $2}')
 vgdiskchk=$(pvdisplay "$diskchk"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
 if [ -z "$vgdiskchk" ] ; then
-echo "[diskchk] diski icin herhangi bir [VG] bilgisi tespit edilemedi !!! "
+echo "[$diskchk] diski icin herhangi bir [VG] bilgisi tespit edilemedi !!! "
 errormsg
 fi
 vgx=$vgdiskchk
