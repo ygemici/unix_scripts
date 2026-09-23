@@ -2048,7 +2048,7 @@ fi
 devmapperchk() {
 mapperpath="/dev/mapper"
 [[ "$pvlayout" == "striped" ]] && vgx=$vgx_striped
-vgxnamechk "$vgx" ; lvxnamechk "$lvx"
+vgnamechk "$vgx" ; lvxnamechk "$lvx"
 #lvmmapperdev="$mapperpath/$vgc-$lvc"
 lvmmapperdev="$mapperpath/$vgxtmp-$lvxtmp"
 lvmdevcheck "$lvmmapperdev"
@@ -4139,7 +4139,7 @@ done
 
 
 if [ ! -z "$vgx" ] ; then
-vgxnamechk "$vgx"
+vgnamechk "$vgx"
 vg_name_check "$vgx"
 else
 echo "{VG] bilgisi bulanamadi !! "
