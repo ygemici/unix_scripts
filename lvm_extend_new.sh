@@ -3024,7 +3024,6 @@ vgnamechk "$vgtmpx"
 vg_name_check "$vgtmpx"
 echo "->> ['$vgx'] isminde YENI bir [VG] olusturulacaktir [INFO] "
 sleep 2
-grep 
 echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
 sleep 2
 #echo "[VG] bilgisi ismi icinde "[lv_]/[LV_]" bilgilerinin yer almasi tavsiye edilmez !!! "
