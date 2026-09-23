@@ -2904,8 +2904,8 @@ fi
 }
 
 vgnamechk() {
-vgnamenewx=0
 vgxtemp="$1"
+vgxnameck "$vgxtemp"
 
 case "$vgxtemp" in
 *[-/]*)echo "[VG] isimlendirmesi icinde '[-/]' gibi karakterlerin kullanilmasi tavsiye edilmez !! "
