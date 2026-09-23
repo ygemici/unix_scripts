@@ -3033,8 +3033,14 @@ sleep 2
 printit 50
 ####
 
-##PV disk kontrol
+##PV check
 #pvscheck "new"
+
+###LV check
+if [[ ! -z "$lvx" ]] ; then
+lvxnamechk "$lvx"
+lv_name_check "$lvx"
+fi
 
 ###VG create
 echo -e "-> [vgcreate] islemini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! \n"
