@@ -2955,10 +2955,15 @@ if [ "$name" = "." ] || [ "$name" = ".." ]; then
     errormsg
 fi
 
-# /dev/ dizininde çakışma kontrolü
+# /dev/ dizininde cakisma kontrolu
 if [ -e "/dev/$name" ]; then
+    echo $lastp xxx
+    if [[ "$lastp" = "new" ]] ; then
     echo "HATA: /dev/$name zaten mevcut. Bu isim VG icin kullanilamaz. !! "
     errormsg
+    elif [[ "$lastp" = "ext" ]] ; then
+    echo "Extend islemleri icin [$name] isimli [VG] kullanilacaktir .. "
+    fi
 fi
 
 echo "BASARILI: [$name] geçerli bir [VG] ismidir. [OK] "
