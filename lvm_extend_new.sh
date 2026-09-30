@@ -4076,18 +4076,17 @@ pvlayout_unknown=1
 fi
 fi
 
-if [[ -z "$pvlayout" ]] ; then
-striped_ext=1
-sleep 1
-else
-echo
+[[ -z "$pvlayout" ]] && striped_ext=1
+
 if [[ $pvlayout_unknown -eq 0 ]] ; then
 echo "[$pvdskdev] disk layout bilgisi [$pvlayout] olarak bulunmustur .. "
 echo "[$pvdskdev] diski zaten [$vgx] {VG] icinde yer almaktadir !! [FAIL] "
 errormsg
+else
+striped_ext=1
 fi
 #break
-fi
+
 
 done
 ;;
