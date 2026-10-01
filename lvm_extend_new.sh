@@ -109,10 +109,6 @@ echo
 
 
 
-
-
-
-
 pvfscheck() {
 pvcreteis=0
 [ ! -z "$1" ] && [ $1 == "new" ] && pvcreteis=1 || pvcreteis=0
@@ -188,7 +184,12 @@ case "$1" in
 "new")
 if [ -z "$pvc" ] ; then
 sleep 1
+#if [[ -z "$vgsfchk" ]] ; then
 pvfscheck "new"
+#else
+#echo "[$vgx] isimli [VG] zaten mevcut oldugu icin islemlere devam edilemiyor !!! "
+#errormsg
+#fi
 else
 echo "[$disk] diski zaten [PV] diski olarak gorunuyor .. [OK] "
 printit 50
@@ -2547,7 +2548,7 @@ elif [ $vgclc -eq 1 ] ; then
 #vgdiskchk=$(pvs "$diskchk"|awk 'NR>1{print $2}')
 vgdiskchk=$(pvdisplay "$diskchk"|sed -n '/VG Name/s/  VG Name//p'|sed 's/ *//g')
 if [ -z "$vgdiskchk" ] ; then
-echo "[$diskchk] diski icin herhangi bir [VG] bilgisi tespit edilemedi !!! "
+echo "[$disk] diski icin herhangi bir [VG] bilgisi tespit edilemedi !!! "
 errormsg
 fi
 vgx=$vgdiskchk
@@ -2955,17 +2956,19 @@ if [ "$name" = "." ] || [ "$name" = ".." ]; then
     errormsg
 fi
 
-# /dev/ dizininde cakisma kontrolu
+# /dev/ dizininde çakışma kontrolü
 if [ -e "/dev/$name" ]; then
     if [[ "$lastp" = "new" ]] ; then
-    echo "HATA: /dev/$name zaten mevcut. Bu isim [VG] icin kullanilamaz. !! "
+    echo "HATA: /dev/$name zaten mevcut. Bu isim VG icin kullanilamaz. !! "
     errormsg
     elif [[ "$lastp" = "ext" ]] ; then
     echo "Extend islemleri icin [$name] isimli [VG] kullanilacaktir .. "
     fi
 fi
 
+echo
 echo "BASARILI: [$name] geçerli bir [VG] ismidir. [OK] "
+printit 30
 return 0
 }
 
@@ -2997,7 +3000,9 @@ if echo "$name" | grep -q '_mlog' || echo "$name" | grep -q '_mimage'; then
     errormsg
 fi
 
+echo
 echo "BASARILI: [$name] gecerli bir [LV] ismidir. [OK] "
+printit 30
 return 0
 }
 
@@ -3070,7 +3075,7 @@ else
 ##ayni VG birden fazla disk uzerinde bilgilendirmesi
 vgdsks=$(pvs 2>/dev/null|awk -va="$vgx" '$2==a'|awk 'END{print NR}')
 if [[ "$vgdsks" -gt 1 ]] ; then
-pvsdsks=$(pvs 2>/dev/null|grep "$vgx"|awk '{sub("/dev/","",$1);sub("mapper/","",$1);print $1}')
+pvsdsks=$(pvs 2>/dev/null|awk -va="$vgx" '$2==a'|awk '{sub("/dev/","",$1);sub("mapper/","",$1);print $1}')
 echo "[$vgx] ismindeki [VG] bilgisi birden fazla disk "[ $pvsdsks ]" uzerinde tanimli gorunuyor .. "
 sleep 1
 fi
@@ -3147,7 +3152,7 @@ sleep 2
 echo
 lvcreatex
 else
-echo "->> [$vgtmp] [VG] uzerinde [$lvx] isminde zaten bir [LV] device bulunmaktadir !! "
+echo "->> [$vgtmp] [VG] uzerinde [$lvx] i diski uzerinde [vsminde zaten bir [LV] device bulunmaktadir !! "
 #errormsg
 fi
 
@@ -3172,9 +3177,19 @@ echo
 printit 30
 
 echo "-> [vgextend] islemleri baslatilacak ... "
+echo
 sleep 2
+## Sdece Linear VG islemleri uygulanmaktadir !!
+vgx_type=$(vgs -o segtype --noheadings $vgx|xargs)
+if [[ "$vgx_type" == "linear" ]] ; then
 vgextendx "$vgx" "$devdisk"
 vgextendxx=1
+else
+echo "-> [$vgx] isimli [VG] tip bilgisi [$vgx_type] olarak gorunmektedir !!! "
+echo "-> Uygulama uzerinden bu asamada sadece [linear] tipinde [VG] extend islemleri yapilmaktadir ... "
+sleep 2
+errormsg
+fi
 fi
 
 #errormsg
@@ -3653,7 +3668,7 @@ linear)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG
 echo
 sleep 1
 [[ "$lastp" == "ext" ]] && echo "Extend islemlerine devam edilecektir ... "
-stripe_no=1
+[[ "$lastp" == "new" ]] && echo "[$disk] diski zaten [$vgx_layout] [VG] icinde yer aldigi icin yeni [VG] olusturulamiyor !!! " && errormsg
 ;;
 mirror)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
 echo
@@ -3670,7 +3685,8 @@ stripe_no=1
 striped)echo "[$disk] diski uzerinde [$pvlayout] yapida [$vgx_layout] isminde [VG] bulundu .. "
 echo
 sleep 1
-[[ "$lastp" == "ext" ]] && echo "[$disk] diski zaten [$vgx_layout] [VG] icinde yer aldigi icin extend edilemiyor !! " && errormsg
+[[ "$lastp" == "ext" ]] && echo "[$disk] diski zaten [$vgx_layout] [VG-striped] icinde yer aldigi icin extend edilemiyor !! " && errormsg
+[[ "$lastp" == "new" ]] && echo "[$disk] diski zaten [$vgx_layout] [VG-striped] icinde yer aldigi icin yeni [VG] olusturulamiyor !!! " && errormsg
 stripe_no=0
 ;;
 ### unknown ###
@@ -3692,9 +3708,10 @@ printit 30
 pvs "$disk_layout_dev" -o+lv_layout,stripes 2>/dev/null
 printit 30
 sleep 1
-echo "->> [$disk] diski ( ' Eger [[s]triped] parametresi verilmisse ' ) [VG-striped] islemleri icin kullanilacaktir ... "
+echo
+echo "->> [$disk] diski ('Eger [s]triped parametresi verilmisse') [VG-striped] islemleri icin kullanilacaktir ... "
 sleep 1
-echo -e "[VG-striped] islemlerini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! "
+echo "[VG-striped] islemlerini kesmek icin 'Ctrl-C' tuslarini kullanabilirsiniz !! "
 printit 30
 sleep 3
 stripe_no=0
@@ -3751,7 +3768,7 @@ echo
 stripe_disk_size_check() {
 # 1. En az 2 disk girildi mi kontrol et
 if [ "$#" -lt 2 ]; then
-    echo "HATA: Striped yapida VG olusturabilmek en az 2 disk blgisi girmelisiniz !!! "
+    echo "HATA: Striped islemleri icin en az [2 x disk] blgisi girmelisiniz !!! "
     echo "KONTROL: Disk bilgileri: [$@] ve VG bilgisi: [$vgx] "
     sleep 1
     errormsg
@@ -3772,9 +3789,31 @@ printit 30
 for disk in "${girilen_diskler[@]}"; do
     # Diskin varlığını kontrol et
     if ! lsblk "/dev/$disk" >/dev/null 2>&1; then
-        echo "HATA: '/dev/$disk' isimli disk sistemde bulunamadi !!! "
-        exit 1
+        echo "HATA: '[$disk]' isimli disk sistemde bulunamadi !!! "
+	errormsg
     fi
+
+    # Cihazın tipini kontrol et (disk, rom, loop, part vb.)
+    # -n parametresi baslik satirini (TYPE) gizler.
+    cihaz_tipi=$(lsblk -dno TYPE "/dev/$disk" | tr -d '[:space:]')
+
+    # Eger cihaz bir optik surucu (rom) ise işleme almadan atla
+    if [ "$cihaz_tipi" = "rom" ]; then
+        echo "BILGI: '[$disk]' bir optik device (CD/DVD-ROM) !!! "
+        errormsg
+    fi
+
+    # istege bagli: Sanal loop cihazlarını da haric tutmak isterseniz bu blogu acabilirsiniz..
+    if [ "$cihaz_tipi" = "loop" ]; then
+        echo "BILGI: '[$disk]' bir loop device !!! "
+        continue
+    fi
+
+   # istege bagli: Kullanici yanlislikla disk yerine partition (bolum) girdiyse (orn: sda1) koruma
+   # if [ "$cihaz_tipi" != "disk" ]; then
+   #     echo "HATA: '/dev/$disk' bir ana disk cihazı değildir (Tip: $cihaz_tipi)!"
+   #     exit 1
+   # fi
 
     # lsblk ile bayt ve okunabilir boyutları al
     bayt_size=$(lsblk -bdo SIZE "/dev/$disk" | tail -n 1 | tr -d '[:space:]')
@@ -3951,9 +3990,16 @@ if [ -b "/dev/$vgx_tmp" ] ; then
 vgx="$lvx_striped"
 lvx=""
 sleep 1
+else
+printit 30
+echo "-> [$vgx_tmp] bilgisi bir [VG] bilgisi olarak kabul edilecek !! "
+echo "-> [$lvx_striped] bilgisi bir [LV] bilgisi olarak kabul edilecek !! "
+printit 30
+sleep 1
 fi
 
 [[ -z "$lvx" ]] && stc=$((cc-2)) || stc=$((cc-3))
+
 for((i=1;i<$stc;i++));do
 v=$(echo "${@: $i:1}"|sed 's;/dev/;;')
 if [[ -b "/dev/$v" ]] ; then
@@ -4009,11 +4055,15 @@ errormsg
 fi
 else
 if [[ "$lastp" = "new" ]] ; then
-echo "-> [$vgx] isminde zaten gecerli bir [VG] bulunuyor !!! "
+vgx_type=$(vgs -o segtype --noheadings $vgx|xargs)
+echo "-> [$vgx] isminde [$vgx_type] tipinde zaten gecerli bir [VG] bulunuyor !!! "
 errormsg
 fi
 
+echo "VG bilgisi"
 echo "$vg_tmp_x"
+printit 30
+echo "PV bilgisi"
 printit 30
 pvs -v --segments 2>/dev/null|awk -v a="$vgx" 'NR==1{print;next}$2==a'
 printit 30
@@ -4073,20 +4123,20 @@ echo "[$pvdskdev] diski uzerinde [$pv_stripe_vgx] isminde tanimli bir [VG] bulun
 [[ "$vglayout" != "$pv_stripe_vgx" ]] && errormsg
 else
 pvlayout_unknown=1
-fi
-fi
-
-[[ -z "$pvlayout" ]] && striped_ext=1
-
-if [[ $pvlayout_unknown -eq 0 ]] ; then
-echo "[$pvdskdev] disk layout bilgisi [$pvlayout] olarak bulunmustur .. "
-echo "[$pvdskdev] diski zaten [$vgx] {VG] icinde yer almaktadir !! [FAIL] "
-errormsg
-else
 striped_ext=1
 fi
-#break
+fi
 
+
+if [ -z "$pvlayout" ] ; then
+striped_ext=1
+else
+if [[ $pvlayout_unknown -eq 0 ]] ; then
+echo "[$pvdskdev] diski zaten [$vgx] [VG] icinde yer almaktadir !! [FAIL] "
+errormsg
+fi
+fi
+#break
 
 done
 ;;
@@ -4158,6 +4208,7 @@ fi
 if [ ! -z "$lvx" ] ; then
 lvxnamechk "$lvx"
 lv_name_check "$lvx"
+else
 echo "{LV] bilgisi bulanamadi !! "
 errormsg
 fi
@@ -4257,7 +4308,7 @@ echo "-> [striped] parametresi tespit edildi [OK] "
 echo
 printit 40
 sleep 1
-echo "[striped] [VG] icin Disk bilgileri kontrol ediliiyor ... "
+echo "[striped] [VG] islemleri icin Disk bilgileri kontrol ediliiyor ... "
 printit 40
 stripedisks_create $@
 stripe_vg_search $@
@@ -4385,10 +4436,12 @@ pv_other_layout
 
 ## son kontroller ##
 
-echo "-> [striped] parametre kontrolleri yapiliyor ... "
-printit 40
+### echo "-> [striped] parametre kontrolleri yapiliyor ... "
+
 
 if [ $stripe_no -eq 0 ] ; then
+echo "-> [striped] parametre kontrolleri yapiliyor ... "
+printit 40
 stripe_param_check $@;
 else
 if [[ "$lastp" = "new" ]] ; then
@@ -4430,13 +4483,14 @@ fi
 
 
 
-
 #### STRIPE ISLEMLERI ####
 if [[ $stripe_param -eq 1 ]] ; then
 
 for pvdskdev in ${stripedisks[@]}; do
 firstcheck "$pvdskdev" "stripe"
 done
+
+
 
 
 ## Stripe layout ext islemleri
