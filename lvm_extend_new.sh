@@ -91,6 +91,15 @@ errormsg
 fi
 }
 
+# 1. Ctrl-C (SIGINT) Yakalayici (Trap) Fonksiyonu
+trap_check() {
+    echo -e "\n\n[IPTAL] Islem kullanici tarafindan kesildi! Hicbir degisiklik yapilmadi.\n"
+    exit 1
+}
+
+# SIGINT sinyali (Ctrl-C) tetiklendiginde iptal_edildi fonksiyonunu calistir
+trap trap_check SIGINT
+
 
 format_msg() {
 for (( i=0;i<=5;i++))
@@ -2215,7 +2224,7 @@ echo "---------- MKFS (new) ----------"
 sleep 2
 
 # 1. Kullanıcıyı Detaylı Bilgilendirme Paneli
-echo -e "\n\e[1;31m⚠️   DIKKAT: BICIMLENDIRME ISLEMI BASLAMAK UZERE !!! ⚠️\e[0m"
+echo -e "\n\e[1;31m  DIKKAT: BICIMLENDIRME ISLEMI BASLAMAK UZERE !!! \e[0m"
 echo "--------------------------------------------------"
 echo -e "Bicimlendirilecek Disk  : \e[1;33m$lvmmapperdev\e[0m"
 echo -e "Hedef Dosya Sistemi    : \e[1;33m$fst\e[0m"
@@ -2232,6 +2241,10 @@ for i in {5..1}; do
 done
 echo -e "\n\n[OK] Sure doldu, islem baslatiliyor...\n"
 sleep 1
+
+# Trap mekanizmasini devre disi birak (Format basladiktan sonra kesilmesini engellemek icin)
+# Eger format sirasinda da Ctrl-C calissin isterseniz alttaki satiri silebilirsiniz.
+trap - SIGINT
 
 ############
 printit 20
