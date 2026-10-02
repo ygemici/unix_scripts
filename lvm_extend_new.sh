@@ -3005,6 +3005,7 @@ if [[ ! "$vg_name" =~ ^[vV][gG]_ ]]; then
     # Kullanıcının mesajı okuyabilmesi için 5 saniye beklenir
     sleep 3
     echo -e "islemlere devam ediliyor...\n"
+	printit 30
 fi
 fi
 
@@ -3062,6 +3063,7 @@ if [[ ! "$lv_name" =~ ^[lv][LV]_ ]]; then
     # Kullanıcının mesajı okuyabilmesi için 5 saniye beklenir
     sleep 3
     echo -e "islemlere devam ediliyor...\n"
+	printit 30
 fi
 fi
 
