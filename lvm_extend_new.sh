@@ -2727,7 +2727,7 @@ else
 echo "Daha onceden [vgextend] islemi yapildigi icin bu adimda yeni bir LV olusturulmasi desteklenmiyor !! "
 #recomm=$(for((i=1;i<=$((cc-1));i++));do echo -n "${@: $i:1} "; done)
 #echo "Lutfen uygulamayi ayni degerlerle ve [ext] parametresi ile tekrar calistirin .. -> $recomm"
-echo "Lutfen uygulamayi ayni degerlerle tekrar calistirin .."
+echo "Lutfen uygulamayi ayni degerlerle ( [new] ) tekrar calistirin .."
 sleep 1
 exit 0
 #errormsg
