@@ -3263,7 +3263,8 @@ echo "-> [vgextend] islemleri baslatilacak ... "
 echo
 sleep 2
 ## Sdece Linear VG islemleri uygulanmaktadir !!
-vgx_type=$(vgs -o segtype --noheadings $vgx|xargs)
+#vgx_type=$(vgs -o segtype --noheadings $vgx|awk '!a[$0]++'|sed 's/ \+//g')
+vgx_type=$(vgs vgdata -o+lv_layout | awk 'END{print $NF}')
 if [[ "$vgx_type" == "linear" ]] ; then
 vgextendx "$vgx" "$devdisk"
 vgextendxx=1
@@ -3906,14 +3907,14 @@ for disk in "${girilen_diskler[@]}"; do
     disk_bayt_boyutlari["$disk"]=$bayt_size
     disk_gb_boyutlari["$disk"]=$gb_size
 
-    # Benzersiz boyut listesini oluşturmak için metne ekle
+    # Benzersiz boyut listesini olusturmak icin metne ekle
     benzersiz_boyut_listesi+="$bayt_size"$'\n'
 done
 
-# 3. Benzersiz (unique) boyut sayısını hesapla
-unique_sizes_count=$(echo -n "$benzersiz_boyut_listesi" | sort -u | wc -l)
+# 3. Benzersiz (unique) boyut sayisini hesapla
+unique_sizes_count=$(echo -n "$benzersiz_boyut_listesi" |  awk '!a[$0]++{c++} END{print c}' )
 
-# 4. Karşılaştırma Sonucu ve Uyarı Ekranı
+# 4. Karsilastirma Sonucu ve Uyari Ekrani
 if [ "$unique_sizes_count" -gt 1 ]; then
     echo "UYARI: Disk boyutları birbirinden farkli !!! "
     printit 30
