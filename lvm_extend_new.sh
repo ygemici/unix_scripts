@@ -1511,6 +1511,20 @@ fi
 
 
 pvcreatex() {
+if [ -z "$vgx" ] ; then
+echo "VG bilgisi bulunamadi !! "
+sleep 1
+errormsg
+else
+vg_name_check $vgx
+fi
+
+if [ -z "$lvx" ] ; then
+echo "LV bilgisi bulunamadi .. "
+else
+lv_name_check $lvx
+fi
+
 pvcreatex_pre
 printit 70
 pvcreate "$devdisk" ; errchk $? "pvcreate"
@@ -2936,76 +2950,111 @@ echo -e "\n[VG] bilgisi olarak [$vgx] ismi kullanilacak !! "
 
 
 vg_name_check() {
-name="$1"
+vg_name="$1"
 
 # Boş isim kontrolü
-if [ -z "$name" ]; then
+if [ -z "$vg_name" ]; then
     echo "HATA: [VG] ismi bos olamaz !!! "
     errormsg
 fi
 
+if [[ "$lastp" = "new" ]] ; then
+# İsmin 'vg_' veya 'VG_' ile başlayıp başlamadığı kontrol edilir
+if [[ ! "$vg_name" =~ ^[vV][gG]_ ]]; then
+    echo -e "\n[BILGILENDIRME]"
+    printit 30
+    echo "Karisikligi onlemek ve standartlara uymak adina Volume Group isimlerinin"
+    echo "'vg_' veya 'VG_' on eki ile baslamasi onemle tavsiye edilir."
+    printit 30
+    echo "Mesaj 2 saniye icinde kapanacaktir, lutfen bekleyiniz..."
+
+    # Kullanıcının mesajı okuyabilmesi için 5 saniye beklenir
+    sleep 3
+    echo -e "islemlere devam ediliyor...\n"
+fi
+fi
+
+# VG oluşturma adımı (Örnek çıktı)
+echo "VG adı '$vg_name' olarak kabul edildi."
+
 # Karakter ve tire (-) ile baslamama kontrolu
-if ! echo "$name" | grep -q '^[A-Za-z0-9_.+][A-Za-z0-9_.+\-]*$' ; then
-    echo "HATA: '$name' gecersiz karakterler iceriyor veya '-' ile basliyor. "
+if ! echo "$vg_name" | grep -q '^[A-Za-z0-9_.+][A-Za-z0-9_.+\-]*$' ; then
+    echo "HATA: '$vg_name' gecersiz karakterler iceriyor veya '-' ile basliyor. "
     errormsg
 fi
 
 # Nokta (.) ve Çift Nokta (..) yasağı
-if [ "$name" = "." ] || [ "$name" = ".." ]; then
+if [ "$vg_name" = "." ] || [ "$vg_name" = ".." ]; then
     echo "HATA: VG ismi '.' veya '..' olamaz. !! "
     errormsg
 fi
 
 # /dev/ dizininde çakışma kontrolü
-if [ -e "/dev/$name" ]; then
+if [ -e "/dev/$vg_name" ]; then
     if [[ "$lastp" = "new" ]] ; then
-    echo "HATA: /dev/$name zaten mevcut. Bu isim VG icin kullanilamaz. !! "
+    echo "HATA: /dev/$vg_name zaten mevcut. Bu isim VG icin kullanilamaz. !! "
     errormsg
     elif [[ "$lastp" = "ext" ]] ; then
-    echo "Extend islemleri icin [$name] isimli [VG] kullanilacaktir .. "
+    echo "Extend islemleri icin [$vg_name] isimli [VG] kullanilacaktir .. "
     fi
 fi
 
 echo
-echo "BASARILI: [$name] geçerli bir [VG] ismidir. [OK] "
+echo "BASARILI: [$vg_name] geçerli bir [VG] ismidir. [OK] "
 printit 30
 return 0
 }
 
 
 lv_name_check() {
-name="$1"
+lv_name="$1"
 
 # Boş isim kontrolü
-if [ -z "$name" ]; then
+if [ -z "$lv_name" ]; then
     echo "HATA: [LV] ismi bos olamaz !! "
     errormsg
 fi
 
+if [[ "$lastp" = "new" ]] ; then
+# İsmin 'vg_' veya 'VG_' ile başlayıp başlamadığı kontrol edilir
+if [[ ! "$lv_name" =~ ^[lv][LV]_ ]]; then
+    echo -e "\n[BILGILENDIRME]"
+    printit 30
+    echo "Karisikligi onlemek ve standartlara uymak adina Logical Volume isimlerinin"
+    echo "'lv_' veya 'LV_' on eki ile baslamasi onemle tavsiye edilir."
+    printit 30
+    echo "Mesaj 2 saniye icinde kapanacaktir, lutfen bekleyiniz..."
+
+    # Kullanıcının mesajı okuyabilmesi için 5 saniye beklenir
+    sleep 3
+    echo -e "islemlere devam ediliyor...\n"
+fi
+fi
+
+
 # Karakter ve tire (-) ile başlamama kontrolu
-if ! echo "$name" | grep -q '^[A-Za-z0-9_.+][A-Za-z0-9_.+\-]*$'; then
-    echo "HATA: '$name' gecersiz karakterler iceriyor veya '-' ile basliyor. !! "
+if ! echo "$lv_name" | grep -q '^[A-Za-z0-9_.+][A-Za-z0-9_.+\-]*$'; then
+    echo "HATA: '$lv_name' gecersiz karakterler iceriyor veya '-' ile basliyor. !! "
     errormsg
 fi
 
 # Yasaklı tam kelime kontrolleri
-if [ "$name" = "." ] || [ "$name" = ".." ] || [ "$name" = "snapshot" ] || [ "$name" = "pvmove" ]; then
-    echo "HATA: '$name' ayrilmis (reserved) bir kelimedir. !! "
+if [ "$lv_name" = "." ] || [ "$lv_name" = ".." ] || [ "$lv_name" = "snapshot" ] || [ "$lv_name" = "pvmove" ]; then
+    echo "HATA: '$lv_name' ayrilmis (reserved) bir kelimedir. !! "
     errormsg
 fi
 
 # _mlog ve _mimage kelime (içerme) kontrolleri
-if echo "$name" | grep -q '_mlog' || echo "$name" | grep -q '_mimage'; then
+if echo "$lv_name" | grep -q '_mlog' || echo "$lv_name" | grep -q '_mimage'; then
     echo "HATA: LV ismi '_mlog' veya '_mimage' kelimelerini iceremez !! "
     errormsg
 fi
 
 echo
-echo "BASARILI: [$name] gecerli bir [LV] ismidir. [OK] "
+echo "BASARILI: [$lv_name] gecerli bir [LV] ismidir. [OK] "
 printit 30
 return 0
 }
-
 
 
 
