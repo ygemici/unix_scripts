@@ -2959,7 +2959,7 @@ if [ -z "$vg_name" ]; then
 fi
 
 if [[ "$lastp" = "new" ]] ; then
-# İsmin 'vg_' veya 'VG_' ile başlayıp başlamadığı kontrol edilir
+# ismin 'vg_' veya 'VG_' ile baslayip baslamadigi kontrol edilir
 if [[ ! "$vg_name" =~ ^[vV][gG]_ ]]; then
     echo -e "\n[BILGILENDIRME]"
     printit 30
@@ -2974,7 +2974,7 @@ if [[ ! "$vg_name" =~ ^[vV][gG]_ ]]; then
 fi
 fi
 
-# VG oluşturma adımı (Örnek çıktı)
+# VG oluşturma adimi (Ornek cikti)
 echo "VG ismi '$vg_name' olarak kabul edildi."
 
 # Karakter ve tire (-) ile baslamama kontrolu
@@ -3016,7 +3016,7 @@ if [ -z "$lv_name" ]; then
 fi
 
 if [[ "$lastp" = "new" ]] ; then
-# İsmin 'vg_' veya 'VG_' ile başlayıp başlamadığı kontrol edilir
+# ismin 'vg_' veya 'VG_' ile baslayip baslamadigi kontrol edilir
 if [[ ! "$lv_name" =~ ^[lv][LV]_ ]]; then
     echo -e "\n[BILGILENDIRME]"
     printit 30
