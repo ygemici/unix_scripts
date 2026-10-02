@@ -2975,7 +2975,7 @@ fi
 fi
 
 # VG oluşturma adımı (Örnek çıktı)
-echo "VG adı '$vg_name' olarak kabul edildi."
+echo "VG ismi '$vg_name' olarak kabul edildi."
 
 # Karakter ve tire (-) ile baslamama kontrolu
 if ! echo "$vg_name" | grep -q '^[A-Za-z0-9_.+][A-Za-z0-9_.+\-]*$' ; then
