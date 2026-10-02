@@ -2217,7 +2217,6 @@ echo
 
 
 formatx() {
-formatx() {
 #### FORMAT ####
 echo
 echo "---------- MKFS (new) ----------"
