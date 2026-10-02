@@ -2208,10 +2208,32 @@ echo
 
 
 formatx() {
+formatx() {
 #### FORMAT ####
 echo
 echo "---------- MKFS (new) ----------"
 sleep 2
+
+# 1. Kullanıcıyı Detaylı Bilgilendirme Paneli
+echo -e "\n\e[1;31m⚠️   DIKKAT: BICIMLENDIRME ISLEMI BASLAMAK UZERE !!! ⚠️\e[0m"
+echo "--------------------------------------------------"
+echo -e "Bicimlendirilecek Disk  : \e[1;33m$lvmmapperdev\e[0m"
+echo -e "Hedef Dosya Sistemi    : \e[1;33m$fst\e[0m"
+#echo -e "Hedef Bağlama Noktası   : \e[1;33m/$mp\e[0m"
+echo "--------------------------------------------------"
+echo -e "\e[1;31Bu islem geri alinamaz ve TUM VERILER SILINECEKTIR!!!\e[0m"
+echo "--------------------------------------------------"
+sleep 2
+
+# 2. Geri Sayim Mekanizmasi
+for i in {5..1}; do
+    echo -ne "Islem $i saniye icinde baslayacak...\r"
+    sleep 1
+done
+echo -e "\n\n[OK] Sure doldu, islem baslatiliyor...\n"
+sleep 1
+
+############
 printit 20
 case "$fst" in
 xfs)  mkfs.xfs  "$lvmmapperdev" ; if [ $? -ne 0 ] ; then umount -v /$mp && mkfs.xfs -f "$lvmmapperdev" ; errchk $? "mkfs.xfs" ; fi
