@@ -3023,14 +3023,14 @@ if [ "$vg_name" = "." ] || [ "$vg_name" = ".." ]; then
     errormsg
 fi
 
-# /dev/ dizininde çakışma kontrolü
+# /dev/ dizininde cakisma kontrolu
 if [ -e "/dev/$vg_name" ]; then
     if [[ "$lastp" = "new" ]] ; then
-    echo "HATA: /dev/$vg_name zaten mevcut. Bu isim VG icin kullanilamaz. !! "
-    errormsg
-    elif [[ "$lastp" = "ext" ]] ; then
+    echo "HATA: [$vg_name] zaten mevcut. Bu isim ile yeni [VG] olusturulamaz !! "
+	elif [[ "$lastp" = "ext" ]] ; then
     echo "Extend islemleri icin [$vg_name] isimli [VG] kullanilacaktir .. "
     fi
+sleep 1
 fi
 
 echo
