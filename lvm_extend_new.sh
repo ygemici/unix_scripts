@@ -2226,7 +2226,7 @@ sleep 2
 echo -e "\n\e[1;31m  DIKKAT: BICIMLENDIRME ISLEMI BASLAMAK UZERE !!! \e[0m"
 echo "--------------------------------------------------"
 echo -e "Bicimlendirilecek Disk  : \e[1;33m$lvmmapperdev\e[0m"
-echo -e "Hedef Dosya Sistemi    : \e[1;33m$fst\e[0m"
+echo -e "Hedef Dosya Sistemi     : \e[1;33m$fst\e[0m"
 #echo -e "Hedef Bağlama Noktası   : \e[1;33m/$mp\e[0m"
 echo "--------------------------------------------------"
 echo -e "\e[1;31Bu islem geri alinamaz ve TUM VERILER SILINECEKTIR!!!\e[0m"
