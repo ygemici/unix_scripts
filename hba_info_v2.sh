@@ -1,5 +1,36 @@
 #!/bin/bash
 
+## Gemini ##
+
+# Gelen parametreyi kontrol et
+if [ "$1" == "scan" ]; then
+    echo "================================================================================================================================"
+    echo "                              [BİLGİ] GLOBAL SCSI BUS VE HBA PORTLARI TARANIYOR (SCANNING)...                                  "
+    echo "================================================================================================================================"
+
+    # 1. Yöntem: rescan-scsi-bus.sh kontrolü ve tetiklenmesi
+    if command -v rescan-scsi-bus.sh &> /dev/null; then
+        echo "-> 'rescan-scsi-bus.sh' kullanılarak tüm SCSI yolları taranıyor..."
+        rescan-scsi-bus.sh -a -r > /dev/null 2>&1
+    else
+        # 2. Yöntem: Sistemdeki tüm host portlarını dinamik olarak tara
+        echo "-> Sistemdeki tüm mevcut scsi_host kanalları tetikleniyor..."
+        for host in /sys/class/scsi_host/host*; do
+            if [ -d "$host" ]; then
+                echo "- - -" > "$host/scan" 2>/dev/null
+            fi
+        done
+    fi
+
+    # Multipath daemon'ı yeni diskleri haritalaması için tetikle
+    if command -v multipath &> /dev/null; then
+        echo "-> Multipath katmanı güncelleniyor (multipath reload)..."
+        multipath > /dev/null 2>&1
+        sleep 2
+    fi
+    echo -e "-> Tarama tamamlandı. Rapor üretiliyor...\n\n"
+fi
+
 clear
 echo "================================================================================================================================================================"
 echo "                                                          1. HBA VE SAN FABRIC (SWITCH) DETAYLARI                                                               "
@@ -46,7 +77,7 @@ if command -v multipath &> /dev/null; then
     else
         echo "Toplam Aktif Multipath Cihazı Sayısı: $multipath_count"
         echo "----------------------------------------------------------------------------------------------------------------------------------------------------------------"
-        printf "%-12s | %-6s | %-8s | %-16s | %-16s | %-32s | %-32s\n" "Alias" "Size" "Durum" "host1 (Act/Fail)" "host4 (Act/Fail)" "Usage Type / Target VG" "Storage Vendor / Model"
+        printf "%-12s | %-6s | %-8s | %-18s | %-32s | %-32s\n" "Alias" "Size" "Durum" "Total Paths (Act/Fail)" "Usage Type / Target VG" "Storage Vendor / Model"
         echo "----------------------------------------------------------------------------------------------------------------------------------------------------------------"
 
         for mpath in $multipath_list; do
@@ -57,13 +88,11 @@ if command -v multipath &> /dev/null; then
 
             vendor_model=$(echo "$mpath_info" | grep -E '^[a-zA-Z0-9_-]+' | awk -F')' '{print $2}' | xargs)
 
-            h1_active=$(echo "$mpath_info" | grep -E '[[:space:]]+1:[0-9]+:[0-9]+:[0-9]+' | grep -c -E 'running|ready|active')
-            h1_failed=$(echo "$mpath_info" | grep -E '[[:space:]]+1:[0-9]+:[0-9]+:[0-9]+' | grep -c -E 'faulty|failed|offline|failed/faulty')
+            # Sunucudaki HBA sayısından bağımsız olarak tüm aktif ve arızalı yolları genel olarak sayar
+            total_active=$(echo "$mpath_info" | grep -E '[[:space:]]+[0-9]+:[0-9]+:[0-9]+:[0-9]+' | grep -c -E 'running|ready|active')
+            total_failed=$(echo "$mpath_info" | grep -E '[[:space:]]+[0-9]+:[0-9]+:[0-9]+:[0-9]+' | grep -c -E 'faulty|failed|offline|failed/faulty')
 
-            h4_active=$(echo "$mpath_info" | grep -E '[[:space:]]+4:[0-9]+:[0-9]+:[0-9]+' | grep -c -E 'running|ready|active')
-            h4_failed=$(echo "$mpath_info" | grep -E '[[:space:]]+4:[0-9]+:[0-9]+:[0-9]+' | grep -c -E 'faulty|failed|offline|failed/faulty')
-
-            if [ "$h1_failed" -gt 0 ] || [ "$h4_failed" -gt 0 ]; then
+            if [ "$total_failed" -gt 0 ]; then
                 status="Degraded"
             else
                 status="Healthy"
@@ -72,7 +101,7 @@ if command -v multipath &> /dev/null; then
             usage_info="Unused / Raw"
             dev_path="/dev/mapper/$mpath"
 
-            # 1. Geliştirilmiş LVM Sorgusu: Hem disk formatlarını hem de p1/mp1 gibi partition varyasyonlarını check eder
+            # LVM Kontrolü (Partition bağımsız dinamik eşleşme)
             if command -v pvs &> /dev/null; then
                 vg_name=$(pvs --noheadings -o vg_name "$dev_path" "${dev_path}1" "${dev_path}p1" 2>/dev/null | xargs | awk '{print $1}')
                 if [ ! -z "$vg_name" ]; then
@@ -80,7 +109,7 @@ if command -v multipath &> /dev/null; then
                 fi
             fi
 
-            # 2. blkid ile Oracle ASM Sorgusu
+            # blkid ile Oracle ASM Kontrolü
             if [ "$usage_info" = "Unused / Raw" ]; then
                 first_sd_dev=$(echo "$mpath_info" | grep -E 'running|ready|active' | awk '{print $3}' | grep -E '^sd[a-z]+' | head -n 1)
                 if [ ! -z "$first_sd_dev" ]; then
@@ -92,7 +121,7 @@ if command -v multipath &> /dev/null; then
                 fi
             fi
 
-            printf "%-12s | %-6s | %-8s | %-16s | %-16s | %-32.32s | %-32s\n" "$mpath" "$size" "$status" "$h1_active/$h1_failed" "$h4_active/$h4_failed" "$usage_info" "$vendor_model"
+            printf "%-12s | %-6s | %-8s | %-22s | %-32.32s | %-32s\n" "$mpath" "$size" "$status" "$total_active/$total_failed" "$usage_info" "$vendor_model"
         done
     fi
 else
