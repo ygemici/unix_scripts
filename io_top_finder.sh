@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# [root@svprdansible01 ~]# bash cc 10 2
+# =========================================================================
+# En Fazla I/O Yapan Ilk 10 Surec/Thread ve Diskleri Tespit Ediliyor...
+# Disk trafigi 2 saniye boyunca izlenip SANIYELIK ORTALAMA HIZ hesaplaniyor...
+# ...
+
 # Kok (root) yetkisi kontrolu
 if [ "$EUID" -ne 0 ]; then
   echo "Lutfen bu betigi root (sudo) yetkisi ile calistirin."
