@@ -15,7 +15,7 @@
 #   sudo ./son_loginler.sh 50                   (tam rapor için root önerilir)
 #   LOG_DOSYASI=/tmp/secure.txt ./son_loginler.sh   (kopyalanmış bir log dosyasını analiz et)
 #   SUDO_LOG_DOSYASI=/tmp/sudo.log ./son_loginler.sh (sudo logunu elle belirt)
-#   KOMUT_UZUNLUK=200 ./son_loginler.sh             (sudo komut sütunu uzunluğu, 0 = kesme)
+#   KOMUT_UZUNLUK=100 ./son_loginler.sh             (uzun komutları 100 karakterde kes; varsayılan: tamamı)
 #   HARIC_KULLANICI=postgres ./son_loginler.sh      (SSH bölümlerinde gürültülü servis hesabını gizle)
 #   MESAJ_LOG_DOSYASI=/tmp/messages ./son_loginler.sh (Centrify audit trail için messages logu)
 #
@@ -32,7 +32,7 @@
 # =============================================================================
 
 ADET="${1:-20}"
-KOMUT_UZUNLUK="${KOMUT_UZUNLUK:-100}"   # sudo komut sütununun azami uzunluğu (0 = kesme)
+KOMUT_UZUNLUK="${KOMUT_UZUNLUK:-0}"     # komut sütununun azami uzunluğu (0 = komutun tamamı)
 HARIC_KULLANICI="${HARIC_KULLANICI:-}"  # SSH bölümlerinde gizlenecek kullanıcılar (virgülle, örn: postgres)
 case "$ADET" in
     ''|*[!0-9]*) echo "Hata: kayıt sayısı bir sayı olmalı (örn: $0 50)" >&2; exit 1 ;;
@@ -53,9 +53,17 @@ baslik() {
 
 komut_var() { command -v "$1" >/dev/null 2>&1; }
 
-# last/lastb çıktısında IP yerine yazılan 0.0.0.0 / :: değerini "su/sudo" olarak göster
+# last/lastb çıktısında IP yerine yazılan 0.0.0.0 / :: değerini etiketle.
+# lastb (btmp): başarısız su denemeleri secure logundaki su kayıtlarıyla eşleştiği için "su/sudo".
+# last (wtmp): su/sudo/dzdo wtmp'ye yazmıyor. Audit kaydı bu girişleri libutempter yardımcısının
+#              (/usr/libexec/utempter/utempter add/del) ürettiğini gösterdi: bir program pty açıp
+#              utmp/wtmp'ye kaydediyor (screen, tmux, terminal vb.). Etiket: "yerel pty (utempter)".
 # (TTY'si ssh:notty olan kayıtlar başarısız SSH denemesidir, su/sudo değildir)
-yerel_etiket() { sed -E '/^[^ ]* +ssh:/ s/ (0\.0\.0\.0|::)$/ (IP kaydı yok)/; t; s/ (0\.0\.0\.0|::)$/ su\/sudo/'; }
+# $1: IP'si olmayan (0.0.0.0) kayıtlar için yazılacak etiket (varsayılan: su/sudo)
+yerel_etiket() {
+    local e="${1:-su/sudo}"
+    sed -E "/^[^ ]* +ssh:/ s# (0\.0\.0\.0|::)\$# (IP kaydı yok)#; t; s# (0\.0\.0\.0|::)\$# ${e}#"
+}
 
 # TAB ile ayrılmış satırları hizalı tablo olarak yazar
 # $1: sütun genişlikleri (örn "24,16,16")   $2: başlıklar (örn "Tarih|Kullanıcı|IP")
@@ -93,7 +101,7 @@ ip_ozet() {
     read -r yerel sshyok <<< "$sayilar"
     printf '%s\n' "$girdi" | awk '{print $NF}' | grep -E '^[0-9a-fA-F.:]+$' | grep -E '[.:]' \
         | grep -v -x -F -e '0.0.0.0' -e '::' | ozet_yaz
-    echo "  (su/sudo oturumu - IP kaydı yok: ${yerel:-0})"
+    echo "  (${1:-su/sudo oturumu} - IP kaydı yok: ${yerel:-0})"
     if [ "${sshyok:-0}" -gt 0 ]; then
         echo "  (başarısız SSH denemesi - IP kaydı yok: $sshyok)"
     fi
@@ -257,7 +265,7 @@ who -H
 # 2) Son başarılı girişler (wtmp)
 baslik "2) Son $ADET başarılı giriş - wtmp (en yeni üstte)"
 if komut_var last; then
-    last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
+    last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (utempter)" | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
 else
     echo "  'last' komutu bulunamadı."
 fi
@@ -363,7 +371,7 @@ fi
 # 10) Başarılı girişlerde en çok görünen IP'ler (wtmp)
 baslik "10) wtmp: başarılı girişlerde en çok görünen IP'ler"
 if komut_var last; then
-    last -F -w -a -i 2>/dev/null | ip_ozet
+    last -F -w -a -i 2>/dev/null | ip_ozet "yerel pty oturumu (utempter)"
 fi
 
 # 11) Son reboot'lar
