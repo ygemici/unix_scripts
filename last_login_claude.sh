@@ -18,6 +18,7 @@
 #   KOMUT_UZUNLUK=100 ./son_loginler.sh             (uzun komutları 100 karakterde kes; varsayılan: tamamı)
 #   HARIC_KULLANICI=postgres ./son_loginler.sh      (SSH bölümlerinde gürültülü servis hesabını gizle)
 #   GIZLE_YEREL_PTY=1 ./son_loginler.sh             (bölüm 2'de IP'siz kısa "yerel pty" oturumlarını gizle)
+#   ROOT_SSH_IZINLI_IP=10.1.1.1,10.1.1.2 ./son_loginler.sh   (root SSH girişi bu IP'ler dışından gelirse uyar)
 #   MESAJ_LOG_DOSYASI=/tmp/messages ./son_loginler.sh (Centrify audit trail için messages logu)
 #
 # Centrify: dzdo komutları secure logunda "dzdo[pid]" olarak, yetki kararları ise
@@ -35,6 +36,7 @@
 ADET="${1:-20}"
 KOMUT_UZUNLUK="${KOMUT_UZUNLUK:-0}"     # komut sütununun azami uzunluğu (0 = komutun tamamı)
 HARIC_KULLANICI="${HARIC_KULLANICI:-}"  # SSH bölümlerinde gizlenecek kullanıcılar (virgülle, örn: postgres)
+ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-}"  # root'un SSH ile girmesine izin verilen IP'ler (virgülle); dışındakiler uyarılır
 case "$ADET" in
     ''|*[!0-9]*) echo "Hata: kayıt sayısı bir sayı olmalı (örn: $0 50)" >&2; exit 1 ;;
 esac
@@ -315,6 +317,30 @@ if [ -s "$LOG" ]; then
     baslik "6) SSH logu: son $ADET başarılı giriş (gerçek kaynak IP + yöntem)"
     ssh_basarili | haric_filtre | tail -n "$ADET" | tac | tablo "24,18,40" "Tarih|Kullanıcı|IP|Yöntem"
     haric_notu ssh_basarili
+
+    echo
+    echo "--- Doğrudan root SSH girişleri (son $ADET) ---"
+    ssh_basarili | awk -F'\t' '$2 == "root"' | tail -n "$ADET" | tac | tablo "24,18,40" "Tarih|Kullanıcı|IP|Yöntem"
+    NROOT=$(ssh_basarili | awk -F'\t' '$2 == "root"' | wc -l)
+    if [ "$NROOT" -gt 0 ] && [ "$ROOT" -eq 1 ] && komut_var sshd; then
+        PRL=$(sshd -T 2>/dev/null | awk '/^permitrootlogin/ {print $2; exit}')
+        echo "  (logdaki root girişi: $NROOT; sshd genel PermitRootLogin: ${PRL:-?})"
+        if [ -n "$ROOT_SSH_IZINLI_IP" ]; then
+            DISARI=$(ssh_basarili | awk -F'\t' -v ok="$ROOT_SSH_IZINLI_IP" '
+                BEGIN { n = split(ok, A, ",") }
+                $2 == "root" { f = 0; for (i = 1; i <= n; i++) if ($3 == A[i]) f = 1; if (!f) print }')
+            if [ -n "$DISARI" ]; then
+                echo "  UYARI: İzin listesi dışındaki IP'lerden root SSH girişi var (son 10):"
+                echo "$DISARI" | tail -n 10 | tac | tablo "24,18,40" "Tarih|Kullanıcı|IP|Yöntem"
+            else
+                echo "  Tüm root SSH girişleri izin listesindeki IP'lerden ($ROOT_SSH_IZINLI_IP)."
+            fi
+        elif [ "$PRL" = "no" ]; then
+            echo "  UYARI: Genel ayar 'no' ama root girişi kabul edilmiş. Bir Match bloğu istisna tanıyor olabilir:"
+            echo "         grep -nEi '^\s*(Match|PermitRootLogin)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf"
+            echo "         İstisna bilinçliyse izinli IP'leri tanımlayın: ROOT_SSH_IZINLI_IP=ip1,ip2 (uyarı yalnızca listedışı IP'lerde çıkar)"
+        fi
+    fi
 
     baslik "7) SSH logu: son $ADET başarısız giriş (gerçek kaynak IP + yöntem)"
     ssh_basarisiz | haric_filtre | tail -n "$ADET" | tac | tablo "24,18,40" "Tarih|Kullanıcı|IP|Yöntem"
