@@ -56,8 +56,9 @@ komut_var() { command -v "$1" >/dev/null 2>&1; }
 # last/lastb çıktısında IP yerine yazılan 0.0.0.0 / :: değerini etiketle.
 # lastb (btmp): başarısız su denemeleri secure logundaki su kayıtlarıyla eşleştiği için "su/sudo".
 # last (wtmp): su/sudo/dzdo wtmp'ye yazmıyor. Audit kaydı bu girişleri libutempter yardımcısının
-#              (/usr/libexec/utempter/utempter add/del) ürettiğini gösterdi: bir program pty açıp
-#              utmp/wtmp'ye kaydediyor (screen, tmux, terminal vb.). Etiket: "yerel pty (utempter)".
+#              (/usr/libexec/utempter/utempter add/del) ürettiğini, utempter'ı da util-linux "script"
+#              komutunun çağırdığını gösterdi (örn. bir yönetim ajanının yum komutunu pty içinde
+#              çalıştırması). Etiket: "yerel pty (script)".
 # (TTY'si ssh:notty olan kayıtlar başarısız SSH denemesidir, su/sudo değildir)
 # $1: IP'si olmayan (0.0.0.0) kayıtlar için yazılacak etiket (varsayılan: su/sudo)
 yerel_etiket() {
@@ -265,7 +266,7 @@ who -H
 # 2) Son başarılı girişler (wtmp)
 baslik "2) Son $ADET başarılı giriş - wtmp (en yeni üstte)"
 if komut_var last; then
-    last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (utempter)" | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
+    last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (script)" | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
 else
     echo "  'last' komutu bulunamadı."
 fi
@@ -371,7 +372,7 @@ fi
 # 10) Başarılı girişlerde en çok görünen IP'ler (wtmp)
 baslik "10) wtmp: başarılı girişlerde en çok görünen IP'ler"
 if komut_var last; then
-    last -F -w -a -i 2>/dev/null | ip_ozet "yerel pty oturumu (utempter)"
+    last -F -w -a -i 2>/dev/null | ip_ozet "yerel pty oturumu (script)"
 fi
 
 # 11) Son reboot'lar
