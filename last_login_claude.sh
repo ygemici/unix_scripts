@@ -17,6 +17,7 @@
 #   SUDO_LOG_DOSYASI=/tmp/sudo.log ./son_loginler.sh (sudo logunu elle belirt)
 #   KOMUT_UZUNLUK=100 ./son_loginler.sh             (uzun komutları 100 karakterde kes; varsayılan: tamamı)
 #   HARIC_KULLANICI=postgres ./son_loginler.sh      (SSH bölümlerinde gürültülü servis hesabını gizle)
+#   GIZLE_YEREL_PTY=1 ./son_loginler.sh             (bölüm 2'de IP'siz kısa "yerel pty" oturumlarını gizle)
 #   MESAJ_LOG_DOSYASI=/tmp/messages ./son_loginler.sh (Centrify audit trail için messages logu)
 #
 # Centrify: dzdo komutları secure logunda "dzdo[pid]" olarak, yetki kararları ise
@@ -266,7 +267,14 @@ who -H
 # 2) Son başarılı girişler (wtmp)
 baslik "2) Son $ADET başarılı giriş - wtmp (en yeni üstte)"
 if komut_var last; then
-    last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (script)" | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
+    if [ -n "$GIZLE_YEREL_PTY" ]; then
+        TUMU=$(last -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (script)" | grep -v -E '^(reboot|wtmp|$)')
+        GIZLI=$(printf '%s\n' "$TUMU" | grep -c "yerel pty (script)$")
+        printf '%s\n' "$TUMU" | grep -v "yerel pty (script)$" | head -n "$ADET"
+        echo "  (gizlenen IP'siz yerel pty oturumu: $GIZLI - yönetim ajanı kaynaklı olabilir; göstermek için GIZLE_YEREL_PTY'yi kaldırın)"
+    else
+        last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (script)" | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
+    fi
 else
     echo "  'last' komutu bulunamadı."
 fi
