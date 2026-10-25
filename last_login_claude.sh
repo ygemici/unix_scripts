@@ -20,10 +20,15 @@
 #                                                     "özet" tabloları gizlemez, gizlenen sayı her bölümde yazılır)
 #   GIZLE_YEREL_PTY=1 ./son_loginler.sh             (bölüm 2'de IP'siz kısa "yerel pty" oturumlarını gizle)
 #   ROOT_SSH_IZINLI_IP=10.1.1.1,10.1.1.2 ./son_loginler.sh   (root SSH girişi bu IP'ler dışından gelirse uyar)
+#   IP_ETIKET="10.66.1.2=Veeam proxy?;10.1.1.1=CyberArk CPM" ./son_loginler.sh   (IP'lerin yanına ad yaz; ayraç ';')
 #   MESAJ_LOG_DOSYASI=/tmp/messages ./son_loginler.sh (Centrify audit trail için messages logu)
 #   ESKI_LOGLAR=1 ./son_loginler.sh                 (logrotate ile dönmüş secure-*/sudo.log-*/messages-* dosyalarını da oku;
 #                                                     haftalık rotasyondan sonra raporun boş kalmasını önler)
-#
+#sudo ESKI_LOGLAR=1 HARIC_KULLANICI=postgres,s00827 GIZLE_YEREL_PTY=1 \
+#  ROOT_SSH_IZINLI_IP=10.1.1.1,10.1.1.2 \
+#  IP_ETIKET="10.66.1.2=Veeam proxy?;10.180.99.82=CyberArk CPM;10.180.99.84=CyberArk;10.180.99.86=CyberArk;10.180.99.88=CyberArk;10.180.62.41=yönetim istasyonu/Ansible" \
+#  ./son_loginler.sh 20
+  
 # Centrify: dzdo komutları secure logunda "dzdo[pid]" olarak, yetki kararları ise
 #           /var/log/messages içinde adclient AUDIT_TRAIL kayıtları olarak aranır.
 #
@@ -40,6 +45,23 @@ ADET="${1:-20}"
 KOMUT_UZUNLUK="${KOMUT_UZUNLUK:-0}"     # komut sütununun azami uzunluğu (0 = komutun tamamı)
 HARIC_KULLANICI="${HARIC_KULLANICI:-}"  # SSH ve su/sudo bölümlerinde gizlenecek kullanıcılar (virgülle, örn: postgres,s00827)
 ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-}"  # root'un SSH ile girmesine izin verilen IP'ler (virgülle); dışındakiler uyarılır
+IP_ETIKET="${IP_ETIKET:-}"              # IP açıklamaları: "ip=ad;ip=ad" - rapordaki IP'lerin yanına ad ekler
+
+# IP_ETIKET verildiyse raporu kendi kendine bir kez çağırıp çıktısını etiketleyen sed'den geçirir
+if [ -n "$IP_ETIKET" ] && [ -z "$_IP_ETIKET_SARMAL" ]; then
+    SEDSCR=""
+    OLD_IFS=$IFS; IFS=';'
+    for cift in $IP_ETIKET; do
+        ip=${cift%%=*}; ad=${cift#*=}
+        { [ -z "$ip" ] || [ "$ip" = "$cift" ]; } && continue
+        ip_re=${ip//./\\.}; ad=${ad//\\/\\\\}; ad=${ad//&/\\&}; ad=${ad//#/\\#}
+        SEDSCR+="s#(^|[^0-9.])${ip_re}(\$|[^0-9.])#\\1${ip} (${ad})\\2#g"$'\n'
+    done
+    IFS=$OLD_IFS
+    export _IP_ETIKET_SARMAL=1
+    bash "$0" "$@" | sed -E "$SEDSCR"
+    exit "${PIPESTATUS[0]}"
+fi
 case "$ADET" in
     ''|*[!0-9]*) echo "Hata: kayıt sayısı bir sayı olmalı (örn: $0 50)" >&2; exit 1 ;;
 esac
