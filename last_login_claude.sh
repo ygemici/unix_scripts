@@ -16,10 +16,13 @@
 #   LOG_DOSYASI=/tmp/secure.txt ./son_loginler.sh   (kopyalanmış bir log dosyasını analiz et)
 #   SUDO_LOG_DOSYASI=/tmp/sudo.log ./son_loginler.sh (sudo logunu elle belirt)
 #   KOMUT_UZUNLUK=100 ./son_loginler.sh             (uzun komutları 100 karakterde kes; varsayılan: tamamı)
-#   HARIC_KULLANICI=postgres ./son_loginler.sh      (SSH bölümlerinde gürültülü servis hesabını gizle)
+#   HARIC_KULLANICI=postgres,s00827 ./son_loginler.sh (SSH ve su/sudo bölümlerinde bilinen servis hesaplarını gizle;
+#                                                     "özet" tabloları gizlemez, gizlenen sayı her bölümde yazılır)
 #   GIZLE_YEREL_PTY=1 ./son_loginler.sh             (bölüm 2'de IP'siz kısa "yerel pty" oturumlarını gizle)
 #   ROOT_SSH_IZINLI_IP=10.1.1.1,10.1.1.2 ./son_loginler.sh   (root SSH girişi bu IP'ler dışından gelirse uyar)
 #   MESAJ_LOG_DOSYASI=/tmp/messages ./son_loginler.sh (Centrify audit trail için messages logu)
+#   ESKI_LOGLAR=1 ./son_loginler.sh                 (logrotate ile dönmüş secure-*/sudo.log-*/messages-* dosyalarını da oku;
+#                                                     haftalık rotasyondan sonra raporun boş kalmasını önler)
 #
 # Centrify: dzdo komutları secure logunda "dzdo[pid]" olarak, yetki kararları ise
 #           /var/log/messages içinde adclient AUDIT_TRAIL kayıtları olarak aranır.
@@ -35,7 +38,7 @@
 
 ADET="${1:-20}"
 KOMUT_UZUNLUK="${KOMUT_UZUNLUK:-0}"     # komut sütununun azami uzunluğu (0 = komutun tamamı)
-HARIC_KULLANICI="${HARIC_KULLANICI:-}"  # SSH bölümlerinde gizlenecek kullanıcılar (virgülle, örn: postgres)
+HARIC_KULLANICI="${HARIC_KULLANICI:-}"  # SSH ve su/sudo bölümlerinde gizlenecek kullanıcılar (virgülle, örn: postgres,s00827)
 ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-}"  # root'un SSH ile girmesine izin verilen IP'ler (virgülle); dışındakiler uyarılır
 case "$ADET" in
     ''|*[!0-9]*) echo "Hata: kayıt sayısı bir sayı olmalı (örn: $0 50)" >&2; exit 1 ;;
@@ -122,6 +125,16 @@ SLOG="$(mktemp)"
 MLOG="$(mktemp)"
 trap 'rm -f "$LOG" "$SLOG" "$MLOG"' EXIT
 
+# Bir logu okur. ESKI_LOGLAR doluysa logrotate ile dönmüş eski dosyaları da (değişiklik zamanına göre,
+# en eskiden yeniye; .gz dahil) başa ekler. $1: güncel log dosyasının yolu
+log_topla() {
+    local base="$1" f
+    if [ -n "$ESKI_LOGLAR" ]; then
+        for f in $(ls -1tr "$base"-* "$base".[0-9]* 2>/dev/null); do zcat -f "$f" 2>/dev/null; done
+    fi
+    cat "$base" 2>/dev/null
+}
+
 # sudo logunun yolunu bulur: sudoers "Defaults syslog=X" -> rsyslog "X.* /yol/dosya"
 sudo_log_bul() {
     local fac dosya
@@ -139,9 +152,9 @@ LOG_KAYNAK="okunamadı (root yetkisi gerekebilir)"
 if [ -n "$LOG_DOSYASI" ] && [ -r "$LOG_DOSYASI" ]; then
     cp "$LOG_DOSYASI" "$LOG"; LOG_KAYNAK="$LOG_DOSYASI"
 elif [ -r /var/log/secure ]; then
-    cp /var/log/secure "$LOG"; LOG_KAYNAK="/var/log/secure"
+    log_topla /var/log/secure > "$LOG"; LOG_KAYNAK="/var/log/secure${ESKI_LOGLAR:+ (+ döndürülmüş eski dosyalar)}"
 elif [ -r /var/log/auth.log ]; then
-    cp /var/log/auth.log "$LOG"; LOG_KAYNAK="/var/log/auth.log"
+    log_topla /var/log/auth.log > "$LOG"; LOG_KAYNAK="/var/log/auth.log${ESKI_LOGLAR:+ (+ döndürülmüş eski dosyalar)}"
 elif komut_var journalctl && [ "$ROOT" -eq 1 ]; then
     journalctl -t sshd -t sshd-session -t su -t sudo --no-pager -o short-iso > "$LOG" 2>/dev/null \
         && LOG_KAYNAK="journalctl"
@@ -151,9 +164,9 @@ fi
 if [ -n "$MESAJ_LOG_DOSYASI" ] && [ -r "$MESAJ_LOG_DOSYASI" ]; then
     grep -F 'AUDIT_TRAIL|Centrify Suite|dzdo|' "$MESAJ_LOG_DOSYASI" > "$MLOG" 2>/dev/null
 elif [ -r /var/log/messages ]; then
-    grep -F 'AUDIT_TRAIL|Centrify Suite|dzdo|' /var/log/messages > "$MLOG" 2>/dev/null
+    log_topla /var/log/messages | grep -F 'AUDIT_TRAIL|Centrify Suite|dzdo|' > "$MLOG" 2>/dev/null
 elif [ -r /var/log/syslog ]; then
-    grep -F 'AUDIT_TRAIL|Centrify Suite|dzdo|' /var/log/syslog > "$MLOG" 2>/dev/null
+    log_topla /var/log/syslog | grep -F 'AUDIT_TRAIL|Centrify Suite|dzdo|' > "$MLOG" 2>/dev/null
 fi
 
 # sudo komutları için ayrı log varsa onu kullan, yoksa güvenlik logu
@@ -163,8 +176,8 @@ if [ -n "$SUDO_LOG_DOSYASI" ] && [ -r "$SUDO_LOG_DOSYASI" ]; then
     cp "$SUDO_LOG_DOSYASI" "$SLOG"; SUDO_KAYNAK="$SUDO_LOG_DOSYASI"
 elif [ -z "$LOG_DOSYASI" ]; then
     SUDO_ADAY="$(sudo_log_bul)"
-    if [ -r "$SUDO_ADAY" ] && [ -s "$SUDO_ADAY" ]; then
-        cp "$SUDO_ADAY" "$SLOG"; SUDO_KAYNAK="$SUDO_ADAY"
+    if [ -r "$SUDO_ADAY" ]; then
+        log_topla "$SUDO_ADAY" > "$SLOG"; SUDO_KAYNAK="$SUDO_ADAY${ESKI_LOGLAR:+ (+ döndürülmüş eski dosyalar)}"
     fi
 fi
 
@@ -188,11 +201,11 @@ haric_filtre() {
     awk -F'\t' -v h="$HARIC_KULLANICI" 'BEGIN { n = split(h, H, ",") } { for (i = 1; i <= n; i++) if ($2 == H[i]) next; print }'
 }
 
-# Gizlenen kayıt sayısını bildirir. $1 = ayrıştırıcı fonksiyon adı
+# Gizlenen kayıt sayısını bildirir. Argümanlar: ayrıştırıcı fonksiyon adı (+ parametresi, örn: pam_hata su)
 haric_notu() {
     [ -n "$HARIC_KULLANICI" ] || return 0
     local toplam kalan
-    toplam=$("$1" | wc -l); kalan=$("$1" | haric_filtre | wc -l)
+    toplam=$("$@" | wc -l); kalan=$("$@" | haric_filtre | wc -l)
     echo "  (hariç tutulan kullanıcı: $HARIC_KULLANICI - gizlenen kayıt: $((toplam - kalan)))"
 }
 
@@ -359,22 +372,27 @@ if [ -s "$LOG" ]; then
     ssh_basarili | cut -f2 | ozet_yaz
 
     baslik "8) su: son $ADET başarısız deneme"
-    pam_hata su | tail -n "$ADET" | tac | tablo "24,18,14,12" "Tarih|Kimden (logname)|Hedef|TTY|RHOST"
+    pam_hata su | haric_filtre | tail -n "$ADET" | tac | tablo "24,18,14,12" "Tarih|Kimden (logname)|Hedef|TTY|RHOST"
+    haric_notu pam_hata su
 
     echo
     echo "--- su: son $ADET başarılı geçiş ---"
-    su_basarili | tail -n "$ADET" | tac | tablo "24,18" "Tarih|Kimden|Hedef kullanıcı"
+    su_basarili | haric_filtre | tail -n "$ADET" | tac | tablo "24,18" "Tarih|Kimden|Hedef kullanıcı"
+    haric_notu su_basarili
 
     baslik "9) sudo: son $ADET çalıştırılan komut (kaynak: $SUDO_KAYNAK)"
-    sudo_komut | tail -n "$ADET" | tac | tablo "24,16,12" "Tarih|Kullanıcı|Hedef|Komut" "$KOMUT_UZUNLUK"
+    sudo_komut | haric_filtre | tail -n "$ADET" | tac | tablo "24,16,12" "Tarih|Kullanıcı|Hedef|Komut" "$KOMUT_UZUNLUK"
+    haric_notu sudo_komut
 
     echo
     echo "--- sudo: son $ADET başarısız / reddedilen deneme ---"
-    sudo_hata | tail -n "$ADET" | tac | tablo "24,16,32,10" "Tarih|Kullanıcı|Sebep|Hedef|Komut" "$KOMUT_UZUNLUK"
+    sudo_hata | haric_filtre | tail -n "$ADET" | tac | tablo "24,16,32,10" "Tarih|Kullanıcı|Sebep|Hedef|Komut" "$KOMUT_UZUNLUK"
+    haric_notu sudo_hata
 
     echo
     echo "--- sudo: PAM parola hataları (son $ADET) ---"
-    pam_hata sudo | tail -n "$ADET" | tac | tablo "24,18,14,14" "Tarih|Kimden (logname)|Kullanıcı|TTY|RHOST"
+    pam_hata sudo | haric_filtre | tail -n "$ADET" | tac | tablo "24,18,14,14" "Tarih|Kimden (logname)|Kullanıcı|TTY|RHOST"
+    haric_notu pam_hata sudo
 
     if grep -q 'dzdo\[[0-9]*\]:' "$LOG"; then
         echo
