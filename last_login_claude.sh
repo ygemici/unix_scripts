@@ -19,6 +19,8 @@
 #   HARIC_KULLANICI=postgres,s00827 ./son_loginler.sh (SSH ve su/sudo bölümlerinde bilinen servis hesaplarını gizle;
 #                                                     "özet" tabloları gizlemez, gizlenen sayı her bölümde yazılır)
 #   GIZLE_YEREL_PTY=1 ./son_loginler.sh             (bölüm 2'de IP'siz kısa "yerel pty" oturumlarını gizle)
+#   YEREL_PTY_ETIKET="yerel pty (ManageEngine dcservice -> script)" ./son_loginler.sh   (o oturumların kaynağını yaz)
+#   /etc/son_loginler.conf                          (tüm bu ayarları kalıcı yazın; örnek dosya sonunda)
 #   ROOT_SSH_IZINLI_IP=10.1.1.1,10.1.1.2 ./son_loginler.sh   (root SSH girişi bu IP'ler dışından gelirse uyar)
 #   IP_ETIKET="10.66.1.2=Veeam proxy?;10.1.1.1=CyberArk CPM" ./son_loginler.sh   (IP'lerin yanına ad yaz; ayraç ';')
 #   KULLANICI_IP_IZIN="s00827=10.66.1.2;postgres=10.180.50.145" ./son_loginler.sh  (bu kullanıcılar başka IP'den girerse listele)
@@ -26,7 +28,6 @@
 #   ESKI_LOGLAR=1 ./son_loginler.sh                 (logrotate ile dönmüş secure-*/sudo.log-*/messages-* dosyalarını da oku;
 #                                                     haftalık rotasyondan sonra raporun boş kalmasını önler)
 #
-# sudo KULLANICI_IP_IZIN="s00827=10.66.1.2" ESKI_LOGLAR=1 HARIC_KULLANICI=postgres,s00827 ./son_loginler.sh 20
 # Centrify: dzdo komutları secure logunda "dzdo[pid]" olarak, yetki kararları ise
 #           /var/log/messages içinde adclient AUDIT_TRAIL kayıtları olarak aranır.
 #
@@ -39,12 +40,25 @@
 #      Logrotate ile arşivlenmiş eski kayıtlar için LOG_DOSYASI ile ilgili dosyayı verin.
 # =============================================================================
 
+# Yapılandırma dosyası (varsa): sık kullanılan ayarları bir kez yazın. Komut satırındaki değişkenlerin
+# dosyadaki değeri ezebilmesi için dosyada  DEGISKEN="${DEGISKEN:-değer}"  biçimini kullanın.
+# Dosya root'a ait olmalı ve grup/diğer kullanıcılar tarafından yazılabilir olmamalı (root olarak çalıştırıldığı için).
+CONF="${SON_LOGINLER_CONF:-/etc/son_loginler.conf}"
+if [ -r "$CONF" ]; then
+    if [ "$(stat -c %U "$CONF" 2>/dev/null)" = "root" ] && [ -z "$(find "$CONF" -perm /022 2>/dev/null)" ]; then
+        . "$CONF"
+    else
+        echo "UYARI: $CONF yok sayıldı (sahibi root olmalı, grup/diğerleri yazamamalı: chown root:root; chmod 600)." >&2
+    fi
+fi
+
 ADET="${1:-20}"
 KOMUT_UZUNLUK="${KOMUT_UZUNLUK:-0}"     # komut sütununun azami uzunluğu (0 = komutun tamamı)
 HARIC_KULLANICI="${HARIC_KULLANICI:-}"  # SSH ve su/sudo bölümlerinde gizlenecek kullanıcılar (virgülle, örn: postgres,s00827)
 ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-}"  # root'un SSH ile girmesine izin verilen IP'ler (virgülle); dışındakiler uyarılır
 KULLANICI_IP_IZIN="${KULLANICI_IP_IZIN:-}"  # kullanıcı bazında izinli SSH kaynakları: "kullanici=ip1,ip2;kullanici2=ip3"
 IP_ETIKET="${IP_ETIKET:-}"              # IP açıklamaları: "ip=ad;ip=ad" - rapordaki IP'lerin yanına ad ekler
+YEREL_PTY_ETIKET="${YEREL_PTY_ETIKET:-yerel pty (script)}"   # wtmp'deki IP'siz root pty oturumlarının kaynağı (# ve & kullanmayın)
 
 # IP_ETIKET verildiyse raporu kendi kendine bir kez çağırıp çıktısını etiketleyen sed'den geçirir
 if [ -n "$IP_ETIKET" ] && [ -z "$_IP_ETIKET_SARMAL" ]; then
@@ -116,7 +130,7 @@ tablo() {
 # stdin'deki değerleri sayıp en çok görünen ilk 10'u yazar
 ozet_yaz() {
     sort | uniq -c | sort -rn | head -n 10 | awk '
-        { n++; printf "%6s deneme  -  %s\n", $1, $2 }
+        { n++; c = $1; $1 = ""; sub(/^ /, ""); printf "%6s deneme  -  %s\n", c, $0 }
         END { if (!n) print "  (kayıt bulunamadı)" }'
 }
 
@@ -230,6 +244,22 @@ haric_notu() {
     echo "  (hariç tutulan kullanıcı: $HARIC_KULLANICI - gizlenen kayıt: $((toplam - kalan)))"
 }
 
+# SSH'ın "Failed password" dışındaki red/hata kayıtları: anlaşma hatası, geçersiz kullanıcı, ön-kimlik doğrulama kopmaları...
+# çıktı: tarih, tür, IP, ayrıntı
+ssh_diger_hata() {
+    local D='^(.{15}|[0-9T:+-]+) [^ ]+ sshd[a-z-]*\[[0-9]+\]: ' IP='([0-9a-fA-F.:]+)'
+    sed -nE \
+      -e "s#${D}Unable to negotiate with ${IP} port [0-9]+: (.*)\$#\\1\\tanlaşma hatası\\t\\2\\t\\3#p" \
+      -e "s#${D}Invalid user ([^ ]*) from ${IP}( port [0-9]+)?.*\$#\\1\\tgeçersiz kullanıcı\\t\\3\\tkullanıcı=\\2#p" \
+      -e "s#${D}Connection closed by (authenticating|invalid) user ([^ ]*) ${IP} port [0-9]+ \\[preauth\\]\$#\\1\\tbağlantı kapatıldı (preauth)\\t\\4\\tkullanıcı=\\3#p" \
+      -e "s#${D}Disconnecting (authenticating|invalid) user ([^ ]*) ${IP} port [0-9]+: (.*)\$#\\1\\tbağlantı kesildi\\t\\4\\tkullanıcı=\\3; \\5#p" \
+      -e "s#${D}error: maximum authentication attempts exceeded for (invalid user )?([^ ]+) from ${IP} port [0-9]+.*\$#\\1\\tçok fazla deneme\\t\\4\\tkullanıcı=\\3#p" \
+      -e "s#${D}Did not receive identification string from ${IP}.*\$#\\1\\tkimlik dizgesi yok\\t\\2\\t#p" \
+      -e "s#${D}ROOT LOGIN REFUSED FROM ${IP}.*\$#\\1\\troot girişi reddedildi\\t\\2\\t#p" \
+      -e "s#${D}Connection reset by ${IP} port [0-9]+ \\[preauth\\]\$#\\1\\tbağlantı sıfırlandı (preauth)\\t\\2\\t#p" \
+      "$LOG" | sed -E 's/ \[preauth\]//'
+}
+
 # $1 = su | sudo  ->  tarih, kimden (logname), hedef kullanıcı, tty, rhost
 pam_hata() {
     sed -nE "s#^(.{15}|[0-9T:+-]+) [^ ]+ $1\[[0-9]+\]: pam_unix\($1(-l)?:auth\): authentication failure;.*logname=([^ ]*) .*tty=([^ ]*) .*rhost=([^ ]*) +user=([^ ]*).*#\1\t\3\t\6\t\4\t\5#p" "$LOG"
@@ -304,12 +334,12 @@ who -H
 baslik "2) Son $ADET başarılı giriş - wtmp (en yeni üstte)"
 if komut_var last; then
     if [ -n "$GIZLE_YEREL_PTY" ]; then
-        TUMU=$(last -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (script)" | grep -v -E '^(reboot|wtmp|$)')
-        GIZLI=$(printf '%s\n' "$TUMU" | grep -c "yerel pty (script)$")
-        printf '%s\n' "$TUMU" | grep -v "yerel pty (script)$" | head -n "$ADET"
+        TUMU=$(last -F -w -a -i 2>/dev/null | yerel_etiket "$YEREL_PTY_ETIKET" | grep -v -E '^(reboot|wtmp|$)')
+        GIZLI=$(printf '%s\n' "$TUMU" | awk -v e="$YEREL_PTY_ETIKET" 'substr($0, length($0) - length(e) + 1) == e' | wc -l)
+        printf '%s\n' "$TUMU" | awk -v e="$YEREL_PTY_ETIKET" 'substr($0, length($0) - length(e) + 1) != e' | head -n "$ADET"
         echo "  (gizlenen IP'siz yerel pty oturumu: $GIZLI - yönetim ajanı kaynaklı olabilir; göstermek için GIZLE_YEREL_PTY'yi kaldırın)"
     else
-        last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket "yerel pty (script)" | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
+        last -n "$ADET" -F -w -a -i 2>/dev/null | yerel_etiket "$YEREL_PTY_ETIKET" | grep -v -E '^(reboot|wtmp|$)' || echo "  (kayıt bulunamadı)"
     fi
 else
     echo "  'last' komutu bulunamadı."
@@ -408,6 +438,13 @@ if [ -s "$LOG" ]; then
     echo "--- SSH başarılı girişler: kullanıcı başına sayı (filtresiz, ilk 10) ---"
     ssh_basarili | cut -f2 | ozet_yaz
 
+    echo
+    echo "--- Diğer SSH hataları: anlaşma / geçersiz kullanıcı / ön-kimlik doğrulama kopması (son $ADET) ---"
+    ssh_diger_hata | tail -n "$ADET" | tac | tablo "24,32,40" "Tarih|Tür|IP|Ayrıntı"
+    echo
+    echo "--- Bu hataların özeti: tür <- IP (ilk 10) ---"
+    ssh_diger_hata | awk -F'\t' '{print $2 " <- " $3}' | ozet_yaz
+
     baslik "8) su: son $ADET başarısız deneme"
     pam_hata su | haric_filtre | tail -n "$ADET" | tac | tablo "24,18,14,12" "Tarih|Kimden (logname)|Hedef|TTY|RHOST"
     haric_notu pam_hata su
@@ -461,7 +498,7 @@ fi
 # 10) Başarılı girişlerde en çok görünen IP'ler (wtmp)
 baslik "10) wtmp: başarılı girişlerde en çok görünen IP'ler"
 if komut_var last; then
-    last -F -w -a -i 2>/dev/null | ip_ozet "yerel pty oturumu (script)"
+    last -F -w -a -i 2>/dev/null | ip_ozet "$YEREL_PTY_ETIKET"
 fi
 
 # 11) Son reboot'lar
@@ -474,3 +511,14 @@ else
     echo "  wtmp içinde reboot kaydı yok (log rotasyonu nedeniyle olabilir)."
     echo "  Son açılış zamanı: $(uptime -s 2>/dev/null || who -b 2>/dev/null)"
 fi
+
+# =============================================================================
+# ÖRNEK /etc/son_loginler.conf  (bu blok yalnızca yorumdur; kopyalayıp dosyaya yazın)
+# =============================================================================
+# HARIC_KULLANICI="${HARIC_KULLANICI:-postgres,s00827}"
+# GIZLE_YEREL_PTY="${GIZLE_YEREL_PTY:-1}"
+# ESKI_LOGLAR="${ESKI_LOGLAR:-1}"
+# ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-10.180.xx.xx,10.180.xx.xx,10.180.xx.xx,10.180.xx.xx}"
+# KULLANICI_IP_IZIN="${KULLANICI_IP_IZIN:-s00827=10.66.1.2;postgres=10.180.50.145}"
+# YEREL_PTY_ETIKET="${YEREL_PTY_ETIKET:-yerel pty (ManageEngine dcservice -> script)}"
+# IP_ETIKET="${IP_ETIKET:-10.66.1.2=Veeam proxy?;10.180.xx.xx=CyberArk CPM;10.180.xx.xx=CyberArk;10.180.xx.xx=CyberArk;10.180.xx.xx=CyberArk}"
