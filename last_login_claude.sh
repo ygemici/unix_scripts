@@ -21,14 +21,12 @@
 #   GIZLE_YEREL_PTY=1 ./son_loginler.sh             (bölüm 2'de IP'siz kısa "yerel pty" oturumlarını gizle)
 #   ROOT_SSH_IZINLI_IP=10.1.1.1,10.1.1.2 ./son_loginler.sh   (root SSH girişi bu IP'ler dışından gelirse uyar)
 #   IP_ETIKET="10.66.1.2=Veeam proxy?;10.1.1.1=CyberArk CPM" ./son_loginler.sh   (IP'lerin yanına ad yaz; ayraç ';')
+#   KULLANICI_IP_IZIN="s00827=10.66.1.2;postgres=10.180.50.145" ./son_loginler.sh  (bu kullanıcılar başka IP'den girerse listele)
 #   MESAJ_LOG_DOSYASI=/tmp/messages ./son_loginler.sh (Centrify audit trail için messages logu)
 #   ESKI_LOGLAR=1 ./son_loginler.sh                 (logrotate ile dönmüş secure-*/sudo.log-*/messages-* dosyalarını da oku;
 #                                                     haftalık rotasyondan sonra raporun boş kalmasını önler)
-#sudo ESKI_LOGLAR=1 HARIC_KULLANICI=postgres,s00827 GIZLE_YEREL_PTY=1 \
-#  ROOT_SSH_IZINLI_IP=10.1.1.1,10.1.1.2 \
-#  IP_ETIKET="10.66.1.2=Veeam proxy?;10.180.99.82=CyberArk CPM;10.180.99.84=CyberArk;10.180.99.86=CyberArk;10.180.99.88=CyberArk;10.180.62.41=yönetim istasyonu/Ansible" \
-#  ./son_loginler.sh 20
-  
+#
+# sudo KULLANICI_IP_IZIN="s00827=10.66.1.2" ESKI_LOGLAR=1 HARIC_KULLANICI=postgres,s00827 ./son_loginler.sh 20
 # Centrify: dzdo komutları secure logunda "dzdo[pid]" olarak, yetki kararları ise
 #           /var/log/messages içinde adclient AUDIT_TRAIL kayıtları olarak aranır.
 #
@@ -45,6 +43,7 @@ ADET="${1:-20}"
 KOMUT_UZUNLUK="${KOMUT_UZUNLUK:-0}"     # komut sütununun azami uzunluğu (0 = komutun tamamı)
 HARIC_KULLANICI="${HARIC_KULLANICI:-}"  # SSH ve su/sudo bölümlerinde gizlenecek kullanıcılar (virgülle, örn: postgres,s00827)
 ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-}"  # root'un SSH ile girmesine izin verilen IP'ler (virgülle); dışındakiler uyarılır
+KULLANICI_IP_IZIN="${KULLANICI_IP_IZIN:-}"  # kullanıcı bazında izinli SSH kaynakları: "kullanici=ip1,ip2;kullanici2=ip3"
 IP_ETIKET="${IP_ETIKET:-}"              # IP açıklamaları: "ip=ad;ip=ad" - rapordaki IP'lerin yanına ad ekler
 
 # IP_ETIKET verildiyse raporu kendi kendine bir kez çağırıp çıktısını etiketleyen sed'den geçirir
@@ -374,6 +373,22 @@ if [ -s "$LOG" ]; then
             echo "  UYARI: Genel ayar 'no' ama root girişi kabul edilmiş. Bir Match bloğu istisna tanıyor olabilir:"
             echo "         grep -nEi '^\s*(Match|PermitRootLogin)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf"
             echo "         İstisna bilinçliyse izinli IP'leri tanımlayın: ROOT_SSH_IZINLI_IP=ip1,ip2 (uyarı yalnızca listedışı IP'lerde çıkar)"
+        fi
+    fi
+
+    if [ -n "$KULLANICI_IP_IZIN" ]; then
+        echo
+        echo "--- Beklenmeyen kaynaktan SSH girişleri (KULLANICI_IP_IZIN listesindeki kullanıcılar için, son $ADET) ---"
+        BEKLENMEYEN_SSH=$(ssh_basarili | awk -F'\t' -v m="$KULLANICI_IP_IZIN" '
+            BEGIN { n = split(m, P, ";")
+                    for (i = 1; i <= n; i++) { k = index(P[i], "="); if (!k) continue
+                        u = substr(P[i], 1, k - 1); l = split(substr(P[i], k + 1), A, ",")
+                        for (j = 1; j <= l; j++) OK[u, A[j]] = 1; HAS[u] = 1 } }
+            ($2 in HAS) && !(($2, $3) in OK)')
+        if [ -n "$BEKLENMEYEN_SSH" ]; then
+            echo "$BEKLENMEYEN_SSH" | tail -n "$ADET" | tac | tablo "24,18,40" "Tarih|Kullanıcı|IP|Yöntem"
+        else
+            echo "  (yok: listedeki kullanıcıların tüm girişleri izinli IP'lerden)"
         fi
     fi
 
