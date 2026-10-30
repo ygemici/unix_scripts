@@ -110,8 +110,10 @@ yerel_etiket() {
 # TAB ile ayrılmış satırları hizalı tablo olarak yazar
 # $1: sütun genişlikleri (örn "24,16,16")   $2: başlıklar (örn "Tarih|Kullanıcı|IP")
 # $3: (isteğe bağlı) son sütunun azami uzunluğu; aşan kısım "..." ile kesilir
+# Not: awk bilerek LC_ALL=C ile çalışır; gawk 5 + UTF-8 yerelinde bayt aralıklı düzenli ifadeler hata verir,
+#       C yerelinde ise printf bayt sayar ve aşağıdaki UTF-8 telafisi doğru hizalama sağlar.
 tablo() {
-    awk -F'\t' -v w="$1" -v h="$2" -v m="${3:-0}" '
+    LC_ALL=C awk -F'\t' -v w="$1" -v h="$2" -v m="${3:-0}" '
     function satir(a, n,   i, v, t, extra) {
         for (i = 1; i <= n; i++) {
             v = (a[i] == "" ? "-" : a[i])
@@ -158,7 +160,8 @@ ip_ozet() {
 LOG="$(mktemp)"
 SLOG="$(mktemp)"
 MLOG="$(mktemp)"
-trap 'rm -f "$LOG" "$SLOG" "$MLOG"' EXIT
+KLOG="$(mktemp)"
+trap 'rm -f "$LOG" "$SLOG" "$MLOG" "$KLOG"' EXIT
 
 # Bir logu okur. ESKI_LOGLAR doluysa logrotate ile dönmüş eski dosyaları da (değişiklik zamanına göre,
 # en eskiden yeniye; .gz dahil) başa ekler. $1: güncel log dosyasının yolu
@@ -512,13 +515,87 @@ else
     echo "  Son açılış zamanı: $(uptime -s 2>/dev/null || who -b 2>/dev/null)"
 fi
 
+# 12) Son oturumlar ve oturum süresince sudo/dzdo ile çalıştırılan komutlar
+if [ "$ROOT" -eq 1 ] && komut_var last && [ -s "$LOG" ]; then
+    baslik "12) Son oturumlar ve oturum sırasında sudo/dzdo ile çalıştırılan komutlar"
+    echo "Eşleştirme: oturum süresi (wtmp) x sudo.log/dzdo kayıtları, kullanıcı adı ve zamana göre."
+    echo "Ansible komutları modül adıyla özetlenir (tam komutlar bölüm 9'da). sudo/dzdo KULLANILMADAN çalıştırılan"
+    echo "komutlar hiçbir yerde kayıtlı değildir; bunun için auditd execve kuralı ya da psacct gerekir."
+    echo
+    { sudo_komut; dzdo_komut; } > "$KLOG"
+    last -F -w -i 2>/dev/null | grep -v -E '^(reboot|wtmp|btmp|$)' | LC_ALL=C awk -v hex="$HARIC_KULLANICI" -v KFILE="$KLOG" \
+        -v gizle="${GIZLE_YEREL_PTY:-}" -v lim="$ADET" -v maxlen="$KOMUT_UZUNLUK" -v nowstr="$(date '+%Y %m %d %H %M %S')" '
+    function dn(y, m, d,   era, yoe, doy, doe) {
+        y -= (m <= 2); era = int(y / 400); yoe = y - era * 400
+        doy = int((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1
+        doe = yoe * 365 + int(yoe / 4) - int(yoe / 100) + doy
+        return era * 146097 + doe - 719468
+    }
+    function nv(y, m, d, hh, mi, ss) { return dn(y, m, d) * 86400 + hh * 3600 + mi * 60 + ss }
+    function mon(s) { return int((index("JanFebMarAprMayJunJulAugSepOctNovDec", s) + 2) / 3) }
+    function logep(ds,   p, t, ep) {
+        if (ds ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T/)
+            return nv(substr(ds,1,4)+0, substr(ds,6,2)+0, substr(ds,9,2)+0, substr(ds,12,2)+0, substr(ds,15,2)+0, substr(ds,18,2)+0)
+        split(ds, p, " "); split(p[3], t, ":")
+        ep = nv(CY, mon(p[1]), p[2]+0, t[1]+0, t[2]+0, t[3]+0)
+        if (ep > NOWN + 86400) ep = nv(CY - 1, mon(p[1]), p[2]+0, t[1]+0, t[2]+0, t[3]+0)
+        return ep
+    }
+    function show(c) {
+        if (match(c, /AnsiballZ_[A-Za-z0-9_]+\.py/)) return "ansible modülü: " substr(c, RSTART + 10, RLENGTH - 13)
+        if (maxlen + 0 > 0 && length(c) > maxlen) c = substr(c, 1, maxlen - 3) "..."
+        return c
+    }
+    BEGIN {
+        split(nowstr, w, " "); CY = w[1] + 0; NOWN = nv(w[1]+0, w[2]+0, w[3]+0, w[4]+0, w[5]+0, w[6]+0)
+        n = split(hex, hx, ","); for (i = 1; i <= n; i++) if (hx[i] != "") EX[tolower(hx[i])] = 1
+        FS = "\t"
+        while ((getline line < KFILE) > 0) {
+            split(line, a, "\t"); nc++
+            CD[nc] = a[1]; CU[nc] = tolower(a[2]); CT[nc] = a[3]; CC[nc] = a[4]; CE[nc] = logep(a[1])
+        }
+        FS = " "
+    }
+    {
+        if (ns >= lim) next
+        user = $1; tty = $2
+        if (user == "" || (tolower(user) in EX)) next
+        ip = ($3 ~ /^[0-9A-Fa-f.:]+$/ && $3 ~ /[.:]/) ? $3 : "-"
+        if (gizle != "" && (ip == "0.0.0.0" || ip == "::")) next
+        rest = $0; nd = 0
+        while (match(rest, /[A-Z][a-z][a-z] [A-Z][a-z][a-z] +[0-9]+ [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [0-9][0-9][0-9][0-9]/)) {
+            D[++nd] = substr(rest, RSTART, RLENGTH); rest = substr(rest, RSTART + RLENGTH)
+        }
+        if (nd < 1) next
+        split(D[1], q, " "); split(q[4], t, ":")
+        st = nv(q[5]+0, mon(q[2]), q[3]+0, t[1]+0, t[2]+0, t[3]+0)
+        if (nd >= 2) { split(D[2], q, " "); split(q[4], t, ":"); en = nv(q[5]+0, mon(q[2]), q[3]+0, t[1]+0, t[2]+0, t[3]+0); es = D[2] }
+        else if ($0 ~ /still logged in/) { en = NOWN; es = "devam ediyor" }
+        else { en = st; es = "bilinmiyor" }
+        ns++; SU[ns] = tolower(user); SS[ns] = st; SE[ns] = en
+        SH[ns] = sprintf("%-10s %-6s %-16s %s -> %s", user, tty, ip, D[1], es)
+    }
+    END {
+        for (i = 1; i <= ns; i++) {
+            print SH[i]; found = 0
+            for (j = 1; j <= nc; j++)
+                if (CU[j] == SU[i] && CE[j] >= SS[i] - 1 && CE[j] <= SE[i] + 2) {
+                    printf "   %s  %-10s %s\n", CD[j], CT[j], show(CC[j]); found = 1
+                }
+            if (!found) print "   (sudo/dzdo komutu kaydı yok)"
+            print ""
+        }
+        if (ns == 0) print "  (gösterilecek oturum yok)"
+    }'
+fi
+
 # =============================================================================
 # ÖRNEK /etc/son_loginler.conf  (bu blok yalnızca yorumdur; kopyalayıp dosyaya yazın)
 # =============================================================================
 # HARIC_KULLANICI="${HARIC_KULLANICI:-postgres,s00827}"
 # GIZLE_YEREL_PTY="${GIZLE_YEREL_PTY:-1}"
 # ESKI_LOGLAR="${ESKI_LOGLAR:-1}"
-# ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-10.180.xx.xx,10.180.xx.xx,10.180.xx.xx,10.180.xx.xx}"
+# ROOT_SSH_IZINLI_IP="${ROOT_SSH_IZINLI_IP:-10.180.99.82,10.180.99.84,10.180.99.86,10.180.99.88}"
 # KULLANICI_IP_IZIN="${KULLANICI_IP_IZIN:-s00827=10.66.1.2;postgres=10.180.50.145}"
 # YEREL_PTY_ETIKET="${YEREL_PTY_ETIKET:-yerel pty (ManageEngine dcservice -> script)}"
-# IP_ETIKET="${IP_ETIKET:-10.66.1.2=Veeam proxy?;10.180.xx.xx=CyberArk CPM;10.180.xx.xx=CyberArk;10.180.xx.xx=CyberArk;10.180.xx.xx=CyberArk}"
+# IP_ETIKET="${IP_ETIKET:-10.66.1.2=Veeam proxy?;10.180.99.82=CyberArk CPM;10.180.99.84=CyberArk;10.180.99.86=CyberArk;10.180.99.88=CyberArk}"
