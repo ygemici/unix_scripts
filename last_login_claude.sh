@@ -519,10 +519,16 @@ fi
 if [ "$ROOT" -eq 1 ] && komut_var last && [ -s "$LOG" ]; then
     baslik "12) Son oturumlar ve oturum sırasında sudo/dzdo ile çalıştırılan komutlar"
     echo "Eşleştirme: oturum süresi (wtmp) x sudo.log/dzdo kayıtları, kullanıcı adı ve zamana göre."
+    echo "Reddedilen sudo denemeleri [sebep] ile gösterilir. Oturumda su/sudo -i/dzdo ile root'a geçildiyse, o sürede"
+    echo "'root' adıyla kaydedilen komutlar da zamana göre OLASI eşleşme olarak altına eklenir (kesin atama için audit auid gerekir)."
     echo "Ansible komutları modül adıyla özetlenir (tam komutlar bölüm 9'da). sudo/dzdo KULLANILMADAN çalıştırılan"
     echo "komutlar hiçbir yerde kayıtlı değildir; bunun için auditd execve kuralı ya da psacct gerekir."
     echo
-    { sudo_komut; dzdo_komut; } > "$KLOG"
+    {
+        sudo_komut
+        dzdo_komut
+        sudo_hata | awk -F'\t' 'BEGIN { OFS = "\t" } { print $1, $2, $4, "[" $3 "] " $5 }'
+    } > "$KLOG"
     last -F -w -i 2>/dev/null | grep -v -E '^(reboot|wtmp|btmp|$)' | LC_ALL=C awk -v hex="$HARIC_KULLANICI" -v KFILE="$KLOG" \
         -v gizle="${GIZLE_YEREL_PTY:-}" -v lim="$ADET" -v maxlen="$KOMUT_UZUNLUK" -v nowstr="$(date '+%Y %m %d %H %M %S')" '
     function dn(y, m, d,   era, yoe, doy, doe) {
@@ -546,15 +552,17 @@ if [ "$ROOT" -eq 1 ] && komut_var last && [ -s "$LOG" ]; then
         if (maxlen + 0 > 0 && length(c) > maxlen) c = substr(c, 1, maxlen - 3) "..."
         return c
     }
+    function isort(arr, n,   i, j, t) {
+        for (i = 2; i <= n; i++) { t = arr[i]; for (j = i - 1; j >= 1 && CE[arr[j]] > CE[t]; j--) arr[j + 1] = arr[j]; arr[j + 1] = t }
+    }
     BEGIN {
         split(nowstr, w, " "); CY = w[1] + 0; NOWN = nv(w[1]+0, w[2]+0, w[3]+0, w[4]+0, w[5]+0, w[6]+0)
         n = split(hex, hx, ","); for (i = 1; i <= n; i++) if (hx[i] != "") EX[tolower(hx[i])] = 1
-        FS = "\t"
         while ((getline line < KFILE) > 0) {
             split(line, a, "\t"); nc++
             CD[nc] = a[1]; CU[nc] = tolower(a[2]); CT[nc] = a[3]; CC[nc] = a[4]; CE[nc] = logep(a[1])
         }
-        FS = " "
+        MAXPER = 40
     }
     {
         if (ns >= lim) next
@@ -571,18 +579,51 @@ if [ "$ROOT" -eq 1 ] && komut_var last && [ -s "$LOG" ]; then
         st = nv(q[5]+0, mon(q[2]), q[3]+0, t[1]+0, t[2]+0, t[3]+0)
         if (nd >= 2) { split(D[2], q, " "); split(q[4], t, ":"); en = nv(q[5]+0, mon(q[2]), q[3]+0, t[1]+0, t[2]+0, t[3]+0); es = D[2] }
         else if ($0 ~ /still logged in/) { en = NOWN; es = "devam ediyor" }
+        else if ($0 ~ / (down|crash) / && match($0, /\(([0-9]+\+)?[0-9][0-9]:[0-9][0-9]\)/)) {
+            d = substr($0, RSTART + 1, RLENGTH - 2); days = 0
+            if (index(d, "+")) { days = substr(d, 1, index(d, "+") - 1) + 0; d = substr(d, index(d, "+") + 1) }
+            split(d, hm, ":"); en = st + days * 86400 + hm[1] * 3600 + hm[2] * 60 + 60
+            es = "kapanış/çökme (süre ~" d ")"
+        }
         else { en = st; es = "bilinmiyor" }
         ns++; SU[ns] = tolower(user); SS[ns] = st; SE[ns] = en
         SH[ns] = sprintf("%-10s %-6s %-16s %s -> %s", user, tty, ip, D[1], es)
     }
     END {
+        # 1) her oturumda root a geçiş (su / sudo -i / dzdo) zamanı
         for (i = 1; i <= ns; i++) {
-            print SH[i]; found = 0
+            ev[i] = 0
+            if (SU[i] == "root") continue
             for (j = 1; j <= nc; j++)
-                if (CU[j] == SU[i] && CE[j] >= SS[i] - 1 && CE[j] <= SE[i] + 2) {
-                    printf "   %s  %-10s %s\n", CD[j], CT[j], show(CC[j]); found = 1
+                if (CU[j] == SU[i] && CT[j] == "root" && CC[j] !~ /^\[/ && CE[j] >= SS[i] - 1 && CE[j] <= SE[i] + 2 \
+                    && CC[j] ~ /(^|\/)(su|bash|sh)( *$| -( |$)| -l( |$))/)
+                    if (ev[i] == 0 || CE[j] < ev[i]) ev[i] = CE[j]
+        }
+        # 2) çıktı
+        for (i = 1; i <= ns; i++) {
+            print SH[i]
+            mc = 0; delete M
+            for (j = 1; j <= nc; j++)
+                if (CU[j] == SU[i] && CE[j] >= SS[i] - 1 && CE[j] <= SE[i] + 2) M[++mc] = j
+            isort(M, mc)
+            for (k = 1; k <= mc && k <= MAXPER; k++) { j = M[k]; printf "   %s  %-10s %s\n", CD[j], CT[j], show(CC[j]) }
+            if (mc > MAXPER) printf "   ... %d komut daha\n", mc - MAXPER
+            rc = 0; delete R
+            if (ev[i] > 0)
+                for (j = 1; j <= nc; j++)
+                    if (CU[j] == "root" && CE[j] >= ev[i] && CE[j] <= SE[i] + 2) R[++rc] = j
+            if (rc > 0) {
+                isort(R, rc)
+                print "   -> bu oturumda root yetkisine geçildi; aynı sürede root adıyla kaydedilen komutlar (zamana göre olası eşleşme):"
+                for (k = 1; k <= rc && k <= MAXPER; k++) {
+                    j = R[k]; amb = 0
+                    for (qq = 1; qq <= ns; qq++)
+                        if (qq != i && SU[qq] != SU[i] && ev[qq] > 0 && CE[j] >= ev[qq] && CE[j] <= SE[qq] + 2) amb = 1
+                    printf "      %s  %-10s %s%s\n", CD[j], CT[j], show(CC[j]), (amb ? "   [belirsiz: aynı anda başka bir oturum da root a geçmişti]" : "")
                 }
-            if (!found) print "   (sudo/dzdo komutu kaydı yok)"
+                if (rc > MAXPER) printf "      ... %d komut daha\n", rc - MAXPER
+            }
+            if (mc == 0 && rc == 0) print "   (sudo/dzdo komutu kaydı yok)"
             print ""
         }
         if (ns == 0) print "  (gösterilecek oturum yok)"
