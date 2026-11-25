@@ -3267,7 +3267,7 @@ echo
 sleep 2
 ## Sdece Linear VG islemleri uygulanmaktadir !!
 #vgx_type=$(vgs -o segtype --noheadings $vgx|awk '!a[$0]++'|sed 's/ \+//g')
-vgx_type=$(vgs vgdata -o+lv_layout | awk 'END{print $NF}')
+vgx_type=$(vgs $vgx -o+lv_layout | awk 'END{print $NF}')
 if [[ "$vgx_type" == "linear" ]] ; then
 vgextendx "$vgx" "$devdisk"
 vgextendxx=1
